@@ -1,6 +1,6 @@
 ﻿namespace SCMS.Domain
 {
-    public class Class1
+    public class FeatureManager
     {
 
     }
