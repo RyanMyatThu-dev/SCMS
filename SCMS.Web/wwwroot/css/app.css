@@ -415,6 +415,35 @@ h3 {
     color: var(--ink);
 }
 
+.password-wrapper {
+    position: relative;
+}
+
+.password-wrapper .field {
+    padding-right: 42px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    min-height: auto;
+    display: grid;
+    place-items: center;
+    border-radius: 4px;
+    transition: color .15s;
+}
+
+.toggle-password:hover {
+    color: var(--ink);
+}
+
 .field.compact {
     width: 220px;
 }
