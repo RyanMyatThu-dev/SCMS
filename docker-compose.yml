@@ -1,5 +1,6 @@
 services:
   api:
+    image: ${DOCKER_REGISTRY-}scmsapi
     build:
       context: .
       dockerfile: Dockerfile
@@ -8,18 +9,22 @@ services:
       - "8081:8081"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-    restart: unless-stopped
+      - ConnectionStrings__DefaultConnection=Host=scms_db;Database=SCMS_db;Username=postgres;Password=admin;
     depends_on:
-      - db
+      - scms_db
 
-  db:
+  scms_db:
     image: postgres:17-alpine
+    container_name: scms_db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=admin
-      - POSTGRES_DB=SCMS_db
+      POSTGRES_DB: SCMS_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db.sql:/docker-entrypoint-initdb.d/db.sql
     ports:
       - "5432:5432"
-    volumes:
-      - ./db.sql:/docker-entrypoint-initdb.d/db.sql
-    restart: unless-stopped
+
+volumes:
+  postgres_data:
