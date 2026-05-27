@@ -1,39 +1,40 @@
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SCMS.Domain.Features.Patients.Models;
+using SCMS.Domain.Features.Documents;
+using SCMS.Domain.Features.LabReports;
+using SCMS.Domain.Security;
+using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Patients
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class PatientsController : ControllerBase
     {
         private readonly PatientService _patientService;
+        private readonly LabReportService _labReportService;
+        private readonly PdfDocumentService _pdfDocumentService;
 
-        public PatientsController(PatientService patientService)
+        public PatientsController(PatientService patientService, LabReportService labReportService, PdfDocumentService pdfDocumentService)
         {
             _patientService = patientService;
-        }
-
-        private int GetUserId()
-        {
-            if (Request.Headers.TryGetValue("X-User-Id", out var headerValue) && int.TryParse(headerValue, out var headerUserId))
-            {
-                return headerUserId;
-            }
-            if (Request.Query.TryGetValue("userId", out var queryValue) && int.TryParse(queryValue, out var queryUserId))
-            {
-                return queryUserId;
-            }
-            return 1; // Demo fallback
+            _labReportService = labReportService;
+            _pdfDocumentService = pdfDocumentService;
         }
 
         [HttpPost]
         public async Task<IActionResult> AddPatientProfile([FromBody] PatientProfileRequest request)
         {
-            var userId = GetUserId();
-            var result = await _patientService.AddPatientProfileAsync(request, userId);
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _patientService.AddPatientProfileAsync(request, userId.Value);
             if (result.IsFailure)
             {
                 return BadRequest(result);
@@ -48,8 +49,13 @@ namespace SCMS.Domain.Features.Patients
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
-            var userId = GetUserId();
-            var result = await _patientService.GetPatientProfilesAsync(userId, paginationRequest);
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _patientService.GetPatientProfilesAsync(userId.Value, paginationRequest, User.IsStaff());
             if (result.IsFailure)
             {
                 return BadRequest(result);
@@ -60,7 +66,13 @@ namespace SCMS.Domain.Features.Patients
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetPatientProfileById(int id)
         {
-            var result = await _patientService.GetPatientProfileByIdAsync(id);
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _patientService.GetPatientProfileByIdAsync(id, userId.Value);
             if (result.IsFailure)
             {
                 return BadRequest(result);
@@ -71,7 +83,13 @@ namespace SCMS.Domain.Features.Patients
         [HttpGet("{id:int}/history")]
         public async Task<IActionResult> GetPatientHistory(int id)
         {
-            var result = await _patientService.GetPatientHistoryAsync(id);
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _patientService.GetPatientHistoryAsync(id, userId.Value);
             if (result.IsFailure)
             {
                 return BadRequest(result);
@@ -82,7 +100,13 @@ namespace SCMS.Domain.Features.Patients
         [HttpGet("{id:int}/summary")]
         public async Task<IActionResult> GetMedicalSummary(int id)
         {
-            var result = await _patientService.GetMedicalSummaryAsync(id);
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _patientService.GetMedicalSummaryAsync(id, userId.Value);
             if (result.IsFailure)
             {
                 return BadRequest(result);
@@ -93,8 +117,42 @@ namespace SCMS.Domain.Features.Patients
         [HttpGet("{id:int}/summary/html")]
         public async Task<IActionResult> GetMedicalSummaryHtml(int id)
         {
-            var html = await _patientService.GenerateMedicalSummaryHtmlAsync(id);
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var html = await _patientService.GenerateMedicalSummaryHtmlAsync(id, userId.Value);
             return Content(html, "text/html");
+        }
+
+        [HttpGet("{id:int}/summary/pdf")]
+        public async Task<IActionResult> GetMedicalSummaryPdf(int id)
+        {
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var html = await _patientService.GenerateMedicalSummaryHtmlAsync(id, userId.Value);
+            var bytes = _pdfDocumentService.CreateMedicalSummaryPdf($"Medical Summary {id}", html);
+            return File(bytes, "application/pdf", $"medical-summary-{id}.pdf");
+        }
+
+        [HttpGet("{id:int}/lab-reports")]
+        public async Task<IActionResult> GetPatientLabReports(int id, [FromQuery] PaginationRequest paginationRequest)
+        {
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            paginationRequest ??= new PaginationRequest();
+            var result = await _labReportService.GetLabReportsAsync(id, userId.Value, User.IsStaff(), paginationRequest);
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
     }
 }

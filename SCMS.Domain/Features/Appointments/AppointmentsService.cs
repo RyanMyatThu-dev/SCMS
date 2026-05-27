@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.Features.Appointments.Models;
+using SCMS.Shared.Contracts.Appointments;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Appointments
@@ -12,6 +12,13 @@ namespace SCMS.Domain.Features.Appointments
     public class AppointmentsService
     {
         private readonly ScmsDbContext _context;
+        private static readonly HashSet<string> AllowedStatuses = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "pending",
+            "confirmed",
+            "cancelled",
+            "completed"
+        };
 
         public AppointmentsService(ScmsDbContext context)
         {
@@ -20,9 +27,22 @@ namespace SCMS.Domain.Features.Appointments
 
         public async Task<Result<BookAppointmentResponse>> BookAppointmentAsync(BookAppointmentRequest request, int userId)
         {
+            if (request.PatientId <= 0)
+            {
+                return Result<BookAppointmentResponse>.Failure("Patient id is required.");
+            }
+            if (request.Datetime == default)
+            {
+                return Result<BookAppointmentResponse>.Failure("Appointment date and time is required.");
+            }
+            if (request.Datetime <= DateTime.UtcNow)
+            {
+                return Result<BookAppointmentResponse>.Failure("Appointment date and time must be in the future.");
+            }
+
             // Verify patient exists and belongs to the user (or is accessible)
             var patient = await _context.TblPatients
-                .FirstOrDefaultAsync(p => p.PatientId == request.PatientId && p.DeleteFlag != true);
+                .FirstOrDefaultAsync(p => p.PatientId == request.PatientId && p.UserId == userId && p.DeleteFlag != true);
 
             if (patient == null)
             {
@@ -31,8 +51,7 @@ namespace SCMS.Domain.Features.Appointments
 
             // Generate a unique appointment code
             var dateStr = request.Datetime.ToString("yyyyMMdd");
-            var rand = new Random();
-            var code = $"APT-{dateStr}-{rand.Next(1000, 9999)}";
+            var code = $"APT-{dateStr}-{Guid.NewGuid():N}"[..22].ToUpperInvariant();
 
             // Save the appointment
             var appointment = new TblAppointment
@@ -77,6 +96,12 @@ namespace SCMS.Domain.Features.Appointments
 
         public async Task<Result<AppointmentDetailsResponse>> UpdateAppointmentStatusAsync(int id, UpdateAppointmentStatusRequest request)
         {
+            var normalizedStatus = request.Status?.ToLower().Trim();
+            if (string.IsNullOrWhiteSpace(normalizedStatus) || !AllowedStatuses.Contains(normalizedStatus))
+            {
+                return Result<AppointmentDetailsResponse>.Failure("Invalid appointment status. Allowed values are pending, confirmed, cancelled, completed.");
+            }
+
             var appointment = await _context.TblAppointments
                 .Include(a => a.Patient)
                 .FirstOrDefaultAsync(a => a.Id == id);
@@ -87,7 +112,7 @@ namespace SCMS.Domain.Features.Appointments
             }
 
             var oldStatus = appointment.Status;
-            appointment.Status = request.Status.ToLower().Trim();
+            appointment.Status = normalizedStatus;
             appointment.Notes = request.Notes ?? appointment.Notes;
             appointment.UpdatedAt = DateTime.UtcNow;
 
@@ -114,6 +139,15 @@ namespace SCMS.Domain.Features.Appointments
 
         public async Task<Result<AppointmentDetailsResponse>> RescheduleAppointmentAsync(int id, RescheduleAppointmentRequest request)
         {
+            if (request.NewDatetime == default)
+            {
+                return Result<AppointmentDetailsResponse>.Failure("New appointment date and time is required.");
+            }
+            if (request.NewDatetime <= DateTime.UtcNow)
+            {
+                return Result<AppointmentDetailsResponse>.Failure("New appointment date and time must be in the future.");
+            }
+
             var appointment = await _context.TblAppointments
                 .Include(a => a.Patient)
                 .FirstOrDefaultAsync(a => a.Id == id);
@@ -147,7 +181,13 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         public async Task<PagedResult<AppointmentDetailsResponse>> GetAppointmentsAsync(
-            DateTime? startDate, DateTime? endDate, string? status, int? patientId, PaginationRequest paginationRequest)
+            DateTime? startDate,
+            DateTime? endDate,
+            string? status,
+            int? patientId,
+            PaginationRequest paginationRequest,
+            int? currentUserId = null,
+            bool isStaff = true)
         {
             var query = _context.TblAppointments
                 .Include(a => a.Patient)
@@ -164,11 +204,19 @@ namespace SCMS.Domain.Features.Appointments
             if (!string.IsNullOrEmpty(status))
             {
                 var s = status.ToLower().Trim();
+                if (!AllowedStatuses.Contains(s))
+                {
+                    return PagedResult<AppointmentDetailsResponse>.Failure("Invalid appointment status filter.");
+                }
                 query = query.Where(a => a.Status == s);
             }
             if (patientId.HasValue)
             {
                 query = query.Where(a => a.PatientId == patientId.Value);
+            }
+            if (!isStaff && currentUserId.HasValue)
+            {
+                query = query.Where(a => a.Patient.UserId == currentUserId.Value);
             }
 
             var totalCount = await query.CountAsync();
@@ -207,9 +255,10 @@ namespace SCMS.Domain.Features.Appointments
         {
             // Call next confirmed patient for today
             var today = DateTime.UtcNow.Date;
+            var tomorrow = today.AddDays(1);
             var nextAppointment = await _context.TblAppointments
                 .Include(a => a.Patient)
-                .Where(a => a.Datetime.Date == today && a.Status == "confirmed")
+                .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Status == "confirmed")
                 .OrderBy(a => a.Id)
                 .FirstOrDefaultAsync();
 
@@ -218,7 +267,7 @@ namespace SCMS.Domain.Features.Appointments
                 // Try to see if there is any pending one we can auto-call
                 nextAppointment = await _context.TblAppointments
                     .Include(a => a.Patient)
-                    .Where(a => a.Datetime.Date == today && a.Status == "pending")
+                    .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Status == "pending")
                     .OrderBy(a => a.Id)
                     .FirstOrDefaultAsync();
 
@@ -232,7 +281,7 @@ namespace SCMS.Domain.Features.Appointments
             // For now, let's update this patient to 'confirmed' (or 'completed' if we want to call the next)
             // But to trigger "Call Next", let's mark any current 'confirmed' that was ahead of this as 'completed'
             var aheadAppointments = await _context.TblAppointments
-                .Where(a => a.Datetime.Date == today && a.Id < nextAppointment.Id && a.Status == "confirmed")
+                .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Id < nextAppointment.Id && a.Status == "confirmed")
                 .ToListAsync();
 
             foreach (var aa in aheadAppointments)
@@ -268,8 +317,9 @@ namespace SCMS.Domain.Features.Appointments
         private async Task<int> GetTokenNumberAsync(TblAppointment appointment)
         {
             var today = appointment.Datetime.Date;
+            var tomorrow = today.AddDays(1);
             var list = await _context.TblAppointments
-                .Where(a => a.Datetime.Date == today)
+                .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Status != "cancelled")
                 .OrderBy(a => a.Id)
                 .Select(a => a.Id)
                 .ToListAsync();
@@ -280,8 +330,9 @@ namespace SCMS.Domain.Features.Appointments
         private async Task<AppointmentQueueStatusResponse> GetQueueInfoAsync(TblAppointment appointment)
         {
             var today = appointment.Datetime.Date;
+            var tomorrow = today.AddDays(1);
             var todayAppointments = await _context.TblAppointments
-                .Where(a => a.Datetime.Date == today)
+                .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Status != "cancelled")
                 .OrderBy(a => a.Id)
                 .ToListAsync();
 
@@ -329,7 +380,7 @@ namespace SCMS.Domain.Features.Appointments
 
             string message = ahead == 0
                 ? (isYourTurn ? "It is your turn!" : "You are next in queue.")
-                : $"You are {ahead + 1}rd in queue. (There are {ahead} patient(s) ahead of you)";
+                : $"You are number {ahead + 1} in queue. (There are {ahead} patient(s) ahead of you)";
 
             return new AppointmentQueueStatusResponse
             {
@@ -356,6 +407,7 @@ namespace SCMS.Domain.Features.Appointments
                 Status = a.Status,
                 Notes = a.Notes,
                 TokenNumber = token,
+                ClinicDoctorName = "Clinic Doctor",
                 CreatedAt = a.CreatedAt ?? DateTime.UtcNow
             };
         }

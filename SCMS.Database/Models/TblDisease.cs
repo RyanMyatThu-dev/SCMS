@@ -18,4 +18,6 @@ public partial class TblDisease
     public bool? DeleteFlag { get; set; }
 
     public virtual ICollection<TblPrescription> TblPrescriptions { get; set; } = new List<TblPrescription>();
+
+    public virtual ICollection<TblPrescriptionTemplate> TblPrescriptionTemplates { get; set; } = new List<TblPrescriptionTemplate>();
 }

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.Features.Medicines.Models;
+using SCMS.Shared.Contracts.Medicines;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Medicines
@@ -117,7 +117,7 @@ namespace SCMS.Domain.Features.Medicines
             // Fetch active medicine batches
             var activeBatches = await _context.TblMedicineBatches
                 .Include(b => b.Med)
-                .Where(b => b.Status == "active" && b.DeleteFlag != true)
+                .Where(b => b.Status == "active" && b.ExpiryDate > today && b.DeleteFlag != true)
                 .ToListAsync();
 
             var alerts = new List<InventoryAlertResponse>();
@@ -172,6 +172,43 @@ namespace SCMS.Domain.Features.Medicines
 
             var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
             return PagedResult<InventoryAlertResponse>.Success(pagedAlerts, pagination);
+        }
+
+        public async Task CreateInventoryAlertNotificationsAsync()
+        {
+            var alerts = await GetInventoryAlertsAsync(new PaginationRequest { PageNumber = 1, PageSize = 100 });
+            if (!alerts.IsSuccess)
+            {
+                return;
+            }
+
+            foreach (var alert in alerts.Data)
+            {
+                var title = alert.AlertType == "Low Stock" ? "Low Stock Alert" : "Batch Nearing Expiry";
+                var recentExists = await _context.TblNotifications.AnyAsync(n =>
+                    n.UserId == null &&
+                    n.Title == title &&
+                    n.Description == alert.Message &&
+                    n.CreatedAt >= DateTime.UtcNow.AddHours(-24) &&
+                    n.DeleteFlag != true);
+
+                if (recentExists)
+                {
+                    continue;
+                }
+
+                _context.TblNotifications.Add(new TblNotification
+                {
+                    UserId = null,
+                    Title = title,
+                    Description = alert.Message,
+                    ActionRoute = "/inventory",
+                    CreatedAt = DateTime.UtcNow,
+                    DeleteFlag = false
+                });
+            }
+
+            await _context.SaveChangesAsync();
         }
     }
 }

@@ -28,4 +28,6 @@ public partial class TblMedicine
     public virtual ICollection<TblMedicineBatch> TblMedicineBatches { get; set; } = new List<TblMedicineBatch>();
 
     public virtual ICollection<TblPrescriptionItem> TblPrescriptionItems { get; set; } = new List<TblPrescriptionItem>();
+
+    public virtual ICollection<TblPrescriptionTemplateItem> TblPrescriptionTemplateItems { get; set; } = new List<TblPrescriptionTemplateItem>();
 }

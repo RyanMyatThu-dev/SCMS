@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.Features.Payments.Models;
+using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Payments
@@ -12,6 +12,14 @@ namespace SCMS.Domain.Features.Payments
     public class PaymentService
     {
         private readonly ScmsDbContext _context;
+        private static readonly HashSet<string> AllowedPaymentStatuses = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "pending",
+            "paid",
+            "partial",
+            "failed",
+            "refunded"
+        };
 
         public PaymentService(ScmsDbContext context)
         {
@@ -20,6 +28,19 @@ namespace SCMS.Domain.Features.Payments
 
         public async Task<Result<PaymentDetailsResponse>> ProcessGatewayCallbackAsync(ProcessPaymentCallbackRequest request)
         {
+            if (request.AppointmentId <= 0)
+            {
+                return Result<PaymentDetailsResponse>.Failure("Appointment id is required.");
+            }
+            if (request.Amount <= 0)
+            {
+                return Result<PaymentDetailsResponse>.Failure("Payment amount must be greater than zero.");
+            }
+            if (string.IsNullOrWhiteSpace(request.PaymentMethod))
+            {
+                return Result<PaymentDetailsResponse>.Failure("Payment method is required.");
+            }
+
             var appointment = await _context.TblAppointments
                 .Include(a => a.Patient)
                 .FirstOrDefaultAsync(a => a.Id == request.AppointmentId);
@@ -41,11 +62,22 @@ namespace SCMS.Domain.Features.Payments
                     Amount = request.Amount,
                     Tax = request.Amount * 0.05m, // 5% tax
                     Charges = 0,
-                    PaymentMethod = request.PaymentMethod.ToLower(),
+                    PaymentMethod = request.PaymentMethod.ToLower().Trim(),
                     PaymentStatus = "pending",
                     UpdatedAt = DateTime.UtcNow
                 };
                 _context.TblPayments.Add(payment);
+            }
+            else if (payment.PaymentStatus == "paid")
+            {
+                return Result<PaymentDetailsResponse>.Success(MapToResponse(payment, appointment), "Payment already paid. Callback ignored.");
+            }
+            else
+            {
+                payment.Amount = request.Amount;
+                payment.Tax = request.Amount * 0.05m;
+                payment.PaymentMethod = request.PaymentMethod.ToLower().Trim();
+                payment.UpdatedAt = DateTime.UtcNow;
             }
 
             if (request.IsSuccess)
@@ -83,6 +115,23 @@ namespace SCMS.Domain.Features.Payments
 
         public async Task<Result<PaymentDetailsResponse>> SubmitManualPaymentProofAsync(ManualPaymentProofRequest request)
         {
+            if (request.AppointmentId <= 0)
+            {
+                return Result<PaymentDetailsResponse>.Failure("Appointment id is required.");
+            }
+            if (request.Amount <= 0)
+            {
+                return Result<PaymentDetailsResponse>.Failure("Payment amount must be greater than zero.");
+            }
+            if (string.IsNullOrWhiteSpace(request.PaymentMethod))
+            {
+                return Result<PaymentDetailsResponse>.Failure("Payment method is required.");
+            }
+            if (string.IsNullOrWhiteSpace(request.ScreenshotUrl))
+            {
+                return Result<PaymentDetailsResponse>.Failure("Payment proof screenshot is required.");
+            }
+
             var appointment = await _context.TblAppointments
                 .Include(a => a.Patient)
                 .FirstOrDefaultAsync(a => a.Id == request.AppointmentId);
@@ -103,16 +152,22 @@ namespace SCMS.Domain.Features.Payments
                     Amount = request.Amount,
                     Tax = request.Amount * 0.05m,
                     Charges = 0,
-                    PaymentMethod = request.PaymentMethod.ToLower(),
+                    PaymentMethod = request.PaymentMethod.ToLower().Trim(),
                     PaymentStatus = "pending", // Pending manual approval
                     PaymentScreenshot = request.ScreenshotUrl,
                     UpdatedAt = DateTime.UtcNow
                 };
                 _context.TblPayments.Add(payment);
             }
+            else if (payment.PaymentStatus == "paid")
+            {
+                return Result<PaymentDetailsResponse>.Failure("Payment is already paid.");
+            }
             else
             {
-                payment.PaymentMethod = request.PaymentMethod.ToLower();
+                payment.Amount = request.Amount;
+                payment.Tax = request.Amount * 0.05m;
+                payment.PaymentMethod = request.PaymentMethod.ToLower().Trim();
                 payment.PaymentScreenshot = request.ScreenshotUrl;
                 payment.PaymentStatus = "pending"; // Reset to pending approval
                 payment.UpdatedAt = DateTime.UtcNow;
@@ -146,6 +201,10 @@ namespace SCMS.Domain.Features.Payments
             if (payment == null)
             {
                 return Result<PaymentDetailsResponse>.Failure("Payment not found.");
+            }
+            if (payment.PaymentStatus == "paid")
+            {
+                return Result<PaymentDetailsResponse>.Success(MapToResponse(payment, payment.Appointment), "Payment is already paid.");
             }
 
             payment.PaymentStatus = "paid";
@@ -182,6 +241,10 @@ namespace SCMS.Domain.Features.Payments
             if (!string.IsNullOrEmpty(status))
             {
                 var s = status.ToLower().Trim();
+                if (!AllowedPaymentStatuses.Contains(s))
+                {
+                    return PagedResult<PaymentDetailsResponse>.Failure("Invalid payment status filter.");
+                }
                 query = query.Where(p => p.PaymentStatus == s);
             }
 
@@ -196,6 +259,21 @@ namespace SCMS.Domain.Features.Payments
             var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
 
             return PagedResult<PaymentDetailsResponse>.Success(list, pagination);
+        }
+
+        public async Task<Result<PaymentDetailsResponse>> GetPaymentByIdAsync(int id)
+        {
+            var payment = await _context.TblPayments
+                .Include(p => p.Appointment)
+                    .ThenInclude(a => a.Patient)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (payment == null)
+            {
+                return Result<PaymentDetailsResponse>.Failure("Payment not found.");
+            }
+
+            return Result<PaymentDetailsResponse>.Success(MapToResponse(payment, payment.Appointment));
         }
 
         private PaymentDetailsResponse MapToResponse(TblPayment p, TblAppointment a)

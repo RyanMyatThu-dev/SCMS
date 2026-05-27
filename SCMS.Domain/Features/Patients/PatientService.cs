@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.Features.Patients.Models;
+using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Patients
@@ -44,6 +44,15 @@ namespace SCMS.Domain.Features.Patients
 
         public async Task<Result<PatientProfileResponse>> AddPatientProfileAsync(PatientProfileRequest request, int userId)
         {
+            if (userId <= 0)
+            {
+                return Result<PatientProfileResponse>.Failure("User id is required.");
+            }
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Result<PatientProfileResponse>.Failure("Patient name is required.");
+            }
+
             // Serialize address and medical history
             var addressMeta = new PatientAddressMetadata
             {
@@ -59,7 +68,7 @@ namespace SCMS.Domain.Features.Patients
             var patient = new TblPatient
             {
                 UserId = userId,
-                Name = request.Name,
+                Name = request.Name.Trim(),
                 MobileNo = request.MobileNo,
                 Email = request.Email,
                 DateOfBirth = request.DateOfBirth,
@@ -77,10 +86,15 @@ namespace SCMS.Domain.Features.Patients
             return Result<PatientProfileResponse>.Success(MapToResponse(patient), "Patient profile created successfully.");
         }
 
-        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(int userId, PaginationRequest paginationRequest)
+        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(int userId, PaginationRequest paginationRequest, bool isStaff = false)
         {
             var query = _context.TblPatients
-                .Where(p => p.UserId == userId && p.DeleteFlag != true);
+                .Where(p => p.DeleteFlag != true);
+
+            if (!isStaff)
+            {
+                query = query.Where(p => p.UserId == userId);
+            }
 
             var totalCount = await query.CountAsync();
             var patients = await query
@@ -95,7 +109,7 @@ namespace SCMS.Domain.Features.Patients
             return PagedResult<PatientProfileResponse>.Success(list, pagination);
         }
 
-        public async Task<Result<PatientProfileResponse>> GetPatientProfileByIdAsync(int id)
+        public async Task<Result<PatientProfileResponse>> GetPatientProfileByIdAsync(int id, int userId)
         {
             var patient = await _context.TblPatients
                 .FirstOrDefaultAsync(p => p.PatientId == id && p.DeleteFlag != true);
@@ -104,14 +118,23 @@ namespace SCMS.Domain.Features.Patients
             {
                 return Result<PatientProfileResponse>.Failure("Patient profile not found.");
             }
+            if (!await CanAccessPatientAsync(patient.PatientId, userId))
+            {
+                return Result<PatientProfileResponse>.Failure("Patient profile not found.");
+            }
 
             return Result<PatientProfileResponse>.Success(MapToResponse(patient));
         }
 
-        public async Task<Result<PatientHistoryResponse>> GetPatientHistoryAsync(int patientId)
+        public async Task<Result<PatientHistoryResponse>> GetPatientHistoryAsync(int patientId, int userId)
         {
-            var patient = await _context.TblPatients.FindAsync(patientId);
+            var patient = await _context.TblPatients
+                .FirstOrDefaultAsync(p => p.PatientId == patientId && p.DeleteFlag != true);
             if (patient == null)
+            {
+                return Result<PatientHistoryResponse>.Failure("Patient not found.");
+            }
+            if (!await CanAccessPatientAsync(patientId, userId))
             {
                 return Result<PatientHistoryResponse>.Failure("Patient not found.");
             }
@@ -185,18 +208,38 @@ namespace SCMS.Domain.Features.Patients
                 }
             }
 
+            var labReports = await _context.TblLabReports
+                .Where(l => l.PatientId == patientId && l.DeleteFlag != true)
+                .ToListAsync();
+
+            foreach (var lab in labReports)
+            {
+                response.Timeline.Add(new TimelineItemDto
+                {
+                    Date = lab.CompletedAt ?? lab.CreatedAt ?? DateTime.UtcNow,
+                    Type = lab.Status == "completed" ? "Lab Result" : "Lab Request",
+                    Title = $"{lab.TestName} ({lab.Status})",
+                    Description = lab.ResultSummary ?? lab.Notes ?? "Lab workflow item",
+                    LinkedId = lab.Id
+                });
+            }
+
             // Sort timeline chronologically (latest first)
             response.Timeline = response.Timeline.OrderByDescending(t => t.Date).ToList();
 
             return Result<PatientHistoryResponse>.Success(response);
         }
 
-        public async Task<Result<MedicalSummaryResponse>> GetMedicalSummaryAsync(int patientId)
+        public async Task<Result<MedicalSummaryResponse>> GetMedicalSummaryAsync(int patientId, int userId)
         {
             var patient = await _context.TblPatients
                 .FirstOrDefaultAsync(p => p.PatientId == patientId && p.DeleteFlag != true);
 
             if (patient == null)
+            {
+                return Result<MedicalSummaryResponse>.Failure("Patient not found.");
+            }
+            if (!await CanAccessPatientAsync(patientId, userId))
             {
                 return Result<MedicalSummaryResponse>.Failure("Patient not found.");
             }
@@ -263,9 +306,9 @@ namespace SCMS.Domain.Features.Patients
             return Result<MedicalSummaryResponse>.Success(summary);
         }
 
-        public async Task<string> GenerateMedicalSummaryHtmlAsync(int patientId)
+        public async Task<string> GenerateMedicalSummaryHtmlAsync(int patientId, int userId)
         {
-            var summaryResult = await GetMedicalSummaryAsync(patientId);
+            var summaryResult = await GetMedicalSummaryAsync(patientId, userId);
             if (!summaryResult.IsSuccess || summaryResult.Data == null)
             {
                 return "<h1>Patient Summary Not Found</h1>";
@@ -283,7 +326,7 @@ namespace SCMS.Domain.Features.Patients
                     <td>{v.Date:yyyy-MM-dd HH:mm}</td>
                     <td>{v.WeightKg?.ToString() ?? "-"} kg</td>
                     <td>{(v.BloodPressureSystolic.HasValue && v.BloodPressureDiastolic.HasValue ? $"{v.BloodPressureSystolic}/{v.BloodPressureDiastolic}" : "-")}</td>
-                    <td>{v.TemperatureC?.ToString() ?? "-"} °C</td>
+                    <td>{v.TemperatureC?.ToString() ?? "-"} C</td>
                     <td>{v.PulseBpm?.ToString() ?? "-"} bpm</td>
                     <td>{v.Spo2Percent?.ToString() ?? "-"}%</td>
                     <td>{v.HeightCm?.ToString() ?? "-"} cm</td>
@@ -539,6 +582,18 @@ namespace SCMS.Domain.Features.Patients
             }
 
             return new PrescriptionNotesMetadata { ActualNotes = notes };
+        }
+
+        private async Task<bool> CanAccessPatientAsync(int patientId, int userId)
+        {
+            if (userId <= 0) return false;
+
+            var ownsPatient = await _context.TblPatients
+                .AnyAsync(p => p.PatientId == patientId && p.UserId == userId && p.DeleteFlag != true);
+            if (ownsPatient) return true;
+
+            return await _context.TblUserRoles
+                .AnyAsync(r => r.UserId == userId && (r.Role.ToLower() == "admin" || r.Role.ToLower() == "doctor"));
         }
     }
 }

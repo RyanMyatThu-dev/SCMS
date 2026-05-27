@@ -34,6 +34,10 @@ public partial class TblPatient
 
     public virtual ICollection<TblAppointment> TblAppointments { get; set; } = new List<TblAppointment>();
 
+    public virtual ICollection<TblFollowUp> TblFollowUps { get; set; } = new List<TblFollowUp>();
+
+    public virtual ICollection<TblLabReport> TblLabReports { get; set; } = new List<TblLabReport>();
+
     public virtual ICollection<TblPrescription> TblPrescriptions { get; set; } = new List<TblPrescription>();
 
     public virtual TblUser User { get; set; } = null!;

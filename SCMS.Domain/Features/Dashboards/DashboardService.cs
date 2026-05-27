@@ -5,10 +5,10 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.Features.Dashboards.Models;
-using SCMS.Domain.Features.Appointments.Models;
-using SCMS.Domain.Features.Patients.Models;
-using SCMS.Domain.Features.Prescriptions.Models;
+using SCMS.Shared.Contracts.Dashboards;
+using SCMS.Shared.Contracts.Appointments;
+using SCMS.Shared.Contracts.Patients;
+using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Dashboards
@@ -49,14 +49,14 @@ namespace SCMS.Domain.Features.Dashboards
         public async Task<Result<DoctorDashboardResponse>> GetDoctorDashboardAsync()
         {
             var todayUtc = DateTime.UtcNow.Date;
-            var today = DateTime.Today; // local today for appointments
+            var tomorrowUtc = todayUtc.AddDays(1);
             var thirtyDaysFromNow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30));
             var todayDateOnly = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // 1. Total appointments today
             var todayAppointments = await _context.TblAppointments
                 .Include(a => a.Patient)
-                .Where(a => a.Datetime.Date == todayUtc || a.Datetime.Date == today)
+                .Where(a => a.Datetime >= todayUtc && a.Datetime < tomorrowUtc)
                 .OrderBy(a => a.Id)
                 .ToListAsync();
 
@@ -80,7 +80,7 @@ namespace SCMS.Domain.Features.Dashboards
             // 3. Low stock and expiring alerts
             var activeBatches = await _context.TblMedicineBatches
                 .Include(b => b.Med)
-                .Where(b => b.Status == "active" && b.DeleteFlag != true)
+                .Where(b => b.Status == "active" && b.ExpiryDate > todayDateOnly && b.DeleteFlag != true)
                 .ToListAsync();
 
             var lowStockMeds = activeBatches
@@ -95,9 +95,11 @@ namespace SCMS.Domain.Features.Dashboards
                 .ToList();
 
             // 4. Daily revenue overview (Consultation fees collected today)
-            var dailyRevenue = await _context.TblPayments
-                .Where(p => p.PaymentStatus == "paid" && p.PaidAt.HasValue && p.PaidAt.Value.Date == todayUtc)
-                .SumAsync(p => p.Amount);
+            var dailyRevenuePayments = await _context.TblPayments
+                .Where(p => p.PaymentStatus == "paid" && p.PaidAt.HasValue && p.PaidAt.Value >= todayUtc && p.PaidAt.Value < tomorrowUtc)
+                .Select(p => p.Amount)
+                .ToListAsync();
+            var dailyRevenue = dailyRevenuePayments.Sum();
 
             return Result<DoctorDashboardResponse>.Success(new DoctorDashboardResponse
             {
@@ -133,8 +135,9 @@ namespace SCMS.Domain.Features.Dashboards
             foreach (var a in upcomingAppts)
             {
                 var today = a.Datetime.Date;
+                var tomorrow = today.AddDays(1);
                 var todayList = await _context.TblAppointments
-                    .Where(x => x.Datetime.Date == today)
+                    .Where(x => x.Datetime >= today && x.Datetime < tomorrow && x.Status != "cancelled")
                     .OrderBy(x => x.Id)
                     .Select(x => x.Id)
                     .ToListAsync();
@@ -150,6 +153,7 @@ namespace SCMS.Domain.Features.Dashboards
                     Status = a.Status,
                     Notes = a.Notes,
                     TokenNumber = token,
+                    ClinicDoctorName = "Clinic Doctor",
                     CreatedAt = a.CreatedAt ?? DateTime.UtcNow
                 });
             }

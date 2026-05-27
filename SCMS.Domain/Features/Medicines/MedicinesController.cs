@@ -1,10 +1,12 @@
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Medicines
 {
     [ApiController]
+    [Authorize(Roles = "admin,doctor")]
     [Route("api/[controller]")]
     public class MedicinesController : ControllerBase
     {

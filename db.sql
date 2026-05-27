@@ -186,6 +186,58 @@ CREATE TABLE Tbl_Notification (
     delete_flag BOOLEAN
 );
 
+CREATE TABLE Tbl_Prescription_Template (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    disease_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    delete_flag BOOLEAN
+);
+
+CREATE TABLE Tbl_Prescription_Template_Item (
+    id SERIAL PRIMARY KEY,
+    template_id INT NOT NULL,
+    medicine_id INT NOT NULL,
+    dosage VARCHAR(100),
+    days INT NOT NULL,
+    quantity INT NOT NULL,
+    instruction TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    delete_flag BOOLEAN
+);
+
+CREATE TABLE Tbl_Lab_Report (
+    id SERIAL PRIMARY KEY,
+    patient_id INT NOT NULL,
+    appointment_id INT,
+    prescription_id INT,
+    test_name VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    notes TEXT,
+    result_summary TEXT,
+    attachment_url VARCHAR(500),
+    due_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    delete_flag BOOLEAN
+);
+
+CREATE TABLE Tbl_Follow_Up (
+    id SERIAL PRIMARY KEY,
+    patient_id INT NOT NULL,
+    appointment_id INT,
+    prescription_id INT,
+    due_at TIMESTAMP NOT NULL,
+    recommendation TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    delete_flag BOOLEAN
+);
+
 -- 2. Create Unique Constraints (Indexes)
 -- ------------------------------------------
 
@@ -231,11 +283,22 @@ ALTER TABLE Tbl_Payment ADD CONSTRAINT fk_payment_prescription FOREIGN KEY (pres
 ALTER TABLE Tbl_Role_Permission ADD CONSTRAINT fk_rp_role FOREIGN KEY (role_id) REFERENCES Tbl_User_Role(id) ON DELETE CASCADE;
 ALTER TABLE Tbl_Role_Permission ADD CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES Tbl_Permission(id) ON DELETE CASCADE;
 
+ALTER TABLE Tbl_Prescription_Template ADD CONSTRAINT fk_template_disease FOREIGN KEY (disease_id) REFERENCES Tbl_Disease(id);
+ALTER TABLE Tbl_Prescription_Template_Item ADD CONSTRAINT fk_template_item_template FOREIGN KEY (template_id) REFERENCES Tbl_Prescription_Template(id) ON DELETE CASCADE;
+ALTER TABLE Tbl_Prescription_Template_Item ADD CONSTRAINT fk_template_item_medicine FOREIGN KEY (medicine_id) REFERENCES Tbl_Medicine(medicine_id);
+
+ALTER TABLE Tbl_Lab_Report ADD CONSTRAINT fk_lab_report_patient FOREIGN KEY (patient_id) REFERENCES Tbl_Patient(patient_id);
+ALTER TABLE Tbl_Lab_Report ADD CONSTRAINT fk_lab_report_appointment FOREIGN KEY (appointment_id) REFERENCES Tbl_Appointment(id) ON DELETE SET NULL;
+ALTER TABLE Tbl_Lab_Report ADD CONSTRAINT fk_lab_report_prescription FOREIGN KEY (prescription_id) REFERENCES Tbl_Prescription(id) ON DELETE SET NULL;
+
+ALTER TABLE Tbl_Follow_Up ADD CONSTRAINT fk_follow_up_patient FOREIGN KEY (patient_id) REFERENCES Tbl_Patient(patient_id);
+ALTER TABLE Tbl_Follow_Up ADD CONSTRAINT fk_follow_up_appointment FOREIGN KEY (appointment_id) REFERENCES Tbl_Appointment(id) ON DELETE SET NULL;
+ALTER TABLE Tbl_Follow_Up ADD CONSTRAINT fk_follow_up_prescription FOREIGN KEY (prescription_id) REFERENCES Tbl_Prescription(id) ON DELETE SET NULL;
 
 -- 4. Add DBML Notes as PostgreSQL Comments
 -- ------------------------------------------
 
-COMMENT ON COLUMN Tbl_User_Role.role IS 'admin / user';
+COMMENT ON COLUMN Tbl_User_Role.role IS 'admin / doctor / patient / user';
 COMMENT ON COLUMN Tbl_Patient.user_id IS 'User can create family member patient profile';
 COMMENT ON COLUMN Tbl_Appointment.status IS 'pending / confirmed / cancelled / completed';
 COMMENT ON COLUMN Tbl_Medicine_Batch.status IS 'active / expired / disposed';
@@ -249,5 +312,7 @@ COMMENT ON COLUMN Tbl_Prescription_Item_Schedule.is_as_needed IS 'Take when need
 COMMENT ON COLUMN Tbl_Prescription_Item_Schedule.body_site IS 'left eye / right ear / skin area';
 COMMENT ON COLUMN Tbl_Payment.payment_method IS 'cash / card / kbzpay / wavepay';
 COMMENT ON COLUMN Tbl_Payment.payment_status IS 'pending / paid / partial / failed / refunded';
+COMMENT ON COLUMN Tbl_Lab_Report.status IS 'requested / completed';
+COMMENT ON COLUMN Tbl_Follow_Up.status IS 'pending / completed';
 
 

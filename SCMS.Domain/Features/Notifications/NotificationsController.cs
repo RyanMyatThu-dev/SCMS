@@ -1,10 +1,13 @@
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SCMS.Domain.Security;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Notifications
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class NotificationsController : ControllerBase
     {
@@ -15,19 +18,6 @@ namespace SCMS.Domain.Features.Notifications
             _notificationService = notificationService;
         }
 
-        private int GetUserId()
-        {
-            if (Request.Headers.TryGetValue("X-User-Id", out var headerValue) && int.TryParse(headerValue, out var headerUserId))
-            {
-                return headerUserId;
-            }
-            if (Request.Query.TryGetValue("userId", out var queryValue) && int.TryParse(queryValue, out var queryUserId))
-            {
-                return queryUserId;
-            }
-            return 1; // Demo fallback
-        }
-
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] PaginationRequest paginationRequest, [FromQuery] bool includeAll = false)
         {
@@ -35,7 +25,13 @@ namespace SCMS.Domain.Features.Notifications
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
-            int? userId = includeAll ? null : GetUserId();
+            var currentUserId = User.GetUserId();
+            if (!includeAll && !currentUserId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            int? userId = includeAll && User.IsStaff() ? null : currentUserId;
 
             var result = await _notificationService.GetNotificationsAsync(userId, paginationRequest);
             if (result.IsFailure)
@@ -48,7 +44,13 @@ namespace SCMS.Domain.Features.Notifications
         [HttpPost("{id:int}/read")]
         public async Task<IActionResult> MarkAsRead(int id)
         {
-            var result = await _notificationService.MarkAsReadAsync(id);
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _notificationService.MarkAsReadAsync(id, userId.Value);
             if (result.IsFailure)
             {
                 return BadRequest(result);
@@ -57,6 +59,7 @@ namespace SCMS.Domain.Features.Notifications
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin,doctor")]
         public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationApiRequest request)
         {
             var result = await _notificationService.CreateNotificationAsync(request.UserId, request.Title, request.Description, request.ActionRoute);

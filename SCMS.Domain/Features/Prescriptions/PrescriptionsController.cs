@@ -1,22 +1,28 @@
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SCMS.Domain.Features.Prescriptions.Models;
+using SCMS.Domain.Features.Documents;
+using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Prescriptions
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class PrescriptionsController : ControllerBase
     {
         private readonly PrescriptionService _prescriptionService;
+        private readonly PdfDocumentService _pdfDocumentService;
 
-        public PrescriptionsController(PrescriptionService prescriptionService)
+        public PrescriptionsController(PrescriptionService prescriptionService, PdfDocumentService pdfDocumentService)
         {
             _prescriptionService = prescriptionService;
+            _pdfDocumentService = pdfDocumentService;
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin,doctor")]
         public async Task<IActionResult> CreatePrescription([FromBody] CreatePrescriptionRequest request)
         {
             var result = await _prescriptionService.CreatePrescriptionAsync(request);
@@ -54,6 +60,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpPost("templates")]
+        [Authorize(Roles = "admin,doctor")]
         public async Task<IActionResult> SaveTemplate([FromBody] SaveTemplateRequest request)
         {
             var result = await _prescriptionService.SaveTemplateAsync(request);
@@ -65,6 +72,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpGet("templates")]
+        [Authorize(Roles = "admin,doctor")]
         public async Task<IActionResult> GetTemplates([FromQuery] int? diseaseId, [FromQuery] PaginationRequest paginationRequest)
         {
             paginationRequest ??= new PaginationRequest();
@@ -77,6 +85,19 @@ namespace SCMS.Domain.Features.Prescriptions
                 return BadRequest(result);
             }
             return Ok(result);
+        }
+
+        [HttpGet("{id:int}/pdf")]
+        public async Task<IActionResult> GetPrescriptionPdf(int id)
+        {
+            var result = await _prescriptionService.GetPrescriptionDetailsAsync(id);
+            if (result.IsFailure || result.Data == null)
+            {
+                return BadRequest(result);
+            }
+
+            var bytes = _pdfDocumentService.CreatePrescriptionPdf(result.Data);
+            return File(bytes, "application/pdf", $"prescription-{id}.pdf");
         }
     }
 }

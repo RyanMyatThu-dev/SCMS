@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.Features.Prescriptions.Models;
+using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Prescriptions
@@ -14,7 +15,6 @@ namespace SCMS.Domain.Features.Prescriptions
     public class PrescriptionService
     {
         private readonly ScmsDbContext _context;
-        private readonly string _templateFilePath = @"d:/SCMS/prescription_templates.json";
         private const int LowStockThreshold = 20;
 
         public PrescriptionService(ScmsDbContext context)
@@ -47,6 +47,38 @@ namespace SCMS.Domain.Features.Prescriptions
 
         public async Task<Result<PrescriptionResponse>> CreatePrescriptionAsync(CreatePrescriptionRequest request)
         {
+            if (request.PatientId <= 0)
+            {
+                return Result<PrescriptionResponse>.Failure("Patient id is required.");
+            }
+            if (request.AppointmentId <= 0)
+            {
+                return Result<PrescriptionResponse>.Failure("Appointment id is required.");
+            }
+            if (request.Items == null || request.Items.Count == 0)
+            {
+                return Result<PrescriptionResponse>.Failure("At least one prescription item is required.");
+            }
+            foreach (var item in request.Items)
+            {
+                if (item.MedicineId <= 0)
+                {
+                    return Result<PrescriptionResponse>.Failure("Medicine id is required for every prescription item.");
+                }
+                if (item.Quantity <= 0)
+                {
+                    return Result<PrescriptionResponse>.Failure("Prescription item quantity must be greater than zero.");
+                }
+                if (item.Days <= 0)
+                {
+                    return Result<PrescriptionResponse>.Failure("Prescription item days must be greater than zero.");
+                }
+                if (item.DoseQuantity <= 0)
+                {
+                    return Result<PrescriptionResponse>.Failure("Dose quantity must be greater than zero.");
+                }
+            }
+
             // Verify patient exists
             var patient = await _context.TblPatients
                 .FirstOrDefaultAsync(p => p.PatientId == request.PatientId && p.DeleteFlag != true);
@@ -62,6 +94,20 @@ namespace SCMS.Domain.Features.Prescriptions
             {
                 return Result<PrescriptionResponse>.Failure("Appointment not found.");
             }
+            if (appointment.PatientId != request.PatientId)
+            {
+                return Result<PrescriptionResponse>.Failure("Appointment does not belong to the selected patient.");
+            }
+
+            if (request.DiseaseId.HasValue)
+            {
+                var diseaseExists = await _context.TblDiseases
+                    .AnyAsync(d => d.Id == request.DiseaseId.Value && d.DeleteFlag != true);
+                if (!diseaseExists)
+                {
+                    return Result<PrescriptionResponse>.Failure("Disease not found.");
+                }
+            }
 
             var warnings = new List<string>();
 
@@ -75,7 +121,8 @@ namespace SCMS.Domain.Features.Prescriptions
 
                 foreach (var item in request.Items)
                 {
-                    var med = await _context.TblMedicines.FindAsync(item.MedicineId);
+                    var med = await _context.TblMedicines
+                        .FirstOrDefaultAsync(m => m.MedicineId == item.MedicineId && m.DeleteFlag != true);
                     if (med != null)
                     {
                         var medNameLower = med.Name.ToLower();
@@ -94,7 +141,8 @@ namespace SCMS.Domain.Features.Prescriptions
             var prescribedMeds = new List<TblMedicine>();
             foreach (var item in request.Items)
             {
-                var med = await _context.TblMedicines.FindAsync(item.MedicineId);
+                var med = await _context.TblMedicines
+                    .FirstOrDefaultAsync(m => m.MedicineId == item.MedicineId && m.DeleteFlag != true);
                 if (med != null) prescribedMeds.Add(med);
             }
 
@@ -117,6 +165,7 @@ namespace SCMS.Domain.Features.Prescriptions
             }
 
             // 3. Smart Inventory Deduction (FIFO) & Expiry Warnings
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var prescriptionItemsToCreate = new List<TblPrescriptionItem>();
             var schedulesToCreate = new List<TblPrescriptionItemSchedule>();
@@ -255,27 +304,51 @@ namespace SCMS.Domain.Features.Prescriptions
                 DeleteFlag = false
             };
 
-            _context.TblPrescriptions.Add(prescription);
-            await _context.SaveChangesAsync(); // Generates prescription.Id
-
-            // Link prescription items & schedules
-            int scheduleIndex = 0;
-            foreach (var pItem in prescriptionItemsToCreate)
+            try
             {
-                pItem.PrescriptionId = prescription.Id;
-                _context.TblPrescriptionItems.Add(pItem);
-                await _context.SaveChangesAsync(); // Generates pItem.Id
+                _context.TblPrescriptions.Add(prescription);
+                await _context.SaveChangesAsync(); // Generates prescription.Id
 
-                var schedule = schedulesToCreate[scheduleIndex++];
-                schedule.PrescriptionItemId = pItem.Id;
-                _context.TblPrescriptionItemSchedules.Add(schedule);
+                // Link prescription items & schedules
+                int scheduleIndex = 0;
+                foreach (var pItem in prescriptionItemsToCreate)
+                {
+                    pItem.PrescriptionId = prescription.Id;
+                    _context.TblPrescriptionItems.Add(pItem);
+                    await _context.SaveChangesAsync(); // Generates pItem.Id
+
+                    var schedule = schedulesToCreate[scheduleIndex++];
+                    schedule.PrescriptionItemId = pItem.Id;
+                    _context.TblPrescriptionItemSchedules.Add(schedule);
+                }
+
+                // Set appointment status to Completed
+                appointment.Status = "completed";
+                appointment.UpdatedAt = DateTime.UtcNow;
+
+                foreach (var testName in SplitLabRequests(request.LabTestRequests))
+                {
+                    _context.TblLabReports.Add(new TblLabReport
+                    {
+                        PatientId = request.PatientId,
+                        AppointmentId = request.AppointmentId,
+                        PrescriptionId = prescription.Id,
+                        TestName = testName,
+                        Status = "requested",
+                        Notes = "Requested from prescription.",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        DeleteFlag = false
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
-
-            // Set appointment status to Completed
-            appointment.Status = "completed";
-            appointment.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
+            catch (DbUpdateException)
+            {
+                return Result<PrescriptionResponse>.Failure("Prescription could not be saved safely. Please retry.");
+            }
 
             // Format response
             var response = await GetPrescriptionDetailsAsync(prescription.Id);
@@ -406,126 +479,149 @@ namespace SCMS.Domain.Features.Prescriptions
             return PagedResult<PrescriptionResponse>.Success(list, pagination);
         }
 
-        // --- Prescription Templates (Stored in local JSON file) ---
-
-        private class TemplateFileStructure
-        {
-            public string Id { get; set; } = null!;
-            public string Name { get; set; } = null!;
-            public int DiseaseId { get; set; }
-            public List<TemplateItemDto> Items { get; set; } = new();
-        }
-
         public async Task<Result<PrescriptionTemplateResponse>> SaveTemplateAsync(SaveTemplateRequest request)
         {
-            var disease = await _context.TblDiseases.FindAsync(request.DiseaseId);
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Result<PrescriptionTemplateResponse>.Failure("Template name is required.");
+            }
+            if (request.Items == null || request.Items.Count == 0)
+            {
+                return Result<PrescriptionTemplateResponse>.Failure("At least one template item is required.");
+            }
+            foreach (var item in request.Items)
+            {
+                if (item.MedicineId <= 0)
+                {
+                    return Result<PrescriptionTemplateResponse>.Failure("Medicine id is required for every template item.");
+                }
+                if (item.Quantity <= 0)
+                {
+                    return Result<PrescriptionTemplateResponse>.Failure("Template item quantity must be greater than zero.");
+                }
+                if (item.Days <= 0)
+                {
+                    return Result<PrescriptionTemplateResponse>.Failure("Template item days must be greater than zero.");
+                }
+            }
+
+            var disease = await _context.TblDiseases
+                .FirstOrDefaultAsync(d => d.Id == request.DiseaseId && d.DeleteFlag != true);
             if (disease == null)
             {
                 return Result<PrescriptionTemplateResponse>.Failure("Disease not found.");
             }
 
-            var templates = new List<TemplateFileStructure>();
-            if (File.Exists(_templateFilePath))
+            var medicineIds = request.Items.Select(i => i.MedicineId).Distinct().ToList();
+            var existingMedicineIds = await _context.TblMedicines
+                .Where(m => medicineIds.Contains(m.MedicineId) && m.DeleteFlag != true)
+                .Select(m => m.MedicineId)
+                .ToListAsync();
+            var missingMedicineId = medicineIds.FirstOrDefault(id => !existingMedicineIds.Contains(id));
+            if (missingMedicineId > 0)
             {
-                try
-                {
-                    var rawJson = await File.ReadAllTextAsync(_templateFilePath);
-                    templates = JsonSerializer.Deserialize<List<TemplateFileStructure>>(rawJson) ?? new List<TemplateFileStructure>();
-                }
-                catch
-                {
-                    // Fallback if file corrupt
-                }
+                return Result<PrescriptionTemplateResponse>.Failure($"Medicine ID {missingMedicineId} not found.");
             }
 
-            var newTemplate = new TemplateFileStructure
+            var newTemplate = new TblPrescriptionTemplate
             {
-                Id = Guid.NewGuid().ToString(),
-                Name = request.Name,
+                Name = request.Name.Trim(),
                 DiseaseId = request.DiseaseId,
-                Items = request.Items
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false
             };
 
-            templates.Add(newTemplate);
-
-            var dir = Path.GetDirectoryName(_templateFilePath);
-            if (dir != null && !Directory.Exists(dir))
+            foreach (var item in request.Items)
             {
-                Directory.CreateDirectory(dir);
+                newTemplate.TblPrescriptionTemplateItems.Add(new TblPrescriptionTemplateItem
+                {
+                    MedicineId = item.MedicineId,
+                    Dosage = item.Dosage,
+                    Days = item.Days,
+                    Quantity = item.Quantity,
+                    Instruction = item.Instruction,
+                    CreatedAt = DateTime.UtcNow,
+                    DeleteFlag = false
+                });
             }
 
-            await File.WriteAllTextAsync(_templateFilePath, JsonSerializer.Serialize(templates, new JsonSerializerOptions { WriteIndented = true }));
+            _context.TblPrescriptionTemplates.Add(newTemplate);
+            await _context.SaveChangesAsync();
 
-            // Map and return response
-            return Result<PrescriptionTemplateResponse>.Success(await MapToTemplateResponseAsync(newTemplate), "Prescription template saved.");
+            return Result<PrescriptionTemplateResponse>.Success(await MapToTemplateResponseAsync(newTemplate.Id), "Prescription template saved.");
         }
 
         public async Task<PagedResult<PrescriptionTemplateResponse>> GetTemplatesAsync(int? diseaseId, PaginationRequest paginationRequest)
         {
-            var templates = new List<TemplateFileStructure>();
-            if (File.Exists(_templateFilePath))
-            {
-                try
-                {
-                    var rawJson = await File.ReadAllTextAsync(_templateFilePath);
-                    templates = JsonSerializer.Deserialize<List<TemplateFileStructure>>(rawJson) ?? new List<TemplateFileStructure>();
-                }
-                catch
-                {
-                    // Ignore
-                }
-            }
+            var query = _context.TblPrescriptionTemplates
+                .Include(t => t.Disease)
+                .Include(t => t.TblPrescriptionTemplateItems)
+                    .ThenInclude(i => i.Medicine)
+                .Where(t => t.DeleteFlag != true);
 
             if (diseaseId.HasValue)
             {
-                templates = templates.Where(t => t.DiseaseId == diseaseId.Value).ToList();
+                query = query.Where(t => t.DiseaseId == diseaseId.Value);
             }
 
-            var totalCount = templates.Count;
-            var paged = templates
+            var totalCount = await query.CountAsync();
+            var templates = await query
+                .OrderBy(t => t.Name)
                 .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
                 .Take(paginationRequest.PageSize)
-                .ToList();
+                .ToListAsync();
 
-            var list = new List<PrescriptionTemplateResponse>();
-            foreach (var t in paged)
-            {
-                list.Add(await MapToTemplateResponseAsync(t));
-            }
-
+            var list = templates.Select(MapToTemplateResponse).ToList();
             var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
             return PagedResult<PrescriptionTemplateResponse>.Success(list, pagination);
         }
 
-        private async Task<PrescriptionTemplateResponse> MapToTemplateResponseAsync(TemplateFileStructure t)
+        private async Task<PrescriptionTemplateResponse> MapToTemplateResponseAsync(int id)
         {
-            var disease = await _context.TblDiseases.FindAsync(t.DiseaseId);
-            var diseaseName = disease?.Name ?? "Unknown Disease";
+            var template = await _context.TblPrescriptionTemplates
+                .Include(t => t.Disease)
+                .Include(t => t.TblPrescriptionTemplateItems)
+                    .ThenInclude(i => i.Medicine)
+                .FirstAsync(t => t.Id == id);
 
-            var itemsList = new List<TemplateItemResponseDto>();
-            foreach (var item in t.Items)
-            {
-                var med = await _context.TblMedicines.FindAsync(item.MedicineId);
-                var medName = med?.Name ?? "Unknown Medicine";
-                itemsList.Add(new TemplateItemResponseDto
-                {
-                    MedicineId = item.MedicineId,
-                    MedicineName = medName,
-                    Dosage = item.Dosage,
-                    Days = item.Days,
-                    Quantity = item.Quantity,
-                    Instruction = item.Instruction
-                });
-            }
+            return MapToTemplateResponse(template);
+        }
 
+        private static PrescriptionTemplateResponse MapToTemplateResponse(TblPrescriptionTemplate template)
+        {
             return new PrescriptionTemplateResponse
             {
-                Id = t.Id,
-                Name = t.Name,
-                DiseaseId = t.DiseaseId,
-                DiseaseName = diseaseName,
-                Items = itemsList
+                Id = template.Id.ToString(),
+                Name = template.Name,
+                DiseaseId = template.DiseaseId,
+                DiseaseName = template.Disease?.Name ?? "Unknown Disease",
+                Items = template.TblPrescriptionTemplateItems
+                    .Where(i => i.DeleteFlag != true)
+                    .Select(item => new TemplateItemResponseDto
+                    {
+                        MedicineId = item.MedicineId,
+                        MedicineName = item.Medicine?.Name ?? "Unknown Medicine",
+                        Dosage = item.Dosage,
+                        Days = item.Days,
+                        Quantity = item.Quantity,
+                        Instruction = item.Instruction
+                    })
+                    .ToList()
             };
+        }
+
+        private static IEnumerable<string> SplitLabRequests(string? labTestRequests)
+        {
+            if (string.IsNullOrWhiteSpace(labTestRequests))
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            return labTestRequests
+                .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
         }
 
         private PatientAddressMetadata ParsePatientAddress(string? address)

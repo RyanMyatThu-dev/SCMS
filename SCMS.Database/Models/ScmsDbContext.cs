@@ -19,6 +19,10 @@ public partial class ScmsDbContext : DbContext
 
     public virtual DbSet<TblDisease> TblDiseases { get; set; }
 
+    public virtual DbSet<TblFollowUp> TblFollowUps { get; set; }
+
+    public virtual DbSet<TblLabReport> TblLabReports { get; set; }
+
     public virtual DbSet<TblMedicine> TblMedicines { get; set; }
 
     public virtual DbSet<TblMedicineBatch> TblMedicineBatches { get; set; }
@@ -39,6 +43,10 @@ public partial class ScmsDbContext : DbContext
 
     public virtual DbSet<TblPrescriptionItemSchedule> TblPrescriptionItemSchedules { get; set; }
 
+    public virtual DbSet<TblPrescriptionTemplate> TblPrescriptionTemplates { get; set; }
+
+    public virtual DbSet<TblPrescriptionTemplateItem> TblPrescriptionTemplateItems { get; set; }
+
     public virtual DbSet<TblRolePermission> TblRolePermissions { get; set; }
 
     public virtual DbSet<TblUser> TblUsers { get; set; }
@@ -46,10 +54,6 @@ public partial class ScmsDbContext : DbContext
     public virtual DbSet<TblUserRole> TblUserRoles { get; set; }
 
     public virtual DbSet<TblUserToken> TblUserTokens { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseNpgsql("Host=localhost;Database=SCMS_db;Username=postgres;Password=admin");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -111,6 +115,105 @@ public partial class ScmsDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<TblFollowUp>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("tbl_follow_up_pkey");
+
+            entity.ToTable("tbl_follow_up");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AppointmentId).HasColumnName("appointment_id");
+            entity.Property(e => e.CompletedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("completed_at");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.DeleteFlag).HasColumnName("delete_flag");
+            entity.Property(e => e.DueAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("due_at");
+            entity.Property(e => e.PatientId).HasColumnName("patient_id");
+            entity.Property(e => e.PrescriptionId).HasColumnName("prescription_id");
+            entity.Property(e => e.Recommendation).HasColumnName("recommendation");
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasComment("pending / completed")
+                .HasColumnName("status");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Appointment).WithMany(p => p.TblFollowUps)
+                .HasForeignKey(d => d.AppointmentId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_follow_up_appointment");
+
+            entity.HasOne(d => d.Patient).WithMany(p => p.TblFollowUps)
+                .HasForeignKey(d => d.PatientId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_follow_up_patient");
+
+            entity.HasOne(d => d.Prescription).WithMany(p => p.TblFollowUps)
+                .HasForeignKey(d => d.PrescriptionId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_follow_up_prescription");
+        });
+
+        modelBuilder.Entity<TblLabReport>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("tbl_lab_report_pkey");
+
+            entity.ToTable("tbl_lab_report");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AppointmentId).HasColumnName("appointment_id");
+            entity.Property(e => e.AttachmentUrl)
+                .HasMaxLength(500)
+                .HasColumnName("attachment_url");
+            entity.Property(e => e.CompletedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("completed_at");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.DeleteFlag).HasColumnName("delete_flag");
+            entity.Property(e => e.DueAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("due_at");
+            entity.Property(e => e.Notes).HasColumnName("notes");
+            entity.Property(e => e.PatientId).HasColumnName("patient_id");
+            entity.Property(e => e.PrescriptionId).HasColumnName("prescription_id");
+            entity.Property(e => e.ResultSummary).HasColumnName("result_summary");
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasComment("requested / completed")
+                .HasColumnName("status");
+            entity.Property(e => e.TestName)
+                .HasMaxLength(255)
+                .HasColumnName("test_name");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Appointment).WithMany(p => p.TblLabReports)
+                .HasForeignKey(d => d.AppointmentId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_lab_report_appointment");
+
+            entity.HasOne(d => d.Patient).WithMany(p => p.TblLabReports)
+                .HasForeignKey(d => d.PatientId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_lab_report_patient");
+
+            entity.HasOne(d => d.Prescription).WithMany(p => p.TblLabReports)
+                .HasForeignKey(d => d.PrescriptionId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_lab_report_prescription");
         });
 
         modelBuilder.Entity<TblMedicine>(entity =>
@@ -474,6 +577,63 @@ public partial class ScmsDbContext : DbContext
                 .HasConstraintName("fk_schedule_item");
         });
 
+        modelBuilder.Entity<TblPrescriptionTemplate>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("tbl_prescription_template_pkey");
+
+            entity.ToTable("tbl_prescription_template");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.DeleteFlag).HasColumnName("delete_flag");
+            entity.Property(e => e.DiseaseId).HasColumnName("disease_id");
+            entity.Property(e => e.Name)
+                .HasMaxLength(255)
+                .HasColumnName("name");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Disease).WithMany(p => p.TblPrescriptionTemplates)
+                .HasForeignKey(d => d.DiseaseId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_template_disease");
+        });
+
+        modelBuilder.Entity<TblPrescriptionTemplateItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("tbl_prescription_template_item_pkey");
+
+            entity.ToTable("tbl_prescription_template_item");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.Days).HasColumnName("days");
+            entity.Property(e => e.DeleteFlag).HasColumnName("delete_flag");
+            entity.Property(e => e.Dosage)
+                .HasMaxLength(100)
+                .HasColumnName("dosage");
+            entity.Property(e => e.Instruction).HasColumnName("instruction");
+            entity.Property(e => e.MedicineId).HasColumnName("medicine_id");
+            entity.Property(e => e.Quantity).HasColumnName("quantity");
+            entity.Property(e => e.TemplateId).HasColumnName("template_id");
+
+            entity.HasOne(d => d.Medicine).WithMany(p => p.TblPrescriptionTemplateItems)
+                .HasForeignKey(d => d.MedicineId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_template_item_medicine");
+
+            entity.HasOne(d => d.Template).WithMany(p => p.TblPrescriptionTemplateItems)
+                .HasForeignKey(d => d.TemplateId)
+                .HasConstraintName("fk_template_item_template");
+        });
+
         modelBuilder.Entity<TblRolePermission>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("tbl_role_permission_pkey");
@@ -539,7 +699,7 @@ public partial class ScmsDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Role)
                 .HasMaxLength(50)
-                .HasComment("admin / user")
+                .HasComment("admin / doctor / patient / user")
                 .HasColumnName("role");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 

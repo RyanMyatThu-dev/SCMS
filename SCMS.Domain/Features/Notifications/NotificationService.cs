@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.Features.Notifications.Models;
+using SCMS.Shared.Contracts.Notifications;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Notifications
@@ -54,12 +54,16 @@ namespace SCMS.Domain.Features.Notifications
             return PagedResult<NotificationResponse>.Success(list, pagination);
         }
 
-        public async Task<Result> MarkAsReadAsync(int notificationId)
+        public async Task<Result> MarkAsReadAsync(int notificationId, int userId)
         {
             var n = await _context.TblNotifications.FindAsync(notificationId);
             if (n == null)
             {
                 return Result.Failure("Notification not found.");
+            }
+            if (n.UserId != userId)
+            {
+                return Result.Failure("Notification not found for this user.");
             }
 
             n.DeleteFlag = true; // Use delete_flag to hide
@@ -71,11 +75,20 @@ namespace SCMS.Domain.Features.Notifications
 
         public async Task<Result> CreateNotificationAsync(int? userId, string title, string description, string? actionRoute)
         {
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return Result.Failure("Notification title is required.");
+            }
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                return Result.Failure("Notification description is required.");
+            }
+
             var n = new TblNotification
             {
                 UserId = userId,
-                Title = title,
-                Description = description,
+                Title = title.Trim(),
+                Description = description.Trim(),
                 ActionRoute = actionRoute,
                 CreatedAt = DateTime.UtcNow,
                 DeleteFlag = false
