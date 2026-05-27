@@ -1,0 +1,89 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SCMS.Database.Models;
+using SCMS.Domain.Features.Notifications.Models;
+using SCMS.Shared;
+
+namespace SCMS.Domain.Features.Notifications
+{
+    public class NotificationService
+    {
+        private readonly ScmsDbContext _context;
+
+        public NotificationService(ScmsDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<PagedResult<NotificationResponse>> GetNotificationsAsync(int? userId, PaginationRequest paginationRequest)
+        {
+            var query = _context.TblNotifications
+                .Where(n => n.DeleteFlag != true);
+
+            if (userId.HasValue)
+            {
+                // Returns user's notifications + system broadcast alerts (where UserId is null)
+                query = query.Where(n => n.UserId == userId.Value || n.UserId == null);
+            }
+            else
+            {
+                // Staff/Clinic broad alerts only
+                query = query.Where(n => n.UserId == null);
+            }
+
+            var totalCount = await query.CountAsync();
+            var notifications = await query
+                .OrderByDescending(n => n.CreatedAt)
+                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
+                .Take(paginationRequest.PageSize)
+                .ToListAsync();
+
+            var list = notifications.Select(n => new NotificationResponse
+            {
+                Id = n.Id,
+                Title = n.Title,
+                Description = n.Description,
+                ActionRoute = n.ActionRoute,
+                CreatedAt = n.CreatedAt ?? DateTime.UtcNow
+            }).ToList();
+
+            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
+            return PagedResult<NotificationResponse>.Success(list, pagination);
+        }
+
+        public async Task<Result> MarkAsReadAsync(int notificationId)
+        {
+            var n = await _context.TblNotifications.FindAsync(notificationId);
+            if (n == null)
+            {
+                return Result.Failure("Notification not found.");
+            }
+
+            n.DeleteFlag = true; // Use delete_flag to hide
+            n.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Result.Success("Notification marked as read.");
+        }
+
+        public async Task<Result> CreateNotificationAsync(int? userId, string title, string description, string? actionRoute)
+        {
+            var n = new TblNotification
+            {
+                UserId = userId,
+                Title = title,
+                Description = description,
+                ActionRoute = actionRoute,
+                CreatedAt = DateTime.UtcNow,
+                DeleteFlag = false
+            };
+
+            _context.TblNotifications.Add(n);
+            await _context.SaveChangesAsync();
+            return Result.Success("Notification created.");
+        }
+    }
+}

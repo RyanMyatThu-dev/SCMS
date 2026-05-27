@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SCMS.Shared\SCMS.Shared.csproj" />
+    <ProjectReference Include="..\SCMS.Database\SCMS.Database.csproj" />
   </ItemGroup>
 
 </Project>

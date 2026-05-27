@@ -1,0 +1,544 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SCMS.Database.Models;
+using SCMS.Domain.Features.Patients.Models;
+using SCMS.Shared;
+
+namespace SCMS.Domain.Features.Patients
+{
+    public class PatientService
+    {
+        private readonly ScmsDbContext _context;
+
+        public PatientService(ScmsDbContext context)
+        {
+            _context = context;
+        }
+
+        // Helper structure for serialization in Address
+        public class PatientAddressMetadata
+        {
+            public string? ActualAddress { get; set; }
+            public string? Allergies { get; set; }
+            public string? ChronicConditions { get; set; }
+            public string? PastSurgeries { get; set; }
+            public string? FamilyHistory { get; set; }
+            public string? VaccinationHistory { get; set; }
+        }
+
+        // Helper structure for vitals deserialization from Notes
+        public class PrescriptionNotesMetadata
+        {
+            public string? ActualNotes { get; set; }
+            public double? TemperatureC { get; set; }
+            public int? PulseBpm { get; set; }
+            public int? Spo2Percent { get; set; }
+            public double? HeightCm { get; set; }
+            public double? Bmi { get; set; }
+            public string? LabTestRequests { get; set; }
+        }
+
+        public async Task<Result<PatientProfileResponse>> AddPatientProfileAsync(PatientProfileRequest request, int userId)
+        {
+            // Serialize address and medical history
+            var addressMeta = new PatientAddressMetadata
+            {
+                ActualAddress = request.ActualAddress,
+                Allergies = request.Allergies,
+                ChronicConditions = request.ChronicConditions,
+                PastSurgeries = request.PastSurgeries,
+                FamilyHistory = request.FamilyHistory,
+                VaccinationHistory = request.VaccinationHistory
+            };
+            var serializedAddress = JsonSerializer.Serialize(addressMeta);
+
+            var patient = new TblPatient
+            {
+                UserId = userId,
+                Name = request.Name,
+                MobileNo = request.MobileNo,
+                Email = request.Email,
+                DateOfBirth = request.DateOfBirth,
+                Gender = request.Gender,
+                BloodType = request.BloodType,
+                Address = serializedAddress,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false
+            };
+
+            _context.TblPatients.Add(patient);
+            await _context.SaveChangesAsync();
+
+            return Result<PatientProfileResponse>.Success(MapToResponse(patient), "Patient profile created successfully.");
+        }
+
+        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(int userId, PaginationRequest paginationRequest)
+        {
+            var query = _context.TblPatients
+                .Where(p => p.UserId == userId && p.DeleteFlag != true);
+
+            var totalCount = await query.CountAsync();
+            var patients = await query
+                .OrderBy(p => p.Name)
+                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
+                .Take(paginationRequest.PageSize)
+                .ToListAsync();
+
+            var list = patients.Select(MapToResponse).ToList();
+            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
+
+            return PagedResult<PatientProfileResponse>.Success(list, pagination);
+        }
+
+        public async Task<Result<PatientProfileResponse>> GetPatientProfileByIdAsync(int id)
+        {
+            var patient = await _context.TblPatients
+                .FirstOrDefaultAsync(p => p.PatientId == id && p.DeleteFlag != true);
+
+            if (patient == null)
+            {
+                return Result<PatientProfileResponse>.Failure("Patient profile not found.");
+            }
+
+            return Result<PatientProfileResponse>.Success(MapToResponse(patient));
+        }
+
+        public async Task<Result<PatientHistoryResponse>> GetPatientHistoryAsync(int patientId)
+        {
+            var patient = await _context.TblPatients.FindAsync(patientId);
+            if (patient == null)
+            {
+                return Result<PatientHistoryResponse>.Failure("Patient not found.");
+            }
+
+            var response = new PatientHistoryResponse
+            {
+                PatientId = patientId,
+                PatientName = patient.Name
+            };
+
+            // 1. Fetch Appointments
+            var appointments = await _context.TblAppointments
+                .Where(a => a.PatientId == patientId)
+                .ToListAsync();
+
+            foreach (var a in appointments)
+            {
+                response.Timeline.Add(new TimelineItemDto
+                {
+                    Date = a.Datetime,
+                    Type = "Appointment",
+                    Title = $"Visit scheduled ({a.Status})",
+                    Description = $"Reason/Notes: {a.Notes ?? "No notes"}",
+                    LinkedId = a.Id
+                });
+            }
+
+            // 2. Fetch Prescriptions & Vitals
+            var prescriptions = await _context.TblPrescriptions
+                .Include(p => p.Disease)
+                .Include(p => p.TblPrescriptionItems)
+                    .ThenInclude(i => i.Medicine)
+                .Where(p => p.PatientId == patientId && p.DeleteFlag != true)
+                .ToListAsync();
+
+            foreach (var p in prescriptions)
+            {
+                var diseaseName = p.Disease?.Name ?? "General Consultation";
+                var medsList = string.Join(", ", p.TblPrescriptionItems.Select(i => $"{i.Medicine.Name} ({i.Dosage} x {i.Days}d)"));
+
+                response.Timeline.Add(new TimelineItemDto
+                {
+                    Date = p.CreatedAt ?? DateTime.UtcNow,
+                    Type = "Prescription",
+                    Title = $"Prescribed for {diseaseName}",
+                    Description = $"Medicines: {medsList}",
+                    LinkedId = p.Id
+                });
+
+                response.Timeline.Add(new TimelineItemDto
+                {
+                    Date = p.CreatedAt ?? DateTime.UtcNow,
+                    Type = "Diagnosis",
+                    Title = $"Diagnosed with {diseaseName}",
+                    Description = p.Notes != null && p.Notes.StartsWith("{") ? "Diagnosis recorded during consultation." : (p.Notes ?? "No diagnosis details"),
+                    LinkedId = p.Id
+                });
+
+                // Parse Vitals & Lab requests
+                var notesMeta = ParsePrescriptionNotes(p.Notes);
+                if (!string.IsNullOrEmpty(notesMeta.LabTestRequests))
+                {
+                    response.Timeline.Add(new TimelineItemDto
+                    {
+                        Date = p.CreatedAt ?? DateTime.UtcNow,
+                        Type = "Lab Request",
+                        Title = "Lab test requested",
+                        Description = $"Tests: {notesMeta.LabTestRequests}",
+                        LinkedId = p.Id
+                    });
+                }
+            }
+
+            // Sort timeline chronologically (latest first)
+            response.Timeline = response.Timeline.OrderByDescending(t => t.Date).ToList();
+
+            return Result<PatientHistoryResponse>.Success(response);
+        }
+
+        public async Task<Result<MedicalSummaryResponse>> GetMedicalSummaryAsync(int patientId)
+        {
+            var patient = await _context.TblPatients
+                .FirstOrDefaultAsync(p => p.PatientId == patientId && p.DeleteFlag != true);
+
+            if (patient == null)
+            {
+                return Result<MedicalSummaryResponse>.Failure("Patient not found.");
+            }
+
+            var addressMeta = ParsePatientAddress(patient.Address);
+
+            var summary = new MedicalSummaryResponse
+            {
+                PatientId = patientId,
+                PatientName = patient.Name,
+                DateOfBirth = patient.DateOfBirth,
+                Gender = patient.Gender,
+                BloodType = patient.BloodType,
+                Allergies = addressMeta.Allergies,
+                ChronicConditions = addressMeta.ChronicConditions,
+                PastSurgeries = addressMeta.PastSurgeries,
+                FamilyHistory = addressMeta.FamilyHistory,
+                VaccinationHistory = addressMeta.VaccinationHistory
+            };
+
+            // Fetch prescriptions to aggregate Vitals history and Active prescriptions
+            var prescriptions = await _context.TblPrescriptions
+                .Include(p => p.Disease)
+                .Include(p => p.TblPrescriptionItems)
+                    .ThenInclude(i => i.Medicine)
+                .Where(p => p.PatientId == patientId && p.DeleteFlag != true)
+                .OrderBy(p => p.CreatedAt)
+                .ToListAsync();
+
+            foreach (var p in prescriptions)
+            {
+                var notesMeta = ParsePrescriptionNotes(p.Notes);
+
+                // Add to vitals history
+                summary.VitalsHistory.Add(new PatientVitalsHistoryDto
+                {
+                    Date = p.CreatedAt ?? DateTime.UtcNow,
+                    WeightKg = p.WeightKg,
+                    BloodPressureSystolic = p.BloodPressureSystolic,
+                    BloodPressureDiastolic = p.BloodPressureDiastolic,
+                    TemperatureC = notesMeta.TemperatureC,
+                    PulseBpm = notesMeta.PulseBpm,
+                    Spo2Percent = notesMeta.Spo2Percent,
+                    HeightCm = notesMeta.HeightCm,
+                    Bmi = notesMeta.Bmi
+                });
+
+                // Add to active prescriptions if prescribed within past 30 days (as a heuristic)
+                if (p.CreatedAt >= DateTime.UtcNow.AddDays(-30))
+                {
+                    summary.ActivePrescriptions.Add(new ActivePrescriptionSummaryDto
+                    {
+                        PrescriptionId = p.Id,
+                        Date = p.CreatedAt ?? DateTime.UtcNow,
+                        DiseaseName = p.Disease?.Name ?? "General Consultation",
+                        Medicines = p.TblPrescriptionItems.Select(i => i.Medicine.Name).ToList()
+                    });
+                }
+            }
+
+            // Vitals trends should be newest first
+            summary.VitalsHistory = summary.VitalsHistory.OrderByDescending(v => v.Date).ToList();
+
+            return Result<MedicalSummaryResponse>.Success(summary);
+        }
+
+        public async Task<string> GenerateMedicalSummaryHtmlAsync(int patientId)
+        {
+            var summaryResult = await GetMedicalSummaryAsync(patientId);
+            if (!summaryResult.IsSuccess || summaryResult.Data == null)
+            {
+                return "<h1>Patient Summary Not Found</h1>";
+            }
+
+            var s = summaryResult.Data;
+            var dobStr = s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("yyyy-MM-dd") : "N/A";
+            
+            // Build vitals history rows
+            var vitalsRows = "";
+            foreach (var v in s.VitalsHistory)
+            {
+                vitalsRows += $@"
+                <tr>
+                    <td>{v.Date:yyyy-MM-dd HH:mm}</td>
+                    <td>{v.WeightKg?.ToString() ?? "-"} kg</td>
+                    <td>{(v.BloodPressureSystolic.HasValue && v.BloodPressureDiastolic.HasValue ? $"{v.BloodPressureSystolic}/{v.BloodPressureDiastolic}" : "-")}</td>
+                    <td>{v.TemperatureC?.ToString() ?? "-"} °C</td>
+                    <td>{v.PulseBpm?.ToString() ?? "-"} bpm</td>
+                    <td>{v.Spo2Percent?.ToString() ?? "-"}%</td>
+                    <td>{v.HeightCm?.ToString() ?? "-"} cm</td>
+                    <td>{v.Bmi?.ToString() ?? "-"}</td>
+                </tr>";
+            }
+
+            // Build active prescriptions rows
+            var rxRows = "";
+            foreach (var rx in s.ActivePrescriptions)
+            {
+                rxRows += $@"
+                <div class='rx-card'>
+                    <div class='rx-header'>
+                        <strong>{rx.DiseaseName}</strong> <span style='float:right; font-size: 12px; color: #666;'>{rx.Date:yyyy-MM-dd}</span>
+                    </div>
+                    <div class='rx-body'>
+                        Medicines: {string.Join(", ", rx.Medicines)}
+                    </div>
+                </div>";
+            }
+
+            // Return a wowed CSS HTML structure
+            return $@"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset='utf-8' />
+                <title>Medical Summary - {s.PatientName}</title>
+                <style>
+                    body {{
+                        font-family: 'Outfit', 'Inter', sans-serif;
+                        color: #1a1a24;
+                        margin: 40px;
+                        background: #ffffff;
+                    }}
+                    .container {{
+                        max-width: 900px;
+                        margin: 0 auto;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 12px;
+                        padding: 30px;
+                        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+                    }}
+                    .header {{
+                        border-bottom: 2px solid #3b82f6;
+                        padding-bottom: 20px;
+                        margin-bottom: 25px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }}
+                    .header h1 {{
+                        margin: 0;
+                        font-size: 26px;
+                        color: #1e3a8a;
+                    }}
+                    .clinic-title {{
+                        font-size: 14px;
+                        color: #64748b;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    }}
+                    .grid {{
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 20px;
+                        margin-bottom: 30px;
+                    }}
+                    .info-card {{
+                        background: #f8fafc;
+                        border-radius: 8px;
+                        padding: 15px;
+                        border: 1px solid #f1f5f9;
+                    }}
+                    .info-card h3 {{
+                        margin-top: 0;
+                        margin-bottom: 10px;
+                        font-size: 16px;
+                        color: #2563eb;
+                        border-bottom: 1px solid #e2e8f0;
+                        padding-bottom: 5px;
+                    }}
+                    .info-row {{
+                        margin-bottom: 8px;
+                        font-size: 14px;
+                    }}
+                    .info-row strong {{
+                        color: #475569;
+                        width: 130px;
+                        display: inline-block;
+                    }}
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 15px;
+                        font-size: 13px;
+                    }}
+                    th, td {{
+                        border: 1px solid #e2e8f0;
+                        padding: 10px;
+                        text-align: left;
+                    }}
+                    th {{
+                        background-color: #3b82f6;
+                        color: white;
+                        font-weight: 600;
+                    }}
+                    tr:nth-child(even) {{
+                        background-color: #f8fafc;
+                    }}
+                    .rx-card {{
+                        border: 1px solid #e2e8f0;
+                        border-left: 4px solid #10b981;
+                        border-radius: 6px;
+                        padding: 12px;
+                        margin-bottom: 12px;
+                        background: #f0fdf4;
+                    }}
+                    .rx-header {{
+                        margin-bottom: 6px;
+                    }}
+                    .footer {{
+                        text-align: center;
+                        margin-top: 40px;
+                        font-size: 11px;
+                        color: #94a3b8;
+                        border-top: 1px solid #e2e8f0;
+                        padding-top: 15px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class='container'>
+                    <div class='header'>
+                        <div>
+                            <span class='clinic-title'>Smart Clinic Management System</span>
+                            <h1>Patient Medical Summary</h1>
+                        </div>
+                        <div style='text-align: right;'>
+                            <strong style='color:#3b82f6; font-size: 18px;'>EMR Report</strong><br/>
+                            <span style='font-size: 12px; color:#64748b;'>Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC</span>
+                        </div>
+                    </div>
+
+                    <div class='grid'>
+                        <div class='info-card'>
+                            <h3>Personal Information</h3>
+                            <div class='info-row'><strong>Full Name:</strong> {s.PatientName}</div>
+                            <div class='info-row'><strong>Date of Birth:</strong> {dobStr}</div>
+                            <div class='info-row'><strong>Gender:</strong> {s.Gender ?? "N/A"}</div>
+                            <div class='info-row'><strong>Blood Type:</strong> {s.BloodType ?? "N/A"}</div>
+                        </div>
+                        
+                        <div class='info-card'>
+                            <h3>Clinical Notes</h3>
+                            <div class='info-row'><strong>Allergies:</strong> <span style='color:#ef4444; font-weight:600;'>{s.Allergies ?? "None Known"}</span></div>
+                            <div class='info-row'><strong>Chronic Conditions:</strong> {s.ChronicConditions ?? "None"}</div>
+                            <div class='info-row'><strong>Past Surgeries:</strong> {s.PastSurgeries ?? "None"}</div>
+                            <div class='info-row'><strong>Family History:</strong> {s.FamilyHistory ?? "None"}</div>
+                            <div class='info-row'><strong>Vaccinations:</strong> {s.VaccinationHistory ?? "None"}</div>
+                        </div>
+                    </div>
+
+                    <h2 style='color:#1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; font-size: 18px;'>Vital Signs Trends</h2>
+                    {(s.VitalsHistory.Count > 0 ? $@"
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Weight</th>
+                                <th>BP (Sys/Dia)</th>
+                                <th>Temp</th>
+                                <th>Pulse</th>
+                                <th>SpO2</th>
+                                <th>Height</th>
+                                <th>BMI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {vitalsRows}
+                        </tbody>
+                    </table>" : "<p style='font-size:14px; color:#64748b;'>No vitals recorded yet.</p>")}
+
+                    <h2 style='color:#1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; font-size: 18px; margin-top: 30px;'>Active Prescriptions (Past 30 Days)</h2>
+                    <div style='margin-top:15px;'>
+                        {(s.ActivePrescriptions.Count > 0 ? rxRows : "<p style='font-size:14px; color:#64748b;'>No active prescriptions.</p>")}
+                    </div>
+
+                    <div class='footer'>
+                        This document is a confidential electronic medical record (EMR). Access is restricted to authorized personnel only.
+                    </div>
+                </div>
+            </body>
+            </html>";
+        }
+
+        private PatientProfileResponse MapToResponse(TblPatient p)
+        {
+            var addressMeta = ParsePatientAddress(p.Address);
+            return new PatientProfileResponse
+            {
+                PatientId = p.PatientId,
+                UserId = p.UserId,
+                Name = p.Name,
+                MobileNo = p.MobileNo,
+                Email = p.Email,
+                DateOfBirth = p.DateOfBirth,
+                Gender = p.Gender,
+                BloodType = p.BloodType,
+                ActualAddress = addressMeta.ActualAddress,
+                Allergies = addressMeta.Allergies,
+                ChronicConditions = addressMeta.ChronicConditions,
+                PastSurgeries = addressMeta.PastSurgeries,
+                FamilyHistory = addressMeta.FamilyHistory,
+                VaccinationHistory = addressMeta.VaccinationHistory,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private PatientAddressMetadata ParsePatientAddress(string? address)
+        {
+            if (string.IsNullOrEmpty(address)) return new PatientAddressMetadata();
+            try
+            {
+                if (address.TrimStart().StartsWith("{"))
+                {
+                    return JsonSerializer.Deserialize<PatientAddressMetadata>(address) ?? new PatientAddressMetadata();
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+
+            return new PatientAddressMetadata { ActualAddress = address };
+        }
+
+        private PrescriptionNotesMetadata ParsePrescriptionNotes(string? notes)
+        {
+            if (string.IsNullOrEmpty(notes)) return new PrescriptionNotesMetadata();
+            try
+            {
+                if (notes.TrimStart().StartsWith("{"))
+                {
+                    return JsonSerializer.Deserialize<PrescriptionNotesMetadata>(notes) ?? new PrescriptionNotesMetadata();
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+
+            return new PrescriptionNotesMetadata { ActualNotes = notes };
+        }
+    }
+}
