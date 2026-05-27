@@ -1,5 +1,13 @@
 # Smart Clinic Management System (SCMS)
 
+PostgreSQL Database Scaffold Command:
+
+```sh
+dotnet ef dbcontext scaffold"Host=localhost;Database=SCMS_db;Username=postgres;Password=admin" Npgsql.EntityFrameworkCore.PostgreSQL -o Models -f
+```
+
+---
+
 ## Docker Commands
 
 ### Run this in the root directory (only run this when running docker for the first time):
@@ -27,3 +35,5 @@ docker compose ps
 ```sh
 docker compose down
 ```
+
+---

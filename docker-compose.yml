@@ -9,7 +9,7 @@ services:
       - "8081:8081"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=scms_db;Database=SCMS_db;Username=postgres;Password=admin;
+      - ConnectionStrings__DefaultConnection=Host=localhost;Database=SCMS_db;Username=postgres;Password=admin;
     depends_on:
       - scms_db
 
