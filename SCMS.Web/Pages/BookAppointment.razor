@@ -1,0 +1,76 @@
+@page "/book"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Book Appointment</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Book appointment</h1>
+        <p>Queue-based appointment booking with estimated wait time.</p>
+    </div>
+</section>
+
+<section class="two-column">
+    <div>
+        <h2>Request slot</h2>
+        <EditForm Model="request" OnValidSubmit="Book">
+            <label>Patient</label>
+            <select class="field" @bind="request.PatientId">
+                <option value="0">Select patient</option>
+                @foreach (var patient in patients)
+                {
+                    <option value="@patient.PatientId">@patient.Name</option>
+                }
+            </select>
+            <label>Date and time</label>
+            <InputDate class="field" @bind-Value="appointmentDate" />
+            <label>Hour</label>
+            <InputText class="field" @bind-Value="appointmentTime" />
+            <label>Reason</label>
+            <InputTextArea class="field" @bind-Value="request.Notes" />
+            <button class="primary" type="submit">Book</button>
+        </EditForm>
+    </div>
+    <div>
+        <h2>Queue response</h2>
+        @if (response != null)
+        {
+            <article class="item-card">
+                <strong>@response.AppointmentCode</strong>
+                <span>Token @response.TokenNumber - @response.EstimatedWaitTimeMinutes min estimate</span>
+                <p>@response.Status</p>
+            </article>
+        }
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="status">@message</p>
+        }
+    </div>
+</section>
+
+@code {
+    private readonly BookAppointmentRequest request = new();
+    private readonly List<PatientProfileResponse> patients = new();
+    private BookAppointmentResponse? response;
+    private DateTime appointmentDate = DateTime.Today.AddDays(1);
+    private string appointmentTime = "09:00";
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.PatientProfilesAsync();
+        patients.AddRange(result.Data);
+    }
+
+    private async Task Book()
+    {
+        var parts = appointmentTime.Split(':');
+        var hour = int.Parse(parts[0]);
+        var minute = int.Parse(parts[1]);
+        request.Datetime = appointmentDate.Date.AddHours(hour).AddMinutes(minute);
+        var result = await Api.BookAppointmentAsync(request);
+        response = result.Data;
+        message = result.Message;
+    }
+}

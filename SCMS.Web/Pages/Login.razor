@@ -1,0 +1,47 @@
+@page "/login"
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+<section class="auth-surface">
+    <div class="auth-panel">
+        <h1>Clinic sign in</h1>
+        <EditForm Model="request" OnValidSubmit="Submit">
+            <DataAnnotationsValidator />
+            <label>Email or mobile</label>
+            <InputText class="field" @bind-Value="request.EmailOrMobile" />
+            <label>Password</label>
+            <InputText class="field" type="password" @bind-Value="request.Password" />
+            <button class="primary" type="submit">Sign in</button>
+        </EditForm>
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="status">@message</p>
+        }
+        <p><a href="register">Create patient account</a></p>
+    </div>
+    <div class="clinic-visual" aria-hidden="true">
+        <div class="pulse-grid"></div>
+    </div>
+</section>
+
+@code {
+    private readonly LoginRequest request = new();
+    private string? message;
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private async Task Submit()
+    {
+        var result = await Api.LoginAsync(request);
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : ReturnUrl);
+            return;
+        }
+
+        message = result.Message;
+    }
+}

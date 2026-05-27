@@ -1,0 +1,43 @@
+<div class="brand-strip">
+    <div class="brand-mark" aria-hidden="true">+</div>
+    <div>
+        <a class="navbar-brand" href="">SCMS</a>
+        <span>Clinic OS</span>
+    </div>
+</div>
+
+<div class="nav-scrollable">
+    <nav>
+        <AuthorizeView Context="authState">
+            <Authorized>
+                @if (IsStaff(authState.User))
+                {
+                    <NavLink class="nav-link" href="doctor">Dashboard</NavLink>
+                    <NavLink class="nav-link" href="appointments">Appointments</NavLink>
+                    <NavLink class="nav-link" href="patients">Patients</NavLink>
+                    <NavLink class="nav-link" href="consultation">Consultation</NavLink>
+                    <NavLink class="nav-link" href="follow-ups">Follow-ups</NavLink>
+                    <NavLink class="nav-link" href="inventory">Inventory</NavLink>
+                    <NavLink class="nav-link" href="payments">Payments</NavLink>
+                }
+                else
+                {
+                    <NavLink class="nav-link" href="patient">My dashboard</NavLink>
+                    <NavLink class="nav-link" href="patients">Family</NavLink>
+                    <NavLink class="nav-link" href="book">Book</NavLink>
+                    <NavLink class="nav-link" href="records">Records</NavLink>
+                    <NavLink class="nav-link" href="follow-ups">Follow-ups</NavLink>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <NavLink class="nav-link" href="login">Login</NavLink>
+                <NavLink class="nav-link" href="register">Register</NavLink>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+@code {
+    private static bool IsStaff(System.Security.Claims.ClaimsPrincipal user)
+        => user.IsInRole("admin") || user.IsInRole("doctor");
+}

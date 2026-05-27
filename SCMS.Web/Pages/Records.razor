@@ -1,0 +1,127 @@
+@page "/records"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Records</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Medical records</h1>
+        <p>Timeline, medical summary, prescriptions, invoices, and lab reports.</p>
+    </div>
+    <select class="field compact" @bind="selectedPatientId" @bind:after="LoadRecords">
+        <option value="0">Select patient</option>
+        @foreach (var patient in patients)
+        {
+            <option value="@patient.PatientId">@patient.Name</option>
+        }
+    </select>
+</section>
+
+@if (summary != null)
+{
+    <section class="metric-grid">
+        <div class="metric"><span>Blood type</span><strong>@summary.BloodType</strong></div>
+        <div class="metric warning"><span>Allergies</span><strong>@(summary.Allergies ?? "None")</strong></div>
+        <div class="metric"><span>Vitals</span><strong>@summary.VitalsHistory.Count</strong></div>
+        <div class="metric"><span>Active Rx</span><strong>@summary.ActivePrescriptions.Count</strong></div>
+    </section>
+    <div class="toolbar">
+        <button class="secondary" type="button" @onclick="() => DownloadSummary(summary.PatientId)">Summary PDF</button>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(downloadMessage))
+{
+    <p class="status">@downloadMessage</p>
+}
+
+<section class="two-column">
+    <div>
+        <h2>Timeline</h2>
+        <div class="list-stack">
+            @foreach (var item in history?.Timeline ?? new List<TimelineItemDto>())
+            {
+                <article class="item-card">
+                    <strong>@item.Type - @item.Title</strong>
+                    <span>@item.Date.ToString("MMM dd, yyyy HH:mm")</span>
+                    <p>@item.Description</p>
+                </article>
+            }
+        </div>
+    </div>
+    <div>
+        <h2>Downloads</h2>
+        <div class="list-stack">
+            @foreach (var rx in prescriptions)
+            {
+                <article class="item-card">
+                    <strong>Prescription #@rx.Id</strong>
+                    <span>@rx.CreatedAt.ToString("MMM dd, yyyy")</span>
+                    <button type="button" @onclick="() => DownloadPrescription(rx.Id)">Prescription PDF</button>
+                </article>
+            }
+            @foreach (var lab in labReports)
+            {
+                <article class="item-card">
+                    <strong>@lab.TestName</strong>
+                    <span>@lab.Status</span>
+                    <button type="button" @onclick="() => DownloadLab(lab.Id)">Lab PDF</button>
+                </article>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly List<PatientProfileResponse> patients = new();
+    private readonly List<PrescriptionResponse> prescriptions = new();
+    private readonly List<LabReportResponse> labReports = new();
+    private int selectedPatientId;
+    private PatientHistoryResponse? history;
+    private MedicalSummaryResponse? summary;
+    private string? downloadMessage;
+
+    [SupplyParameterFromQuery]
+    public int? PatientId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.PatientProfilesAsync();
+        patients.AddRange(result.Data);
+        selectedPatientId = PatientId ?? patients.FirstOrDefault()?.PatientId ?? 0;
+        await LoadRecords();
+    }
+
+    private async Task LoadRecords()
+    {
+        if (selectedPatientId <= 0)
+        {
+            return;
+        }
+
+        history = (await Api.PatientHistoryAsync(selectedPatientId)).Data;
+        summary = (await Api.MedicalSummaryAsync(selectedPatientId)).Data;
+        var rx = await Api.PrescriptionsAsync(selectedPatientId);
+        var labs = await Api.LabReportsAsync(selectedPatientId);
+        prescriptions.Clear();
+        labReports.Clear();
+        prescriptions.AddRange(rx.Data);
+        labReports.AddRange(labs.Data);
+    }
+
+    private async Task DownloadAsync(string relativePath, string fileName)
+    {
+        var result = await Api.DownloadFileAsync(relativePath, fileName);
+        downloadMessage = result.IsSuccess ? null : result.Message;
+    }
+
+    private Task DownloadSummary(int patientId)
+        => DownloadAsync($"api/patients/{patientId}/summary/pdf", $"medical-summary-{patientId}.pdf");
+
+    private Task DownloadPrescription(int prescriptionId)
+        => DownloadAsync($"api/prescriptions/{prescriptionId}/pdf", $"prescription-{prescriptionId}.pdf");
+
+    private Task DownloadLab(int labReportId)
+        => DownloadAsync($"api/labreports/{labReportId}/pdf", $"lab-report-{labReportId}.pdf");
+}

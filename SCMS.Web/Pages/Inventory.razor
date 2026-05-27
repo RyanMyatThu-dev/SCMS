@@ -1,0 +1,81 @@
+@page "/inventory"
+@attribute [Authorize(Roles = "admin,doctor")]
+@inject ApiClient Api
+
+<PageTitle>Inventory</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Inventory</h1>
+        <p>Search medicines, active batches, stock alerts, and expiry quarantine.</p>
+    </div>
+    <div class="toolbar">
+        <input class="field compact" placeholder="Search medicines" @bind="query" />
+        <button class="secondary" @onclick="Load">Search</button>
+        <button class="primary" @onclick="Quarantine">Quarantine expired</button>
+    </div>
+</section>
+
+<section class="two-column">
+    <div>
+        <h2>Medicine inventory</h2>
+        <div class="list-stack">
+            @foreach (var med in medicines)
+            {
+                <article class="item-card">
+                    <div class="split">
+                        <strong>@med.Name</strong>
+                        <span>@med.TotalStock in stock</span>
+                    </div>
+                    <p>@med.Description</p>
+                    <div class="chip-row">
+                        @foreach (var batch in med.ActiveBatches)
+                        {
+                            <span class="chip">@batch.BatchNo - @batch.Quantity - exp @batch.ExpiryDate</span>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    </div>
+    <div>
+        <h2>Alerts</h2>
+        <div class="alert-list">
+            @foreach (var alert in alerts)
+            {
+                <p><strong>@alert.AlertType</strong> @alert.Message</p>
+            }
+        </div>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <p class="status">@message</p>
+}
+
+@code {
+    private readonly List<MedicineSearchResponse> medicines = new();
+    private readonly List<InventoryAlertResponse> alerts = new();
+    private string? query;
+    private string? message;
+
+    protected override Task OnInitializedAsync() => Load();
+
+    private async Task Load()
+    {
+        var medResult = await Api.SearchMedicinesAsync(query);
+        var alertResult = await Api.InventoryAlertsAsync();
+        medicines.Clear();
+        alerts.Clear();
+        medicines.AddRange(medResult.Data);
+        alerts.AddRange(alertResult.Data);
+    }
+
+    private async Task Quarantine()
+    {
+        var result = await Api.QuarantineExpiredBatchesAsync();
+        message = result.Message;
+        await Load();
+    }
+}

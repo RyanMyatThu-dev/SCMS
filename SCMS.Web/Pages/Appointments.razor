@@ -1,0 +1,113 @@
+@page "/appointments"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Appointments</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Appointments</h1>
+        <p>Calendar queue with status actions.</p>
+    </div>
+    <div class="toolbar">
+        <select class="field compact" @bind="statusFilter">
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+        </select>
+        <button class="secondary" @onclick="Load">Refresh</button>
+        <AuthorizeView Roles="admin,doctor">
+            <button class="primary" @onclick="CallNext">Call next</button>
+        </AuthorizeView>
+    </div>
+</section>
+
+<section class="tab-row">
+    <button class="@ModeClass("day")" @onclick='() => SetMode("day")'>Day</button>
+    <button class="@ModeClass("week")" @onclick='() => SetMode("week")'>Week</button>
+    <button class="@ModeClass("month")" @onclick='() => SetMode("month")'>Month</button>
+</section>
+
+<section class="table-surface">
+    <table>
+        <thead>
+            <tr><th>Token</th><th>Patient</th><th>Time</th><th>Status</th><th>Reason</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var appt in appointments)
+            {
+                <tr>
+                    <td>@appt.TokenNumber</td>
+                    <td>@appt.PatientName</td>
+                    <td>@appt.Datetime.ToString("MMM dd, HH:mm")</td>
+                    <td><span class="badge @appt.Status">@appt.Status</span></td>
+                    <td>@appt.Notes</td>
+                    <td class="actions">
+                        <AuthorizeView Roles="admin,doctor">
+                            <button title="Confirm" @onclick="() => UpdateStatus(appt.Id, Confirmed)">OK</button>
+                            <button title="Cancel" @onclick="() => UpdateStatus(appt.Id, Cancelled)">x</button>
+                            <button title="Complete" @onclick="() => UpdateStatus(appt.Id, Completed)">Done</button>
+                            <a href="@($"consultation/{appt.Id}")">EMR</a>
+                        </AuthorizeView>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <p class="status">@message</p>
+}
+
+@code {
+    private const string Confirmed = "confirmed";
+    private const string Cancelled = "cancelled";
+    private const string Completed = "completed";
+    private readonly List<AppointmentDetailsResponse> appointments = new();
+    private string mode = "day";
+    private string? statusFilter;
+    private string? message;
+
+    protected override Task OnInitializedAsync() => Load();
+
+    private async Task Load()
+    {
+        var start = DateTime.UtcNow.Date;
+        var end = mode switch
+        {
+            "week" => start.AddDays(7),
+            "month" => start.AddMonths(1),
+            _ => start.AddDays(1)
+        };
+        var result = await Api.AppointmentsAsync(start, end, statusFilter);
+        appointments.Clear();
+        appointments.AddRange(result.Data);
+        message = result.IsSuccess ? null : result.Message;
+    }
+
+    private async Task UpdateStatus(int id, string status)
+    {
+        var result = await Api.UpdateAppointmentStatusAsync(id, status);
+        message = result.Message;
+        await Load();
+    }
+
+    private async Task CallNext()
+    {
+        var result = await Api.CallNextPatientAsync();
+        message = result.Message;
+        await Load();
+    }
+
+    private async Task SetMode(string value)
+    {
+        mode = value;
+        await Load();
+    }
+
+    private string ModeClass(string value) => mode == value ? "active" : string.Empty;
+}

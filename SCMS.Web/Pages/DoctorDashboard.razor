@@ -1,0 +1,64 @@
+@page "/doctor"
+@page "/doctor/dashboard"
+@attribute [Authorize(Roles = "admin,doctor")]
+@inject ApiClient Api
+
+<PageTitle>Doctor Dashboard</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Doctor dashboard</h1>
+        <p>Today&apos;s queue, revenue, and inventory pressure.</p>
+    </div>
+    <a class="primary" href="consultation">Walk-in prescription</a>
+</section>
+
+@if (dashboard == null)
+{
+    <LoadingIndicator Message="Loading dashboard..." />
+}
+else
+{
+    <section class="metric-grid">
+        <div class="metric"><span>Appointments</span><strong>@dashboard.TodayAppointmentsCount</strong></div>
+        <div class="metric"><span>Revenue</span><strong>@dashboard.DailyRevenue.ToString("N0")</strong></div>
+        <div class="metric warning"><span>Low stock</span><strong>@dashboard.LowStockAlertsCount</strong></div>
+        <div class="metric warning"><span>Expiring</span><strong>@dashboard.ExpiringBatchesCount</strong></div>
+    </section>
+
+    <section class="two-column">
+        <div>
+            <h2>Next patients</h2>
+            <div class="list-stack">
+                @foreach (var patient in dashboard.NextPatients)
+                {
+                    <article class="item-card">
+                        <strong>@patient.TokenNumber. @patient.PatientName</strong>
+                        <span>@patient.Time - @patient.AppointmentCode</span>
+                        <p>@patient.ReasonForVisit</p>
+                        <a href="@($"consultation/{patient.AppointmentId}")">Start</a>
+                    </article>
+                }
+            </div>
+        </div>
+        <div>
+            <h2>Alerts</h2>
+            <div class="alert-list">
+                @foreach (var alert in dashboard.LowStockAlerts.Concat(dashboard.ExpiringBatchesAlerts))
+                {
+                    <p>@alert</p>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    private DoctorDashboardResponse? dashboard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.DoctorDashboardAsync();
+        dashboard = result.Data;
+    }
+}

@@ -1,0 +1,44 @@
+@page "/register"
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Register</PageTitle>
+
+<section class="auth-surface">
+    <div class="auth-panel wide">
+        <h1>Patient registration</h1>
+        <EditForm Model="request" OnValidSubmit="Submit">
+            <DataAnnotationsValidator />
+            <label>Name</label>
+            <InputText class="field" @bind-Value="request.Name" />
+            <label>Email</label>
+            <InputText class="field" @bind-Value="request.Email" />
+            <label>Mobile</label>
+            <InputText class="field" @bind-Value="request.MobileNo" />
+            <label>Password</label>
+            <InputText class="field" type="password" @bind-Value="request.Password" />
+            <button class="primary" type="submit">Create account</button>
+        </EditForm>
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="status">@message</p>
+        }
+    </div>
+</section>
+
+@code {
+    private readonly RegisterRequest request = new();
+    private string? message;
+
+    private async Task Submit()
+    {
+        var result = await Api.RegisterAsync(request);
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        message = result.Message;
+    }
+}

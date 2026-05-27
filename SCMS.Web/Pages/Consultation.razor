@@ -1,0 +1,286 @@
+@page "/consultation"
+@page "/consultation/{AppointmentId:int}"
+@attribute [Authorize(Roles = "admin,doctor")]
+@inject ApiClient Api
+
+<PageTitle>Consultation</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Consultation EMR</h1>
+        <p>Patient history, vitals, prescription safety, labs, and follow-up.</p>
+    </div>
+    <button class="secondary" @onclick="Load">Refresh</button>
+</section>
+
+<section class="two-column wide-left">
+    <div>
+        <h2>Encounter</h2>
+        <label>Appointment</label>
+        <select class="field" @bind="selectedAppointmentId" @bind:after="SelectAppointment">
+            <option value="0">Select appointment</option>
+            @foreach (var appt in appointments)
+            {
+                <option value="@appt.Id">@appt.TokenNumber - @appt.PatientName - @appt.Datetime.ToString("MMM dd HH:mm")</option>
+            }
+        </select>
+
+        @if (history != null)
+        {
+            <div class="summary-band">
+                <strong>@history.PatientName</strong>
+                <span>@(summary?.Allergies ?? "No allergies recorded")</span>
+                <span>@(summary?.ChronicConditions ?? "No chronic conditions recorded")</span>
+            </div>
+        }
+
+        <EditForm Model="prescription" OnValidSubmit="CreatePrescription">
+            <div class="form-grid">
+                <label>Diagnosis</label>
+                <select class="field" @bind="prescription.DiseaseId">
+                    <option value="">General consultation</option>
+                    @foreach (var disease in diseases)
+                    {
+                        <option value="@disease.Id">@disease.Name</option>
+                    }
+                </select>
+                <label>Weight</label><InputNumber class="field" @bind-Value="prescription.WeightKg" />
+                <label>Height</label><InputNumber class="field" @bind-Value="prescription.HeightCm" />
+                <label>Temperature</label><InputNumber class="field" @bind-Value="prescription.TemperatureC" />
+                <label>Pulse</label><InputNumber class="field" @bind-Value="prescription.PulseBpm" />
+                <label>SpO2</label><InputNumber class="field" @bind-Value="prescription.Spo2Percent" />
+                <label>BP systolic</label><InputNumber class="field" @bind-Value="prescription.BloodPressureSystolic" />
+                <label>BP diastolic</label><InputNumber class="field" @bind-Value="prescription.BloodPressureDiastolic" />
+            </div>
+            <label>Notes</label><InputTextArea class="field" @bind-Value="prescription.Notes" />
+            <label>Lab tests</label><InputTextArea class="field" @bind-Value="prescription.LabTestRequests" />
+
+            <h3>Medicines</h3>
+            <div class="table-surface compact-table">
+                <table>
+                    <thead><tr><th>Medicine</th><th>Qty</th><th>Days</th><th>Dose</th><th>Timing</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var item in prescription.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <select class="field" @bind="item.MedicineId">
+                                        <option value="0">Select</option>
+                                        @foreach (var med in medicines)
+                                        {
+                                            <option value="@med.MedicineId">@med.Name (@med.TotalStock)</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td><InputNumber class="field tiny" @bind-Value="item.Quantity" /></td>
+                                <td><InputNumber class="field tiny" @bind-Value="item.Days" /></td>
+                                <td><InputText class="field" @bind-Value="item.Dosage" /></td>
+                                <td><InputText class="field" @bind-Value="item.MealTiming" /></td>
+                                <td><button type="button" @onclick="() => RemoveItem(item)">x</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" class="secondary" @onclick="AddItem">Add medicine</button>
+
+            <h3>Follow-up</h3>
+            <label>Due date</label><InputDate class="field" @bind-Value="followUpDate" />
+            <label>Recommendation</label><InputTextArea class="field" @bind-Value="followUpRecommendation" />
+
+            <div class="toolbar">
+                <button class="primary" type="submit">Submit prescription</button>
+                <button class="secondary" type="button" @onclick="SaveTemplate">Save template</button>
+            </div>
+        </EditForm>
+
+        @if (createdPrescription != null)
+        {
+            <article class="item-card success">
+                <strong>Prescription #@createdPrescription.Id created</strong>
+                <button type="button" @onclick="() => DownloadPrescription(createdPrescription.Id)">Prescription PDF</button>
+                @foreach (var warning in createdPrescription.Warnings)
+                {
+                    <p>@warning</p>
+                }
+            </article>
+        }
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="status">@message</p>
+        }
+    </div>
+    <div>
+        <h2>History</h2>
+        <div class="list-stack small">
+            @foreach (var item in history?.Timeline.Take(8) ?? new List<TimelineItemDto>())
+            {
+                <article class="item-card">
+                    <strong>@item.Type</strong>
+                    <span>@item.Date.ToString("MMM dd yyyy")</span>
+                    <p>@item.Title</p>
+                </article>
+            }
+        </div>
+        <h2>Templates</h2>
+        <div class="list-stack small">
+            @foreach (var template in templates)
+            {
+                <article class="item-card">
+                    <strong>@template.Name</strong>
+                    <span>@template.DiseaseName</span>
+                    <button @onclick="() => UseTemplate(template)">Use</button>
+                </article>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public int? AppointmentId { get; set; }
+
+    private readonly List<AppointmentDetailsResponse> appointments = new();
+    private readonly List<MedicineSearchResponse> medicines = new();
+    private readonly List<DiseaseResponse> diseases = new();
+    private readonly List<PrescriptionTemplateResponse> templates = new();
+    private CreatePrescriptionRequest prescription = NewPrescription();
+    private int selectedAppointmentId;
+    private PatientHistoryResponse? history;
+    private MedicalSummaryResponse? summary;
+    private PrescriptionResponse? createdPrescription;
+    private DateTime followUpDate = DateTime.Today.AddDays(7);
+    private string? followUpRecommendation;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        selectedAppointmentId = AppointmentId ?? 0;
+        await Load();
+        await SelectAppointment();
+    }
+
+    private async Task Load()
+    {
+        var apptResult = await Api.AppointmentsAsync(DateTime.UtcNow.Date.AddDays(-1), DateTime.UtcNow.Date.AddDays(7), pageSize: 100);
+        var medResult = await Api.SearchMedicinesAsync(pageSize: 100);
+        var diseaseResult = await Api.DiseasesAsync();
+        var templateResult = await Api.PrescriptionTemplatesAsync();
+        appointments.Clear();
+        medicines.Clear();
+        diseases.Clear();
+        templates.Clear();
+        appointments.AddRange(apptResult.Data);
+        medicines.AddRange(medResult.Data);
+        diseases.AddRange(diseaseResult.Data);
+        templates.AddRange(templateResult.Data);
+    }
+
+    private async Task SelectAppointment()
+    {
+        var appt = appointments.FirstOrDefault(a => a.Id == selectedAppointmentId);
+        if (appt == null)
+        {
+            return;
+        }
+
+        prescription.AppointmentId = appt.Id;
+        prescription.PatientId = appt.PatientId;
+        history = (await Api.PatientHistoryAsync(appt.PatientId)).Data;
+        summary = (await Api.MedicalSummaryAsync(appt.PatientId)).Data;
+    }
+
+    private void AddItem() => prescription.Items.Add(NewItem());
+
+    private void RemoveItem(PrescriptionItemDto item)
+    {
+        if (prescription.Items.Count > 1)
+        {
+            prescription.Items.Remove(item);
+        }
+    }
+
+    private async Task CreatePrescription()
+    {
+        var result = await Api.CreatePrescriptionAsync(prescription);
+        createdPrescription = result.Data;
+        message = result.Message;
+        if (result.IsSuccess && createdPrescription != null && !string.IsNullOrWhiteSpace(followUpRecommendation))
+        {
+            await Api.CreateFollowUpAsync(new FollowUpRequest
+            {
+                PatientId = prescription.PatientId,
+                AppointmentId = prescription.AppointmentId,
+                PrescriptionId = createdPrescription.Id,
+                DueAt = followUpDate,
+                Recommendation = followUpRecommendation
+            });
+        }
+    }
+
+    private async Task SaveTemplate()
+    {
+        var diseaseId = prescription.DiseaseId ?? diseases.FirstOrDefault()?.Id ?? 0;
+        if (diseaseId <= 0)
+        {
+            message = "A disease is required before saving a template.";
+            return;
+        }
+
+        var result = await Api.SavePrescriptionTemplateAsync(new SaveTemplateRequest
+        {
+            Name = $"Template {DateTime.Now:MMM-dd HH:mm}",
+            DiseaseId = diseaseId,
+            Items = prescription.Items.Select(i => new TemplateItemDto
+            {
+                MedicineId = i.MedicineId,
+                Dosage = i.Dosage,
+                Days = i.Days,
+                Quantity = i.Quantity,
+                Instruction = i.Instruction
+            }).ToList()
+        });
+        message = result.Message;
+        await Load();
+    }
+
+    private void UseTemplate(PrescriptionTemplateResponse template)
+    {
+        prescription.DiseaseId = template.DiseaseId;
+        prescription.Items = template.Items.Select(i => new PrescriptionItemDto
+        {
+            MedicineId = i.MedicineId,
+            Dosage = i.Dosage,
+            Days = i.Days,
+            Quantity = i.Quantity,
+            DoseQuantity = 1,
+            DoseUnit = "tablet",
+            MealTiming = "after_meal",
+            Route = "oral",
+            Instruction = i.Instruction
+        }).ToList();
+    }
+
+    private async Task DownloadPrescription(int prescriptionId)
+    {
+        var result = await Api.DownloadFileAsync($"api/prescriptions/{prescriptionId}/pdf", $"prescription-{prescriptionId}.pdf");
+        message = result.IsSuccess ? null : result.Message;
+    }
+
+    private static CreatePrescriptionRequest NewPrescription()
+        => new()
+        {
+            Items = { NewItem() }
+        };
+
+    private static PrescriptionItemDto NewItem()
+        => new()
+        {
+            Days = 3,
+            Quantity = 1,
+            DoseQuantity = 1,
+            DoseUnit = "tablet",
+            MealTiming = "after_meal",
+            Route = "oral"
+        };
+}

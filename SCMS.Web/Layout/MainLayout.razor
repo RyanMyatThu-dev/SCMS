@@ -1,0 +1,35 @@
+@inherits LayoutComponentBase
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<div class="page">
+    <aside class="sidebar">
+        <NavMenu />
+    </aside>
+
+    <main>
+        <div class="top-row">
+            <div>
+                <strong>Smart Clinic Management System</strong>
+                <span>Single clinic queue</span>
+            </div>
+            <AuthorizeView>
+                <Authorized>
+                    <button class="icon-text ghost" title="Sign out" @onclick="Logout">Sign out</button>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private async Task Logout()
+    {
+        await Api.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+}

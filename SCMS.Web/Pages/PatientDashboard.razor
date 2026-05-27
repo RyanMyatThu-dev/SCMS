@@ -1,0 +1,66 @@
+@page "/patient"
+@page "/patient/dashboard"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Patient Dashboard</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>My dashboard</h1>
+        <p>Family records, appointments, queue token, prescriptions, and balances.</p>
+    </div>
+    <a class="primary" href="book">Book appointment</a>
+</section>
+
+@if (dashboard == null)
+{
+    <LoadingIndicator Message="Loading dashboard..." />
+}
+else
+{
+    <section class="metric-grid">
+        <div class="metric"><span>Profiles</span><strong>@dashboard.PatientProfiles.Count</strong></div>
+        <div class="metric"><span>Upcoming</span><strong>@dashboard.UpcomingAppointments.Count</strong></div>
+        <div class="metric"><span>Prescriptions</span><strong>@dashboard.PrescriptionHistory.Count</strong></div>
+        <div class="metric warning"><span>Balances</span><strong>@dashboard.OutstandingBalances.Count</strong></div>
+    </section>
+
+    <section class="two-column">
+        <div>
+            <h2>Family cards</h2>
+            <div class="card-grid">
+                @foreach (var patient in dashboard.PatientProfiles)
+                {
+                    <a class="person-card" href="@($"records?patientId={patient.PatientId}")">
+                        <strong>@patient.Name</strong>
+                        <span>@patient.BloodType - @patient.Gender</span>
+                    </a>
+                }
+            </div>
+        </div>
+        <div>
+            <h2>Upcoming queue</h2>
+            <div class="list-stack">
+                @foreach (var appt in dashboard.UpcomingAppointments)
+                {
+                    <article class="item-card">
+                        <strong>Token @appt.TokenNumber - @appt.PatientName</strong>
+                        <span>@appt.Datetime.ToString("MMM dd, HH:mm") - @appt.Status</span>
+                        <QueueStatus AppointmentId="appt.Id" />
+                    </article>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    private PatientDashboardResponse? dashboard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.PatientDashboardAsync();
+        dashboard = result.Data;
+    }
+}
