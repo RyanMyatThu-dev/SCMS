@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Features\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\SCMS.Database\SCMS.Database.csproj" />
     <ProjectReference Include="..\SCMS.Shared\SCMS.Shared.csproj" />
   </ItemGroup>
