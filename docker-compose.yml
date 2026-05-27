@@ -9,3 +9,17 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
     restart: unless-stopped
+    depends_on:
+      - db
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=SCMS_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db.sql:/docker-entrypoint-initdb.d/db.sql
+    restart: unless-stopped
