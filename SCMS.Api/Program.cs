@@ -8,31 +8,35 @@ using SCMS.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 
 builder.Services.AddScmsFeatureControllers();
 builder.Services.AddScmsFeatureServices(builder.Configuration);
 builder.Services.AddSignalR();
+
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ScmsWeb", policy =>
     {
         policy
+            .WithOrigins("http://localhost:5173") 
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .SetIsOriginAllowed(origin =>
-                origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase) ||
-                origin.StartsWith("https://localhost:", StringComparison.OrdinalIgnoreCase))
-            .AllowCredentials();
+            .AllowCredentials(); 
     });
 });
+
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        
         var issuer = builder.Configuration["Jwt:Issuer"] ?? "SCMS.Api";
         var audience = builder.Configuration["Jwt:Audience"] ?? "SCMS.Web";
-        var signingKey = builder.Configuration["Jwt:SigningKey"] ?? "SCMS development signing key - replace outside local development";
+        
+        
+        var signingKey = builder.Configuration["Jwt:SigningKey"] ?? "SCMS development signing key - 32 characters long!";
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -45,6 +49,8 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
+        
+        
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
@@ -62,13 +68,12 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
 if (app.Environment.IsDevelopment())
 {
     app.MapSwagger("/openapi/{documentName}.json");
@@ -89,12 +94,15 @@ await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger)
 
 app.UseHttpsRedirection();
 
+
 app.UseCors("ScmsWeb");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+
 app.MapHub<QueueHub>("/hubs/queue");
 app.MapHub<NotificationsHub>("/hubs/notifications");
 

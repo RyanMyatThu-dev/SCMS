@@ -99,6 +99,26 @@
 
 ---
 
+## 9. Medicine Batch Control (CRUD)
+
+**User Story**
+
+> As a system administrator or inventory manager, I want full CRUD control over medicine batches so that I can maintain accurate inventory records and ensure proper stock management.
+
+**Acceptance Criteria**
+
+- System allows creating new medicine batches with required fields: Batch Number, Medicine Name, Expiry Date, Quantity, Supplier
+- System displays a list of all medicine batches with sorting and filtering capabilities (by medicine name, expiry date, status)
+- System shows detailed view of a specific batch including all attributes and current status (Active, Expired, Quarantined)
+- System allows updating batch information with validation (e.g., expiry date must be after manufacture date)
+- System prevents deletion of batches that have allocated quantity in active prescriptions
+- System provides warning when attempting to delete batches with any allocated quantity
+- System automatically updates batch status to Expired when expiry date passes (integrates with Section 6)
+- Created batches are immediately available in doctor's prescription search interface
+- System maintains audit trail of batch creation, updates, and deletions
+
+---
+
 # 👨‍⚕️ Doctor (Admin) - New User Stories
 
 ## 9. Electronic Medical Record (EMR) & Patient History User Story
