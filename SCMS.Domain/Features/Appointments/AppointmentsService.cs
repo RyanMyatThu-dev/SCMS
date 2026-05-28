@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 using SCMS.Database.Models;
 using SCMS.Shared.Contracts.Appointments;
 using SCMS.Shared;
@@ -49,41 +50,76 @@ namespace SCMS.Domain.Features.Appointments
                 return Result<BookAppointmentResponse>.Failure("Patient not found.");
             }
 
-            // Generate a daily-sequential appointment code (APT-001, resets each day)
-            var appointmentDate = request.Datetime.Date;
-            var nextDay = appointmentDate.AddDays(1);
+            // Generate a unique appointment code.
+            // Format: APT-NNN-XXXX where NNN is the daily sequence and XXXX is a random hex suffix.
+            // The suffix eliminates UNIQUE constraint collisions under concurrent requests while
+            // keeping the code human-readable.
+            TblAppointment? appointment = null;
+            string appointmentCode = string.Empty;
+            int maxRetries = 10;
 
-            var todayCodes = await _context.TblAppointments
-                .Where(a => a.Datetime >= appointmentDate && a.Datetime < nextDay)
-                .Select(a => a.AppointmentCode)
-                .ToListAsync();
-
-            var maxSeq = todayCodes
-                .Where(c => c != null && c.StartsWith("APT-"))
-                .Select(c =>
-                {
-                    var numPart = c.Substring(4); // after "APT-"
-                    return int.TryParse(numPart, out var n) ? n : 0;
-                })
-                .DefaultIfEmpty(0)
-                .Max();
-
-            var code = $"APT-{(maxSeq + 1):D3}";
-
-            // Save the appointment
-            var appointment = new TblAppointment
+            for (int retry = 0; retry < maxRetries; retry++)
             {
-                AppointmentCode = code,
-                PatientId = request.PatientId,
-                Datetime = request.Datetime,
-                Status = "pending", // Default to pending
-                Notes = request.Notes,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
+                var appointmentDate = request.Datetime.Date;
+                var nextDay = appointmentDate.AddDays(1);
 
-            _context.TblAppointments.Add(appointment);
-            await _context.SaveChangesAsync();
+                var todayCodes = await _context.TblAppointments
+                    .Where(a => a.Datetime >= appointmentDate && a.Datetime < nextDay)
+                    .Select(a => a.AppointmentCode)
+                    .ToListAsync();
+
+                var maxSeq = todayCodes
+                    .Where(c => c != null && c.StartsWith("APT-"))
+                    .Select(c =>
+                    {
+                        // Code is either APT-NNN or APT-NNN-XXXX; parse the NNN part
+                        var parts = c.Substring(4).Split('-');
+                        return int.TryParse(parts[0], out var n) ? n : 0;
+                    })
+                    .DefaultIfEmpty(0)
+                    .Max();
+
+                // Append a short random hex suffix to make the code collision-resistant
+                var randomSuffix = Convert.ToHexString(Guid.NewGuid().ToByteArray())[..4];
+                appointmentCode = $"APT-{(maxSeq + 1):D3}-{randomSuffix}";
+
+                appointment = new TblAppointment
+                {
+                    AppointmentCode = appointmentCode,
+                    PatientId = request.PatientId,
+                    Datetime = request.Datetime,
+                    Status = "pending",
+                    Notes = request.Notes,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.TblAppointments.Add(appointment);
+
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    break; // Success — exit retry loop
+                }
+                catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqliteEx && sqliteEx.SqliteErrorCode == 19)
+                {
+                    // UNIQUE constraint still failed (extremely rare with suffix, but handle anyway)
+                    _context.Entry(appointment).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+                    appointment = null;
+                    appointmentCode = string.Empty;
+
+                    if (retry == maxRetries - 1)
+                    {
+                        return Result<BookAppointmentResponse>.Failure("Unable to book appointment due to a conflict. Please try again.");
+                    }
+                    // Retry with a fresh code
+                }
+            }
+
+            if (appointment == null)
+            {
+                return Result<BookAppointmentResponse>.Failure("Unable to book appointment. Please try again.");
+            }
 
             // Calculate Token and Queue status
             var queueStatus = await GetQueueInfoAsync(appointment);
@@ -93,7 +129,7 @@ namespace SCMS.Domain.Features.Appointments
             {
                 UserId = patient.UserId,
                 Title = "Appointment Booked",
-                Description = $"Your appointment (Code: {code}) has been booked for {request.Datetime:f} and is pending approval. You are {queueStatus.PatientsAhead + 1} in queue.",
+                Description = $"Your appointment (Code: {appointmentCode}) has been booked for {request.Datetime:f} and is pending approval. You are {queueStatus.PatientsAhead + 1} in queue.",
                 ActionRoute = $"/appointments/{appointment.Id}",
                 CreatedAt = DateTime.UtcNow,
                 DeleteFlag = false
