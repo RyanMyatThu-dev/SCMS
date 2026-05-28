@@ -97,7 +97,7 @@ namespace SCMS.Domain.Features.Medicines
             return Ok(result);
         }
 
-        [HttpPost]
+        [HttpPost("batches")]
         public async Task<IActionResult> CreateBatch([FromBody] CreateBatchRequest request)
         {
             var result = await _medicineService.CreateBatchAsync(request);

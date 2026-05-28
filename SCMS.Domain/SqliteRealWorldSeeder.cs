@@ -349,8 +349,8 @@ namespace SCMS.Domain
         private static TblMedicineCategory Category(int id, string name)
             => new() { Id = id, Name = name };
 
-        private static TblMedicine Medicine(int id, int categoryId, string name, string description, decimal price, DateTime createdAt, DateTime updatedAt)
-            => new() { MedicineId = id, CategoryId = categoryId, Name = name, Description = description, UnitPrice = price, CreatedAt = createdAt, UpdatedAt = updatedAt, DeleteFlag = false };
+        private static TblMedicine Medicine(int id, int categoryId, string name, string description, decimal price, DateTime createdAt, DateTime updatedAt, string? imageUrl = null, string? imageId = null)
+            => new() { MedicineId = id, CategoryId = categoryId, Name = name, Description = description, UnitPrice = price, CreatedAt = createdAt, UpdatedAt = updatedAt, DeleteFlag = false, ImageUrl = imageUrl, ImageId = imageId };
 
         private static TblMedicineBatch Batch(int id, int medId, string batchNo, int quantity, DateTime expiry, DateTime received, string supplier, string status, DateTime createdAt, DateTime updatedAt)
             => new() { Id = id, MedId = medId, BatchNo = batchNo, Quantity = quantity, ExpiryDate = DateOnly.FromDateTime(expiry), ReceivedDate = DateOnly.FromDateTime(received), SupplierName = supplier, Status = status, CreatedAt = createdAt, UpdatedAt = updatedAt, DeleteFlag = false };
@@ -364,8 +364,8 @@ namespace SCMS.Domain
         private static TblPrescriptionItem RxItem(int id, int rxId, int medId, int? batchId, string dosage, int days, int qty, string instruction, DateTime at)
             => new() { Id = id, PrescriptionId = rxId, MedicineId = medId, MedicineBatchId = batchId, Dosage = dosage, Days = days, Quantity = qty, Instruction = instruction, CreatedAt = at, UpdatedAt = at, DeleteFlag = false };
 
-        private static TblPrescriptionItemSchedule Schedule(int id, int itemId, DateTime start, DateTime end, string doseTime, decimal doseQuantity, string doseUnit, string mealTiming, string route, int? intervalHours, int? intervalDays, bool isAsNeeded, string note, DateTime at)
-            => new() { Id = id, PrescriptionItemId = itemId, StartDate = DateOnly.FromDateTime(start), EndDate = DateOnly.FromDateTime(end), DoseTime = doseTime, DoseQuantity = doseQuantity, DoseUnit = doseUnit, MealTiming = mealTiming, Route = route, IntervalHours = intervalHours, IntervalDays = intervalDays, IsAsNeeded = isAsNeeded, Note = note, CreatedAt = at, UpdatedAt = at, DeleteFlag = false };
+        private static TblPrescriptionItemSchedule Schedule(int id, int itemId, DateTime start, DateTime end, string doseTime, decimal doseQuantity, string doseUnit, string mealTiming, string route, int? intervalHours, int? intervalDays, bool isAsNeeded, string note, DateTime at, string? dayOfWeek = null, string? bodySite = null)
+            => new() { Id = id, PrescriptionItemId = itemId, StartDate = DateOnly.FromDateTime(start), EndDate = DateOnly.FromDateTime(end), DoseTime = doseTime, DoseQuantity = doseQuantity, DoseUnit = doseUnit, MealTiming = mealTiming, Route = route, IntervalHours = intervalHours, IntervalDays = intervalDays, IsAsNeeded = isAsNeeded, Note = note, CreatedAt = at, UpdatedAt = at, DeleteFlag = false, DayOfWeek = dayOfWeek, BodySite = bodySite };
 
         private static TblPayment Payment(int id, int appointmentId, int? prescriptionId, decimal amount, decimal tax, decimal charges, string method, string status, string? screenshot, DateTime? paidAt, DateTime updatedAt)
             => new() { Id = id, AppointmentId = appointmentId, PrescriptionId = prescriptionId, Amount = amount, Tax = tax, Charges = charges, PaymentMethod = method, PaymentStatus = status, PaymentScreenshot = screenshot, PaidAt = paidAt, UpdatedAt = updatedAt };

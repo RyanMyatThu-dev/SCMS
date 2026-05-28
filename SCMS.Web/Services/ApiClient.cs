@@ -188,7 +188,7 @@ namespace SCMS.Web.Services
             => GetAsync<BatchDetailResponse>($"api/medicines/batches/{id}");
 
         public Task<Result<BatchDetailResponse>> CreateBatchAsync(CreateBatchRequest request)
-            => PostAsync<CreateBatchRequest, BatchDetailResponse>("api/medicines", request);
+            => PostAsync<CreateBatchRequest, BatchDetailResponse>("api/medicines/batches", request);
 
         public Task<Result<BatchDetailResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request)
             => PutAsync<UpdateBatchRequest, BatchDetailResponse>($"api/medicines/batches/{id}", request);
@@ -240,6 +240,15 @@ namespace SCMS.Web.Services
 
         public Task<PagedResult<DiseaseResponse>> DiseasesAsync(string? query = null)
             => GetPagedAsync<DiseaseResponse>($"api/diseases?{Query(("query", query), ("pageSize", "100"))}");
+
+        public Task<Result<DiseaseResponse>> CreateDiseaseAsync(CreateDiseaseRequest request)
+            => PostAsync<CreateDiseaseRequest, DiseaseResponse>("api/diseases", request);
+
+        public Task<Result<DiseaseResponse>> UpdateDiseaseAsync(UpdateDiseaseRequest request)
+            => PutAsync<UpdateDiseaseRequest, DiseaseResponse>("api/diseases", request);
+
+        public Task<Result<bool>> DeactivateDiseaseAsync(int id)
+            => DeleteAsync<bool>($"api/diseases/{id}");
 
         public Task<PagedResult<PrescriptionTemplateResponse>> PrescriptionTemplatesAsync(int? diseaseId = null)
             => GetPagedAsync<PrescriptionTemplateResponse>($"api/prescriptions/templates?{Query(("diseaseId", diseaseId?.ToString()), ("pageSize", "100"))}");
@@ -389,6 +398,20 @@ namespace SCMS.Web.Services
             catch (HttpRequestException ex)
             {
                 return Result.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        private async Task<Result<TData>> DeleteAsync<TData>(string url)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                var response = await _http.DeleteAsync(url);
+                return await ReadResultAsync<TData>(response);
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result<TData>.Failure(CreateFetchFailureMessage(ex));
             }
         }
 

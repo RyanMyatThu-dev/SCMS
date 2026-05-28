@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.InMemory;
 using SCMS.Database.Models;
 using SCMS.Domain.Features.Diseases;
 using SCMS.Shared;
@@ -11,24 +10,20 @@ namespace SCMS.Domain.Tests.Diseases
 {
     public class DiseaseServiceTests : IDisposable
     {
+        private readonly TestDatabase _db;
         private readonly ScmsDbContext _context;
         private readonly DiseaseService _diseaseService;
 
         public DiseaseServiceTests()
         {
-            // Setup in-memory database for testing
-            var options = new DbContextOptionsBuilder<ScmsDbContext>()
-                .UseInMemoryDatabase(databaseName: "TestDb_" + Guid.NewGuid())
-                .Options;
-
-            _context = new ScmsDbContext(options);
-            _context.Database.EnsureCreated();
+            _db = new TestDatabase();
+            _context = _db.Context;
             _diseaseService = new DiseaseService(_context);
         }
 
         public void Dispose()
         {
-            _context.Dispose();
+            _db.Dispose();
         }
 
         [Fact]
@@ -162,6 +157,10 @@ namespace SCMS.Domain.Tests.Diseases
         public async Task DeactivateDisease_ShouldReturnFailure_WhenDiseaseIsReferenced()
         {
             // Arrange
+            var user = TestData.AddUser(_db);
+            var patient = TestData.AddPatient(_db, user);
+            var appointment = TestData.AddAppointment(_db, patient);
+
             var disease = new TblDisease
             {
                 Name = "Cancer",
@@ -176,8 +175,8 @@ namespace SCMS.Domain.Tests.Diseases
             // Create a prescription referencing this disease
             var prescription = new TblPrescription
             {
-                AppointmentId = 1,
-                PatientId = 1,
+                AppointmentId = appointment.Id,
+                PatientId = patient.PatientId,
                 DiseaseId = disease.Id,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
