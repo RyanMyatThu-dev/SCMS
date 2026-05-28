@@ -60,24 +60,17 @@ namespace SCMS.Web.Services
 
         public async Task LogoutAsync()
         {
-            var refreshToken = await _tokenStore.GetRefreshTokenAsync();
-            if (!string.IsNullOrWhiteSpace(refreshToken))
-            {
-                await PostAsync<RefreshTokenRequest, object>("api/auth/logout", new RefreshTokenRequest { RefreshToken = refreshToken });
-            }
-
+            // Logout endpoint is not implemented on the backend;
+            // just clear local tokens and let the server reject expired ones.
             await _tokenStore.ClearAsync();
             _authState.NotifyAuthenticationChanged();
         }
 
-        public Task<Result<CurrentUserResponse>> MeAsync()
-            => GetAsync<CurrentUserResponse>("api/auth/me");
-
         public Task<Result<DoctorDashboardResponse>> DoctorDashboardAsync()
-            => GetAsync<DoctorDashboardResponse>("api/dashboards/doctor");
+            => GetAsync<DoctorDashboardResponse>("api/dashboards/dashboard");
 
         public Task<Result<PatientDashboardResponse>> PatientDashboardAsync()
-            => GetAsync<PatientDashboardResponse>("api/dashboards/patient");
+            => GetAsync<PatientDashboardResponse>("api/dashboards/patient-dashboard");
 
         public Task<PagedResult<AppointmentDetailsResponse>> AppointmentsAsync(DateTime? start = null, DateTime? end = null, string? status = null, int? patientId = null, int pageSize = 50)
             => GetPagedAsync<AppointmentDetailsResponse>($"api/appointments?{Query(("startDate", start?.ToString("O")), ("endDate", end?.ToString("O")), ("status", status), ("patientId", patientId?.ToString()), ("pageSize", pageSize.ToString()))}");
@@ -120,7 +113,7 @@ namespace SCMS.Web.Services
             => GetAsync<BatchDetailResponse>($"api/medicines/batches/{id}");
 
         public Task<Result<BatchDetailResponse>> CreateBatchAsync(CreateBatchRequest request)
-            => PostAsync<CreateBatchRequest, BatchDetailResponse>("api/medicines/batches", request);
+            => PostAsync<CreateBatchRequest, BatchDetailResponse>("api/medicines", request);
 
         public Task<Result<BatchDetailResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request)
             => PutAsync<UpdateBatchRequest, BatchDetailResponse>($"api/medicines/batches/{id}", request);
@@ -142,6 +135,9 @@ namespace SCMS.Web.Services
 
         public Task<Result<PatientProfileResponse>> AddPatientProfileAsync(PatientProfileRequest request)
             => PostAsync<PatientProfileRequest, PatientProfileResponse>("api/patients", request);
+
+        public Task<Result<PatientProfileResponse>> PatientProfileAsync(int id)
+            => GetAsync<PatientProfileResponse>($"api/patients/patients/{id}");
 
         public Task<Result<PatientHistoryResponse>> PatientHistoryAsync(int patientId)
             => GetAsync<PatientHistoryResponse>($"api/patients/{patientId}/history");
@@ -181,6 +177,14 @@ namespace SCMS.Web.Services
 
         public Task<PagedResult<PrescriptionResponse>> PrescriptionsAsync(int? patientId = null)
             => GetPagedAsync<PrescriptionResponse>($"api/prescriptions?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");
+
+        // ── Notifications ──
+
+        public Task<PagedResult<NotificationResponse>> GetNotificationsAsync(bool includeAll = false, int pageSize = 50)
+            => GetPagedAsync<NotificationResponse>($"api/notifications?{Query(("includeAll", includeAll ? "true" : null), ("pageSize", pageSize.ToString()))}");
+
+        public Task<Result> MarkNotificationAsReadAsync(int id)
+            => PostPlainAsync($"api/notifications/{id}/read", new { });
 
         public string DownloadUrl(string relativePath)
             => $"{ApiBaseAddress}/{relativePath.TrimStart('/')}";
