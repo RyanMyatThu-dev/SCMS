@@ -19,6 +19,9 @@
 
 ## Diseases
 - `GET    /api/Diseases`
+- `POST   /api/Diseases`
+- `PUT    /api/Diseases`
+- `DELETE /api/Diseases/{id}`
 
 ## FollowUps
 - `GET    /api/FollowUps`
@@ -34,6 +37,9 @@
 ## Medicines
 - `GET    /api/Medicines`
 - `POST   /api/Medicines`
+- `PUT    /api/Medicines/{id}`
+- `DELETE /api/Medicines/{id}`
+- `GET    /api/Medicines/categories`
 - `POST   /api/Medicines/quarantine-expired`
 - `GET    /api/Medicines/alerts`
 - `GET    /api/Medicines/batches`
