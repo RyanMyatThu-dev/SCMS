@@ -27,7 +27,7 @@ services:
       - ./db.sql:/docker-entrypoint-initdb.d/db.sql
       - ./seed.realworld.sql:/docker-entrypoint-initdb.d/zz-seed.realworld.sql
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
 volumes:
   postgres_data:
