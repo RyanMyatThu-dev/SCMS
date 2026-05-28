@@ -1,53 +1,24 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-// Layouts Imports
-import AdminLayout from "./layouts/AdminLayout";
-import UserLayout from "./layouts/UserLayout";
+// ─── ၁။ FEATURE STRUCTURE အသစ်အရ COMPONENTS များ IMPORT လုပ်ခြင်း ───
+import AdminDashboard from "./features/admin/components/AdminDashboard";
+import UserDashboard from "./features/user/components/UserDashboard";
 
-// Features & Components Imports
+// Auth Features & Components
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
 import NotFound from "./pages/NotFound";
 
-// Public / Protected Pages Placeholders
-const AdminDashboard = () => (
-  <div className="p-6 font-bold">Admin Dashboard</div>
-);
-const AdminAppointments = () => (
-  <div className="p-6 font-bold">Appointments Management (Admin)</div>
-);
-const AdminDiseases = () => (
-  <div className="p-6 font-bold">Diseases Records (Admin)</div>
-);
-const AdminDocuments = () => (
-  <div className="p-6 font-bold">Documents Management (Admin)</div>
-);
-const AdminFollowUps = () => (
-  <div className="p-6 font-bold">Follow-ups Tracking</div>
-);
-const AdminLabReports = () => (
-  <div className="p-6 font-bold">Lab Reports Management</div>
-);
-const AdminMedicines = () => (
-  <div className="p-6 font-bold">Medicines Inventory</div>
-);
-const AdminNotifications = () => (
-  <div className="p-6 font-bold">System Notifications</div>
-);
-const AdminPatients = () => (
-  <div className="p-6 font-bold">Patients Directory</div>
-);
-const AdminPayments = () => (
-  <div className="p-6 font-bold">Payments & Billing</div>
-);
-const AdminPrescriptions = () => (
-  <div className="p-6 font-bold">Prescriptions Records</div>
-);
+// ကျန်ရှိသော Admin Features များ (အစ်ကို့ရဲ့ လက်ရှိ ဖိုင်လမ်းကြောင်းများအတိုင်း)
+import AdminAppointments from "./features/appointments/Appointment";
+import AdminDiseases from "./features/disease/Disease";
+import AdminDocuments from "./features/document/Documents";
+import AdminFollowUps from "./features/followUps/FollowUps";
+import AdminLabReports from "./features/labreports/LabReports";
+import AdminMedicines from "./features/medicines/Medicines";
 
-const UserDashboard = () => (
-  <div className="p-6 font-bold">Patient Portal Dashboard</div>
-);
+// ⚠️ User/Patient အတွက် နောက်ပိုင်းထည့်မည့် စာမျက်နှာများ (Placeholder များ ဖျက်ပြီး တိုက်ရိုက် Import လုပ်နိုင်သည်)
 const UserNewAppointment = () => (
   <div className="p-6 font-bold">Book an Appointment (Patient)</div>
 );
@@ -61,6 +32,7 @@ const UserMyPayments = () => (
   <div className="p-6 font-bold">My Bills & Payments</div>
 );
 
+// ─── ၂။ SPLASH SCREEN COMPONENT ───
 const SplashScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
     <div className="animate-bounce h-16 w-16 bg-indigo-600 text-white font-black text-2xl rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-4">
@@ -77,7 +49,7 @@ function App() {
   const [userRole, setUserRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // ─── ၂။ REFRESH လုပ်လျှင်လည်း LOGIN မထွက်သွားစေရန် စစ်ဆေးသည့်အပိုင်း ───
+  // ─── ၃။ REFRESH စစ်ဆေးသည့်အပိုင်း ───
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("userRole");
@@ -87,7 +59,6 @@ function App() {
       setUserRole(role.toLowerCase());
     }
 
-    // Logo ပြသရန်အတွက် (1.5 Seconds) စောင့်ခိုင်းပြီးမှ App ထဲ ပေးဝင်မည်
     const timer = setTimeout(() => {
       setIsInitializing(false);
     }, 1500);
@@ -95,7 +66,6 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // အInitializing လုပ်နေတုန်းဆိုရင် Splash Screen ပြထားမည်
   if (isInitializing) {
     return <SplashScreen />;
   }
@@ -104,7 +74,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* ====================================================
-            ၃။ ROOT ROUTE (/) ဟု ဝင်လာလျှင် ပထမဆုံး စစ်ဆေးမည့် နေရာ
+            ၄။ ROOT ROUTE (/) စစ်ဆေးသည့်နေရာ
            ==================================================== */}
         <Route
           path="/"
@@ -116,7 +86,6 @@ function App() {
                 <Navigate to="/dashboard" replace />
               )
             ) : (
-              // ⚠️ Splash Screen ပြပြီး အကောင့်မဝင်ရသေးပါက Register Page သို့ အရင်ပို့ပေးမည်
               <Navigate to="/register" replace />
             )
           }
@@ -127,9 +96,9 @@ function App() {
         <Route path="/register" element={<Register />} />
 
         {/* ====================================================
-            ၄။ ADMIN SIDE ROUTES
+            ၅။ ADMIN SIDE ROUTES (Layout မပါဘဲ တိုက်ရိုက်ပတ်ထားသည်)
            ==================================================== */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin">
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="appointments" element={<AdminAppointments />} />
@@ -138,17 +107,16 @@ function App() {
           <Route path="follow-ups" element={<AdminFollowUps />} />
           <Route path="lab-reports" element={<AdminLabReports />} />
           <Route path="medicines" element={<AdminMedicines />} />
-          <Route path="notifications" element={<AdminNotifications />} />
-          <Route path="patients" element={<AdminPatients />} />
-
-          <Route path="payments" element={<AdminPayments />} />
-          <Route path="prescriptions" element={<AdminPrescriptions />} />
+          <Route
+            path="notifications"
+            element={<div className="p-6 font-bold">Admin Notifications</div>}
+          />
         </Route>
 
         {/* ====================================================
-            ၅။ USER/PATIENT SIDE ROUTES
+            ၆။ USER/PATIENT SIDE ROUTES (Layout မပါဘဲ တိုက်ရိုက်ပတ်ထားသည်)
            ==================================================== */}
-        <Route path="/" element={<UserLayout />}>
+        <Route path="/">
           <Route path="dashboard" element={<UserDashboard />} />
           <Route path="book-appointment" element={<UserNewAppointment />} />
           <Route path="my-documents" element={<UserMyDocuments />} />

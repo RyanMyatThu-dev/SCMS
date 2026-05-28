@@ -63,7 +63,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}")]
+        [HttpGet("patients/{id}")]
         public async Task<IActionResult> GetPatientProfileById(int id)
         {
             var userId = User.GetUserId();
@@ -80,7 +80,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}/history")]
+        [HttpGet("{id}/history")]
         public async Task<IActionResult> GetPatientHistory(int id)
         {
             var userId = User.GetUserId();
@@ -97,7 +97,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}/summary")]
+        [HttpGet("{id}/summary")]
         public async Task<IActionResult> GetMedicalSummary(int id)
         {
             var userId = User.GetUserId();
@@ -114,7 +114,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}/summary/html")]
+        [HttpGet("{id}/summary/html")]
         public async Task<IActionResult> GetMedicalSummaryHtml(int id)
         {
             var userId = User.GetUserId();
@@ -127,7 +127,7 @@ namespace SCMS.Domain.Features.Patients
             return Content(html, "text/html");
         }
 
-        [HttpGet("{id:int}/summary/pdf")]
+        [HttpGet("{id}/summary/pdf")]
         public async Task<IActionResult> GetMedicalSummaryPdf(int id)
         {
             var userId = User.GetUserId();
@@ -141,7 +141,7 @@ namespace SCMS.Domain.Features.Patients
             return File(bytes, "application/pdf", $"medical-summary-{id}.pdf");
         }
 
-        [HttpGet("{id:int}/lab-reports")]
+        [HttpGet("{id}/lab-reports")]
         public async Task<IActionResult> GetPatientLabReports(int id, [FromQuery] PaginationRequest paginationRequest)
         {
             var userId = User.GetUserId();

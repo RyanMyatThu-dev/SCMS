@@ -22,7 +22,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpPost("gateway-callback")]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> ProcessGatewayCallback([FromBody] ProcessPaymentCallbackRequest request)
         {
             var result = await _paymentService.ProcessGatewayCallbackAsync(request);
@@ -44,8 +44,8 @@ namespace SCMS.Domain.Features.Payments
             return Ok(result);
         }
 
-        [HttpPost("{id:int}/approve")]
-        [Authorize(Roles = "admin,doctor")]
+        [HttpPost("{id}/approve")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> ApprovePayment(int id)
         {
             var result = await _paymentService.ApprovePaymentAsync(id);
@@ -57,7 +57,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpGet]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> GetPayments([FromQuery] string? status, [FromQuery] PaginationRequest paginationRequest)
         {
             paginationRequest ??= new PaginationRequest();
@@ -72,7 +72,7 @@ namespace SCMS.Domain.Features.Payments
             return Ok(result);
         }
 
-        [HttpGet("{id:int}/invoice/pdf")]
+        [HttpGet("{id}/invoice/pdf")]
         public async Task<IActionResult> GetInvoicePdf(int id)
         {
             var result = await _paymentService.GetPaymentByIdAsync(id);

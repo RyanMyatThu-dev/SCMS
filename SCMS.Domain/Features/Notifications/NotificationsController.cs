@@ -21,7 +21,7 @@ namespace SCMS.Domain.Features.Notifications
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] PaginationRequest paginationRequest, [FromQuery] bool includeAll = false)
         {
-            paginationRequest ??= new PaginationRequest();
+            //paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
@@ -41,7 +41,7 @@ namespace SCMS.Domain.Features.Notifications
             return Ok(result);
         }
 
-        [HttpPost("{id:int}/read")]
+        [HttpPost("{id}/read")]
         public async Task<IActionResult> MarkAsRead(int id)
         {
             var userId = User.GetUserId();
@@ -59,7 +59,7 @@ namespace SCMS.Domain.Features.Notifications
         }
 
         [HttpPost]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationApiRequest request)
         {
             var result = await _notificationService.CreateNotificationAsync(request.UserId, request.Title, request.Description, request.ActionRoute);

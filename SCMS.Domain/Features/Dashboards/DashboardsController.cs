@@ -18,8 +18,8 @@ namespace SCMS.Domain.Features.Dashboards
             _dashboardService = dashboardService;
         }
 
-        [HttpGet("doctor")]
-        [Authorize(Roles = "admin,doctor")]
+        [HttpGet("dashboard")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> GetDoctorDashboard()
         {
             var result = await _dashboardService.GetDoctorDashboardAsync();
@@ -30,7 +30,7 @@ namespace SCMS.Domain.Features.Dashboards
             return Ok(result);
         }
 
-        [HttpGet("patient")]
+        [HttpGet("patient-dashboard")]
         public async Task<IActionResult> GetPatientDashboard()
         {
             var userId = User.GetUserId();

@@ -299,7 +299,7 @@ ALTER TABLE Tbl_Follow_Up ADD CONSTRAINT fk_follow_up_prescription FOREIGN KEY (
 -- 4. Add DBML Notes as PostgreSQL Comments
 -- ------------------------------------------
 
-COMMENT ON COLUMN Tbl_User_Role.role IS 'admin / doctor / patient / user';
+COMMENT ON COLUMN Tbl_User_Role.role IS 'admin / user';
 COMMENT ON COLUMN Tbl_Patient.user_id IS 'User can create family member patient profile';
 COMMENT ON COLUMN Tbl_Appointment.status IS 'pending / confirmed / cancelled / completed';
 COMMENT ON COLUMN Tbl_Medicine_Batch.status IS 'active / expired / disposed';
@@ -311,7 +311,7 @@ COMMENT ON COLUMN Tbl_Prescription_Item_Schedule.interval_hours IS 'Every X hour
 COMMENT ON COLUMN Tbl_Prescription_Item_Schedule.interval_days IS 'Every X days';
 COMMENT ON COLUMN Tbl_Prescription_Item_Schedule.is_as_needed IS 'Take when needed';
 COMMENT ON COLUMN Tbl_Prescription_Item_Schedule.body_site IS 'left eye / right ear / skin area';
-COMMENT ON COLUMN Tbl_Payment.payment_method IS 'cash / card / kbzpay / wavepay';
+COMMENT ON COLUMN Tbl_Payment.payment_method IS 'cash / online';
 COMMENT ON COLUMN Tbl_Payment.payment_status IS 'pending / paid / partial / failed / refunded';
 COMMENT ON COLUMN Tbl_Lab_Report.status IS 'requested / completed';
 COMMENT ON COLUMN Tbl_Follow_Up.status IS 'pending / completed';
