@@ -2,29 +2,27 @@
 @inject ApiClient Api
 @inject NavigationManager Navigation
 
-<div class="page">
-    <aside class="sidebar">
+<Layout Style="min-height: 100vh;">
+    <Sider Collapsible>
+        <div class="logo" style="height: 32px; background: rgba(255, 255, 255, 0.2); margin: 16px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">SCMS</div>
         <NavMenu />
-    </aside>
-
-    <main>
-        <div class="top-row">
+    </Sider>
+    <Layout>
+        <Header Style="background: #fff; padding: 0 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
             <div>
                 <strong>Smart Clinic Management System</strong>
-                <span>Single clinic queue</span>
             </div>
             <AuthorizeView>
                 <Authorized>
-                    <button class="icon-text ghost" title="Sign out" @onclick="Logout">Sign out</button>
+                    <Button Type="@ButtonType.Text" OnClick="Logout" Danger>Sign out</Button>
                 </Authorized>
             </AuthorizeView>
-        </div>
-
-        <article class="content">
+        </Header>
+        <Content Style="margin: 24px 16px; padding: 24px; background: #fff; min-height: 280px; border-radius: 8px;">
             @Body
-        </article>
-    </main>
-</div>
+        </Content>
+    </Layout>
+</Layout>
 
 @code {
     private async Task Logout()

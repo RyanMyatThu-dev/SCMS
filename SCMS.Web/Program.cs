@@ -16,5 +16,6 @@ builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<RealtimeClient>();
 builder.Services.AddScoped<ScmsAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<ScmsAuthenticationStateProvider>());
+builder.Services.AddAntDesign();
 
 await builder.Build().RunAsync();

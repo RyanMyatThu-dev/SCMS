@@ -5,136 +5,184 @@
 
 <PageTitle>Consultation</PageTitle>
 
-<section class="workspace-header">
-    <div>
-        <h1>Consultation EMR</h1>
-        <p>Patient history, vitals, prescription safety, labs, and follow-up.</p>
-    </div>
-    <button class="secondary" @onclick="Load">Refresh</button>
-</section>
+<PageHeader Title="Consultation EMR" Subtitle="Patient history, vitals, prescription safety, labs, and follow-up.">
+    <PageHeaderExtra>
+        <Button OnClick="Load">Refresh</Button>
+    </PageHeaderExtra>
+</PageHeader>
 
-<section class="two-column wide-left">
-    <div>
-        <h2>Encounter</h2>
-        <label>Appointment</label>
-        <select class="field" @bind="selectedAppointmentId" @bind:after="SelectAppointment">
-            <option value="0">Select appointment</option>
-            @foreach (var appt in appointments)
-            {
-                <option value="@appt.Id">@appt.TokenNumber - @appt.PatientName - @appt.Datetime.ToString("MMM dd HH:mm")</option>
-            }
-        </select>
-
-        @if (history != null)
-        {
-            <div class="summary-band">
-                <strong>@history.PatientName</strong>
-                <span>@(summary?.Allergies ?? "No allergies recorded")</span>
-                <span>@(summary?.ChronicConditions ?? "No chronic conditions recorded")</span>
-            </div>
-        }
-
-        <EditForm Model="prescription" OnValidSubmit="CreatePrescription">
-            <div class="form-grid">
-                <label>Diagnosis</label>
-                <select class="field" @bind="prescription.DiseaseId">
-                    <option value="">General consultation</option>
-                    @foreach (var disease in diseases)
-                    {
-                        <option value="@disease.Id">@disease.Name</option>
-                    }
-                </select>
-                <label>Weight</label><InputNumber class="field" @bind-Value="prescription.WeightKg" />
-                <label>Height</label><InputNumber class="field" @bind-Value="prescription.HeightCm" />
-                <label>Temperature</label><InputNumber class="field" @bind-Value="prescription.TemperatureC" />
-                <label>Pulse</label><InputNumber class="field" @bind-Value="prescription.PulseBpm" />
-                <label>SpO2</label><InputNumber class="field" @bind-Value="prescription.Spo2Percent" />
-                <label>BP systolic</label><InputNumber class="field" @bind-Value="prescription.BloodPressureSystolic" />
-                <label>BP diastolic</label><InputNumber class="field" @bind-Value="prescription.BloodPressureDiastolic" />
-            </div>
-            <label>Notes</label><InputTextArea class="field" @bind-Value="prescription.Notes" />
-            <label>Lab tests</label><InputTextArea class="field" @bind-Value="prescription.LabTestRequests" />
-
-            <h3>Medicines</h3>
-            <div class="table-surface compact-table">
-                <table>
-                    <thead><tr><th>Medicine</th><th>Qty</th><th>Days</th><th>Dose</th><th>Timing</th><th></th></tr></thead>
-                    <tbody>
-                        @foreach (var item in prescription.Items)
-                        {
-                            <tr>
-                                <td>
-                                    <select class="field" @bind="item.MedicineId">
-                                        <option value="0">Select</option>
-                                        @foreach (var med in medicines)
-                                        {
-                                            <option value="@med.MedicineId">@med.Name (@med.TotalStock)</option>
-                                        }
-                                    </select>
-                                </td>
-                                <td><InputNumber class="field tiny" @bind-Value="item.Quantity" /></td>
-                                <td><InputNumber class="field tiny" @bind-Value="item.Days" /></td>
-                                <td><InputText class="field" @bind-Value="item.Dosage" /></td>
-                                <td><InputText class="field" @bind-Value="item.MealTiming" /></td>
-                                <td><button type="button" @onclick="() => RemoveItem(item)">x</button></td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            <button type="button" class="secondary" @onclick="AddItem">Add medicine</button>
-
-            <h3>Follow-up</h3>
-            <label>Due date</label><InputDate class="field" @bind-Value="followUpDate" />
-            <label>Recommendation</label><InputTextArea class="field" @bind-Value="followUpRecommendation" />
-
-            <div class="toolbar">
-                <button class="primary" type="submit">Submit prescription</button>
-                <button class="secondary" type="button" @onclick="SaveTemplate">Save template</button>
-            </div>
-        </EditForm>
-
-        @if (createdPrescription != null)
-        {
-            <article class="item-card success">
-                <strong>Prescription #@createdPrescription.Id created</strong>
-                <button type="button" @onclick="() => DownloadPrescription(createdPrescription.Id)">Prescription PDF</button>
-                @foreach (var warning in createdPrescription.Warnings)
+<AntDesign.Row Gutter="24">
+    <AntDesign.Col Span="16">
+        <Card>
+            <Steps Current="currentStep">
+                <Step Title="Vitals & History" />
+                <Step Title="Diagnosis & Notes" />
+                <Step Title="Prescription & Follow-up" />
+            </Steps>
+            <Divider />
+            
+            <div style="min-height: 300px;">
+                @if (currentStep == 0)
                 {
-                    <p>@warning</p>
+                    <div style="margin-bottom: 16px;">
+                        <span style="font-weight: bold;">Appointment</span>
+                        <Select TItem="AppointmentDetailsResponse" TItemValue="int" @bind-Value="selectedAppointmentId" 
+                                DataSource="appointments" ValueName="@nameof(AppointmentDetailsResponse.Id)" 
+                                OnSelectedItemChanged="SelectAppointmentHandler" Style="width: 100%; margin-top: 8px;" Placeholder="Select appointment">
+                            <ItemTemplate Context="appt">
+                                @appt.TokenNumber - @appt.PatientName - @appt.Datetime.ToString("MMM dd HH:mm")
+                            </ItemTemplate>
+                        </Select>
+                    </div>
+
+                    @if (history != null)
+                    {
+                        <Alert Type="@AlertType.Info" Message="@($"{history.PatientName} | Allergies: {(summary?.Allergies ?? "None")} | Chronic: {(summary?.ChronicConditions ?? "None")}")" Style="margin-bottom: 16px;" />
+                    }
+
+                    <AntDesign.Row Gutter="16">
+                        <AntDesign.Col Span="8">
+                            <span style="font-weight: bold;">Weight (kg)</span>
+                            <AntDesign.InputNumber @bind-Value="prescription.WeightKg" Style="width:100%" />
+                        </AntDesign.Col>
+                        <AntDesign.Col Span="8">
+                            <span style="font-weight: bold;">Height (cm)</span>
+                            <AntDesign.InputNumber @bind-Value="prescription.HeightCm" Style="width:100%" />
+                        </AntDesign.Col>
+                        <AntDesign.Col Span="8">
+                            <span style="font-weight: bold;">Temp (C)</span>
+                            <AntDesign.InputNumber @bind-Value="prescription.TemperatureC" Style="width:100%" />
+                        </AntDesign.Col>
+                    </AntDesign.Row>
+                    <AntDesign.Row Gutter="16" Style="margin-top: 16px;">
+                        <AntDesign.Col Span="8">
+                            <span style="font-weight: bold;">Pulse (bpm)</span>
+                            <AntDesign.InputNumber @bind-Value="prescription.PulseBpm" Style="width:100%" />
+                        </AntDesign.Col>
+                        <AntDesign.Col Span="8">
+                            <span style="font-weight: bold;">SpO2 (%)</span>
+                            <AntDesign.InputNumber @bind-Value="prescription.Spo2Percent" Style="width:100%" />
+                        </AntDesign.Col>
+                        <AntDesign.Col Span="8">
+                            <span style="font-weight: bold;">BP (Sys/Dia)</span>
+                            <div style="display:flex; gap: 8px;">
+                                <AntDesign.InputNumber @bind-Value="prescription.BloodPressureSystolic" Style="width:100%" />
+                                <span>/</span>
+                                <AntDesign.InputNumber @bind-Value="prescription.BloodPressureDiastolic" Style="width:100%" />
+                            </div>
+                        </AntDesign.Col>
+                    </AntDesign.Row>
+                    <div style="margin-top: 24px; text-align: right;">
+                        <Button Type="@ButtonType.Primary" OnClick="NextStep" Disabled="selectedAppointmentId == 0">Next</Button>
+                    </div>
                 }
-            </article>
-        }
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <p class="status">@message</p>
-        }
-    </div>
-    <div>
-        <h2>History</h2>
-        <div class="list-stack small">
-            @foreach (var item in history?.Timeline.Take(8) ?? new List<TimelineItemDto>())
-            {
-                <article class="item-card">
-                    <strong>@item.Type</strong>
-                    <span>@item.Date.ToString("MMM dd yyyy")</span>
-                    <p>@item.Title</p>
-                </article>
-            }
-        </div>
-        <h2>Templates</h2>
-        <div class="list-stack small">
-            @foreach (var template in templates)
-            {
-                <article class="item-card">
-                    <strong>@template.Name</strong>
-                    <span>@template.DiseaseName</span>
-                    <button @onclick="() => UseTemplate(template)">Use</button>
-                </article>
-            }
-        </div>
-    </div>
-</section>
+                else if (currentStep == 1)
+                {
+                    <div style="margin-bottom: 16px;">
+                        <span style="font-weight: bold;">Diagnosis</span>
+                        <Select TItem="DiseaseResponse" TItemValue="int?" @bind-Value="prescription.DiseaseId" 
+                                DataSource="diseases" ValueName="@nameof(DiseaseResponse.Id)" LabelName="@nameof(DiseaseResponse.Name)"
+                                Style="width: 100%; margin-top: 8px;" Placeholder="General consultation" />
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <span style="font-weight: bold;">Notes</span>
+                        <TextArea @bind-Value="prescription.Notes" Rows="4" Style="width: 100%; margin-top: 8px;" />
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <span style="font-weight: bold;">Lab tests</span>
+                        <TextArea @bind-Value="prescription.LabTestRequests" Rows="2" Style="width: 100%; margin-top: 8px;" />
+                    </div>
+                    <div style="margin-top: 24px; text-align: right;">
+                        <Space>
+                            <SpaceItem><Button OnClick="PrevStep">Previous</Button></SpaceItem>
+                            <SpaceItem><Button Type="@ButtonType.Primary" OnClick="NextStep">Next</Button></SpaceItem>
+                        </Space>
+                    </div>
+                }
+                else if (currentStep == 2)
+                {
+                    <div style="margin-bottom: 16px;">
+                        <span style="font-weight: bold;">Medicines</span>
+                        <Table TItem="PrescriptionItemDto" DataSource="prescription.Items" Size="TableSize.Small">
+                            <Column TData="int" Title="Medicine">
+                                <Select TItem="MedicineSearchResponse" TItemValue="int" @bind-Value="context.MedicineId" 
+                                        DataSource="medicines" ValueName="@nameof(MedicineSearchResponse.MedicineId)" LabelName="@nameof(MedicineSearchResponse.Name)" Style="width: 100%;" />
+                            </Column>
+                            <Column TData="int" Title="Qty"><AntDesign.InputNumber @bind-Value="context.Quantity" Style="width: 60px;" /></Column>
+                            <Column TData="int" Title="Days"><AntDesign.InputNumber @bind-Value="context.Days" Style="width: 60px;" /></Column>
+                            <Column TData="string" Title="Dose"><Input @bind-Value="context.Dosage" /></Column>
+                            <Column TData="string" Title="Timing"><Input @bind-Value="context.MealTiming" /></Column>
+                            <ActionColumn Title="Actions"><Button Danger Size="@ButtonSize.Small" OnClick="() => RemoveItem(context)">X</Button></ActionColumn>
+                        </Table>
+                        <Button Style="margin-top: 8px;" OnClick="AddItem">Add medicine</Button>
+                    </div>
+
+                    <Divider />
+                    
+                    <AntDesign.Row Gutter="16">
+                        <AntDesign.Col Span="8">
+                            <span style="font-weight: bold;">Follow-up Date</span>
+                            <DatePicker @bind-Value="followUpDate" Style="width: 100%; margin-top: 8px;" />
+                        </AntDesign.Col>
+                        <AntDesign.Col Span="16">
+                            <span style="font-weight: bold;">Recommendation</span>
+                            <Input @bind-Value="followUpRecommendation" Style="width: 100%; margin-top: 8px;" />
+                        </AntDesign.Col>
+                    </AntDesign.Row>
+
+                    <div style="margin-top: 24px; text-align: right;">
+                        <Space>
+                            <SpaceItem><Button OnClick="PrevStep">Previous</Button></SpaceItem>
+                            <SpaceItem><Button OnClick="SaveTemplate">Save Template</Button></SpaceItem>
+                            <SpaceItem><Button Type="@ButtonType.Primary" OnClick="CreatePrescription" Loading="isSubmitting">Submit Prescription</Button></SpaceItem>
+                        </Space>
+                    </div>
+                    
+                    @if (createdPrescription != null)
+                    {
+                        <Alert Type="@AlertType.Success" Message="@($"Prescription #{createdPrescription.Id} created")" ShowIcon="true" Style="margin-top: 16px;">
+                            <DescriptionTemplate>
+                                <Button Size="@ButtonSize.Small" OnClick="() => DownloadPrescription(createdPrescription.Id)">Prescription PDF</Button>
+                                @foreach (var warning in createdPrescription.Warnings)
+                                {
+                                    <div style="color: red; margin-top: 8px;">@warning</div>
+                                }
+                            </DescriptionTemplate>
+                        </Alert>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        <Alert Type="@AlertType.Info" Message="@message" ShowIcon="true" Style="margin-top: 16px;" />
+                    }
+                }
+            </div>
+        </Card>
+    </AntDesign.Col>
+    <AntDesign.Col Span="8">
+        <Card Title="History" Style="margin-bottom: 16px;">
+            <Timeline>
+                @foreach (var item in history?.Timeline.Take(8) ?? new List<TimelineItemDto>())
+                {
+                    <TimelineItem Color="@("blue")">
+                        <p><strong>@item.Type</strong> - @item.Date.ToString("MMM dd yyyy")</p>
+                        <p>@item.Title</p>
+                    </TimelineItem>
+                }
+            </Timeline>
+        </Card>
+        <Card Title="Templates">
+            <List TItem="PrescriptionTemplateResponse">
+                @foreach (var templateItem in templates)
+                {
+                    <ListItem>
+                        <ListItemMeta Title="@templateItem.Name" Description="@templateItem.DiseaseName" />
+                        <Button Size="@ButtonSize.Small" OnClick="() => UseTemplate(templateItem)">Use</Button>
+                    </ListItem>
+                }
+            </List>
+        </Card>
+    </AntDesign.Col>
+</AntDesign.Row>
 
 @code {
     [Parameter]
@@ -149,9 +197,11 @@
     private PatientHistoryResponse? history;
     private MedicalSummaryResponse? summary;
     private PrescriptionResponse? createdPrescription;
-    private DateTime followUpDate = DateTime.Today.AddDays(7);
+    private DateTime? followUpDate = DateTime.Today.AddDays(7);
     private string? followUpRecommendation;
     private string? message;
+    private int currentStep = 0;
+    private bool isSubmitting = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -174,6 +224,15 @@
         medicines.AddRange(medResult.Data);
         diseases.AddRange(diseaseResult.Data);
         templates.AddRange(templateResult.Data);
+    }
+    
+    private void NextStep() => currentStep++;
+    private void PrevStep() => currentStep--;
+
+    private async Task SelectAppointmentHandler(AppointmentDetailsResponse appt)
+    {
+        selectedAppointmentId = appt?.Id ?? 0;
+        await SelectAppointment();
     }
 
     private async Task SelectAppointment()
@@ -202,6 +261,7 @@
 
     private async Task CreatePrescription()
     {
+        isSubmitting = true;
         var result = await Api.CreatePrescriptionAsync(prescription);
         createdPrescription = result.Data;
         message = result.Message;
@@ -212,10 +272,11 @@
                 PatientId = prescription.PatientId,
                 AppointmentId = prescription.AppointmentId,
                 PrescriptionId = createdPrescription.Id,
-                DueAt = followUpDate,
+                DueAt = followUpDate ?? DateTime.Today.AddDays(7),
                 Recommendation = followUpRecommendation
             });
         }
+        isSubmitting = false;
     }
 
     private async Task SaveTemplate()
