@@ -16,6 +16,8 @@ using SCMS.Domain.Features.Patients;
 using SCMS.Domain.Features.Payments;
 using SCMS.Domain.Features.Prescriptions;
 using SCMS.Domain.Security;
+using Microsoft.AspNetCore.Builder;
+using CloudinaryDotNet;
 
 namespace SCMS.Domain
 {
@@ -23,6 +25,7 @@ namespace SCMS.Domain
     {
         public static IMvcBuilder AddScmsFeatureControllers(this IServiceCollection services)
         {
+
             return services
                 .AddControllers()
                 .AddApplicationPart(typeof(FeatureManager).Assembly);
@@ -30,6 +33,7 @@ namespace SCMS.Domain
 
         public static IServiceCollection AddScmsFeatureServices(this IServiceCollection services, IConfiguration configuration)
         {
+
             services.AddDbContext<ScmsDbContext>(options => ConfigureDatabaseProvider(options, configuration));
             services.AddSingleton<JwtTokenFactory>();
             services.AddSingleton<PasswordHashingService>();
@@ -45,8 +49,28 @@ namespace SCMS.Domain
             services.AddScoped<PaymentService>();
             services.AddScoped<PdfDocumentService>();
             services.AddScoped<PrescriptionService>();
+            services.AddScoped<SCMS.Domain.Features.Photo.PhotoService>();
             services.AddHostedService<InventoryMonitorService>();
 
+             // Cloudinary configuration
+            var cloudName = new[] { "Cloudinary:CloudName", "CLOUDINARY_CLOUD_NAME", "cloud_name" }
+                .Select(key => configuration[key])
+                .FirstOrDefault(val => !string.IsNullOrWhiteSpace(val))?.Trim();
+
+            var apiKey = new[] { "Cloudinary:ApiKey", "CLOUDINARY_API_KEY", "api_key" }
+                .Select(key => configuration[key])
+                .FirstOrDefault(val => !string.IsNullOrWhiteSpace(val))?.Trim();
+
+            var apiSecret = new[] { "Cloudinary:ApiSecret", "CLOUDINARY_API_SECRET", "api_secret" }
+                .Select(key => configuration[key])
+                .FirstOrDefault(val => !string.IsNullOrWhiteSpace(val))?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(cloudName) && !string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiSecret))
+            {
+                var account = new Account(cloudName, apiKey, apiSecret);
+                var cloudinary = new CloudinaryDotNet.Cloudinary(account);
+                services.AddSingleton(cloudinary);
+            }
             return services;
         }
 

@@ -106,6 +106,81 @@ namespace SCMS.Web.Services
         public Task<Result> QuarantineExpiredBatchesAsync()
             => PostPlainAsync("api/medicines/quarantine-expired", new { });
 
+        public Task<Result<List<MedicineCategoryResponse>>> GetMedicineCategoriesAsync()
+            => GetAsync<List<MedicineCategoryResponse>>("api/medicines/categories");
+
+        public async Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, byte[]? imageBytes, string? fileName)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                using var content = new MultipartFormDataContent();
+                
+                content.Add(new StringContent(request.Name), "Name");
+                if (request.Description != null)
+                {
+                    content.Add(new StringContent(request.Description), "Description");
+                }
+                if (request.CategoryId.HasValue)
+                {
+                    content.Add(new StringContent(request.CategoryId.Value.ToString()), "CategoryId");
+                }
+                content.Add(new StringContent(request.UnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)), "UnitPrice");
+
+                if (imageBytes != null && !string.IsNullOrWhiteSpace(fileName))
+                {
+                    var fileContent = new ByteArrayContent(imageBytes);
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                    content.Add(fileContent, "image", fileName);
+                }
+
+                var response = await _http.PostAsync("api/medicines", content);
+                return await ReadResultAsync<MedicineSearchResponse>(response);
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result<MedicineSearchResponse>.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        public async Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, byte[]? imageBytes, string? fileName)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                using var content = new MultipartFormDataContent();
+                
+                content.Add(new StringContent(request.Name), "Name");
+                if (request.Description != null)
+                {
+                    content.Add(new StringContent(request.Description), "Description");
+                }
+                if (request.CategoryId.HasValue)
+                {
+                    content.Add(new StringContent(request.CategoryId.Value.ToString()), "CategoryId");
+                }
+                content.Add(new StringContent(request.UnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)), "UnitPrice");
+                content.Add(new StringContent(request.RemoveImage.ToString().ToLower()), "RemoveImage");
+
+                if (imageBytes != null && !string.IsNullOrWhiteSpace(fileName))
+                {
+                    var fileContent = new ByteArrayContent(imageBytes);
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                    content.Add(fileContent, "image", fileName);
+                }
+
+                var response = await _http.PutAsync($"api/medicines/{id}", content);
+                return await ReadResultAsync<MedicineSearchResponse>(response);
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result<MedicineSearchResponse>.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        public Task<Result> DeleteMedicineAsync(int id)
+            => DeletePlainAsync($"api/medicines/{id}");
+
         // ── Medicine Batch CRUD ──
 
         public Task<PagedResult<BatchDetailResponse>> GetBatchesAsync(

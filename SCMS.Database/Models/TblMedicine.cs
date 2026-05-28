@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SCMS.Database.Models;
@@ -14,6 +14,7 @@ public partial class TblMedicine
     public string? Description { get; set; }
 
     public string? ImageUrl { get; set; }
+    public string? ImageId { get; set; }
 
     public decimal UnitPrice { get; set; }
 

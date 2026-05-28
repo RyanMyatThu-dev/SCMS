@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.Medicines;
 
@@ -121,6 +123,50 @@ namespace SCMS.Domain.Features.Medicines
         public async Task<IActionResult> DeleteBatch(int id, [FromQuery] bool force = false)
         {
             var result = await _medicineService.DeleteBatchAsync(id, force);
+            if (result.IsFailure)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        [HttpGet("categories")]
+        public async Task<IActionResult> GetCategories()
+        {
+            var result = await _medicineService.GetCategoriesAsync();
+            if (result.IsFailure)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateMedicine([FromForm] CreateMedicineRequest request, IFormFile? image)
+        {
+            var result = await _medicineService.CreateMedicineAsync(request, image);
+            if (result.IsFailure)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateMedicine(int id, [FromForm] UpdateMedicineRequest request, IFormFile? image)
+        {
+            var result = await _medicineService.UpdateMedicineAsync(id, request, image);
+            if (result.IsFailure)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteMedicine(int id)
+        {
+            var result = await _medicineService.DeleteMedicineAsync(id);
             if (result.IsFailure)
             {
                 return BadRequest(result);

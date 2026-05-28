@@ -3,20 +3,24 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 using SCMS.Database.Models;
 using SCMS.Shared.Contracts.Medicines;
 using SCMS.Shared;
+using SCMS.Domain.Features.Photo;
 
 namespace SCMS.Domain.Features.Medicines
 {
     public class MedicineService
     {
         private readonly ScmsDbContext _context;
+        private readonly PhotoService? _photoService;
         private const int LowStockThreshold = 20;
 
-        public MedicineService(ScmsDbContext context)
+        public MedicineService(ScmsDbContext context, PhotoService? photoService = null)
         {
             _context = context;
+            _photoService = photoService;
         }
 
         public async Task<PagedResult<MedicineSearchResponse>> SearchMedicinesAsync(string? query, PaginationRequest paginationRequest)
@@ -73,6 +77,7 @@ namespace SCMS.Domain.Features.Medicines
                     Name = m.Name,
                     Description = m.Description,
                     ImageUrl = m.ImageUrl,
+                    ImageId = m.ImageId,
                     UnitPrice = m.UnitPrice,
                     TotalStock = totalStock,
                     ActiveBatches = activeBatches,
@@ -495,6 +500,257 @@ namespace SCMS.Domain.Features.Medicines
                 Manufacturer = batch.SupplierName ?? string.Empty,
                 Status = batch.Status
             };
+        }
+
+        // ────────────────────────────────────────────────────────────────
+        // Medicine CRUD
+        // ────────────────────────────────────────────────────────────────
+
+        public async Task<Result<List<MedicineCategoryResponse>>> GetCategoriesAsync()
+        {
+            var categories = await _context.TblMedicineCategories
+                .Select(c => new MedicineCategoryResponse
+                {
+                    Id = c.Id,
+                    Name = c.Name
+                })
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            return Result<List<MedicineCategoryResponse>>.Success(categories);
+        }
+
+        public async Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, IFormFile? imageFile)
+        {
+            if (request.CategoryId.HasValue)
+            {
+                var categoryExists = await _context.TblMedicineCategories.AnyAsync(c => c.Id == request.CategoryId.Value);
+                if (!categoryExists)
+                {
+                    return Result<MedicineSearchResponse>.Failure("Category not found.");
+                }
+            }
+
+            var duplicateExists = await _context.TblMedicines
+                .AnyAsync(m => m.Name.ToLower() == request.Name.ToLower() && m.DeleteFlag != true);
+            if (duplicateExists)
+            {
+                return Result<MedicineSearchResponse>.Failure($"A medicine named '{request.Name}' already exists.");
+            }
+
+            string? imageUrl = null;
+            string? imageId = null;
+
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                if (_photoService == null)
+                {
+                    return Result<MedicineSearchResponse>.Failure("Photo service is not configured.");
+                }
+
+                var uploadResult = await _photoService.UploadPhotoAsync(imageFile);
+                if (!uploadResult.IsSuccess || uploadResult.Data == null)
+                {
+                    return Result<MedicineSearchResponse>.Failure(uploadResult.Message ?? "Failed to upload photo.");
+                }
+
+                imageUrl = uploadResult.Data.Url;
+                imageId = uploadResult.Data.PublicId;
+            }
+
+            var medicine = new TblMedicine
+            {
+                CategoryId = request.CategoryId,
+                Name = request.Name,
+                Description = request.Description,
+                ImageUrl = imageUrl,
+                ImageId = imageId,
+                UnitPrice = request.UnitPrice,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false
+            };
+
+            _context.TblMedicines.Add(medicine);
+            await _context.SaveChangesAsync();
+
+            if (medicine.CategoryId.HasValue)
+            {
+                await _context.Entry(medicine).Reference(m => m.Category).LoadAsync();
+            }
+
+            var response = new MedicineSearchResponse
+            {
+                MedicineId = medicine.MedicineId,
+                CategoryId = medicine.CategoryId,
+                CategoryName = medicine.Category?.Name,
+                Name = medicine.Name,
+                Description = medicine.Description,
+                ImageUrl = medicine.ImageUrl,
+                ImageId = medicine.ImageId,
+                UnitPrice = medicine.UnitPrice,
+                TotalStock = 0,
+                ActiveBatches = new(),
+                HasLowStockWarning = true,
+                HasNearExpiryWarning = false
+            };
+
+            return Result<MedicineSearchResponse>.Success(response, "Medicine created successfully.");
+        }
+
+        public async Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, IFormFile? imageFile)
+        {
+            var medicine = await _context.TblMedicines
+                .Include(m => m.Category)
+                .Include(m => m.TblMedicineBatches)
+                .FirstOrDefaultAsync(m => m.MedicineId == id && m.DeleteFlag != true);
+
+            if (medicine == null)
+            {
+                return Result<MedicineSearchResponse>.Failure("Medicine not found.");
+            }
+
+            if (request.CategoryId.HasValue)
+            {
+                var categoryExists = await _context.TblMedicineCategories.AnyAsync(c => c.Id == request.CategoryId.Value);
+                if (!categoryExists)
+                {
+                    return Result<MedicineSearchResponse>.Failure("Category not found.");
+                }
+            }
+
+            var duplicateExists = await _context.TblMedicines
+                .AnyAsync(m => m.Name.ToLower() == request.Name.ToLower() && m.MedicineId != id && m.DeleteFlag != true);
+            if (duplicateExists)
+            {
+                return Result<MedicineSearchResponse>.Failure($"A medicine named '{request.Name}' already exists.");
+            }
+
+            if (request.RemoveImage || (imageFile != null && imageFile.Length > 0))
+            {
+                if (!string.IsNullOrWhiteSpace(medicine.ImageId))
+                {
+                    if (_photoService == null)
+                    {
+                        return Result<MedicineSearchResponse>.Failure("Photo service is not configured.");
+                    }
+                    await _photoService.DeletePhotoAsync(medicine.ImageId);
+                }
+
+                medicine.ImageUrl = null;
+                medicine.ImageId = null;
+            }
+
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                if (_photoService == null)
+                {
+                    return Result<MedicineSearchResponse>.Failure("Photo service is not configured.");
+                }
+
+                var uploadResult = await _photoService.UploadPhotoAsync(imageFile);
+                if (!uploadResult.IsSuccess || uploadResult.Data == null)
+                {
+                    return Result<MedicineSearchResponse>.Failure(uploadResult.Message ?? "Failed to upload photo.");
+                }
+
+                medicine.ImageUrl = uploadResult.Data.Url;
+                medicine.ImageId = uploadResult.Data.PublicId;
+            }
+
+            medicine.CategoryId = request.CategoryId;
+            medicine.Name = request.Name;
+            medicine.Description = request.Description;
+            medicine.UnitPrice = request.UnitPrice;
+            medicine.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            if (medicine.CategoryId.HasValue)
+            {
+                await _context.Entry(medicine).Reference(m => m.Category).LoadAsync();
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var activeBatches = medicine.TblMedicineBatches
+                .Where(b => b.DeleteFlag != true && b.Status == "active" && b.ExpiryDate > today && b.Quantity > 0)
+                .OrderBy(b => b.ExpiryDate)
+                .Select(b => new BatchInfoResponse
+                {
+                    Id = b.Id,
+                    BatchNo = b.BatchNo,
+                    Quantity = b.Quantity,
+                    ExpiryDate = b.ExpiryDate,
+                    ReceivedDate = b.ReceivedDate,
+                    SupplierName = b.SupplierName,
+                    Status = b.Status
+                })
+                .ToList();
+
+            var totalStock = activeBatches.Sum(b => b.Quantity);
+            var nearExpiry = activeBatches.Any(b => b.ExpiryDate <= today.AddDays(30));
+            var lowStock = totalStock < LowStockThreshold;
+
+            var response = new MedicineSearchResponse
+            {
+                MedicineId = medicine.MedicineId,
+                CategoryId = medicine.CategoryId,
+                CategoryName = medicine.Category?.Name,
+                Name = medicine.Name,
+                Description = medicine.Description,
+                ImageUrl = medicine.ImageUrl,
+                ImageId = medicine.ImageId,
+                UnitPrice = medicine.UnitPrice,
+                TotalStock = totalStock,
+                ActiveBatches = activeBatches,
+                HasLowStockWarning = lowStock,
+                HasNearExpiryWarning = nearExpiry
+            };
+
+            return Result<MedicineSearchResponse>.Success(response, "Medicine updated successfully.");
+        }
+
+        public async Task<Result> DeleteMedicineAsync(int id)
+        {
+            var medicine = await _context.TblMedicines
+                .Include(m => m.TblMedicineBatches)
+                .FirstOrDefaultAsync(m => m.MedicineId == id && m.DeleteFlag != true);
+
+            if (medicine == null)
+            {
+                return Result.Failure("Medicine not found.");
+            }
+
+            var activeAllocationExists = await _context.TblPrescriptionItems
+                .Where(pi => pi.MedicineBatch.MedId == id && pi.DeleteFlag != true)
+                .AnyAsync(pi => pi.Prescription.Appointment.Status != "completed"
+                             && pi.Prescription.Appointment.Status != "cancelled");
+
+            if (activeAllocationExists)
+            {
+                return Result.Failure("Cannot delete this medicine. It is allocated to active prescription(s). Complete or cancel the related appointment(s) first.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(medicine.ImageId))
+            {
+                if (_photoService != null)
+                {
+                    await _photoService.DeletePhotoAsync(medicine.ImageId);
+                }
+            }
+
+            medicine.DeleteFlag = true;
+            medicine.UpdatedAt = DateTime.UtcNow;
+
+            foreach (var batch in medicine.TblMedicineBatches)
+            {
+                batch.DeleteFlag = true;
+                batch.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Result.Success("Medicine and its batches deleted successfully.");
         }
     }
 }

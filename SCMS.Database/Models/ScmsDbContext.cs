@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
@@ -233,6 +233,9 @@ public partial class ScmsDbContext : DbContext
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(500)
                 .HasColumnName("image_url");
+            entity.Property(e => e.ImageId)
+                .HasMaxLength(255)
+                .HasColumnName("image_id");
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .HasColumnName("name");

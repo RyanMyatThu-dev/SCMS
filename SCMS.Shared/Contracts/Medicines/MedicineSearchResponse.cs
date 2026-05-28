@@ -10,6 +10,7 @@ namespace SCMS.Shared.Contracts.Medicines
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
+        public string? ImageId { get; set; }
         public decimal UnitPrice { get; set; }
         public int TotalStock { get; set; }
         public List<BatchInfoResponse> ActiveBatches { get; set; } = new();

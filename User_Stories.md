@@ -204,3 +204,17 @@
 - "Call Next Patient" button for the doctor to manually call the next token.
 - Audio notification (chime/beep) when the token changes.
 - Smooth transition animation when the queue updates.
+
+
+## 16. Disease Management User Story
+
+> As a doctor, I want to manage disease records so that I can accurately record patient diagnoses and maintain medical reference data.
+
+**Acceptance Criteria**
+
+- Doctor can view a list of all diseases with search and filtering capabilities
+- Doctor can add new diseases with name and description
+- Doctor can update existing disease information
+- Doctor can deactivate diseases (soft delete) rather than permanently removing them
+- System prevents deletion of diseases that are referenced in active prescriptions
+- Disease list is available when prescribing medications or recording diagnoses
