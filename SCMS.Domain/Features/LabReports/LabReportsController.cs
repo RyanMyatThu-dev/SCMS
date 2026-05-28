@@ -21,16 +21,17 @@ namespace SCMS.Domain.Features.LabReports
             _pdfDocumentService = pdfDocumentService;
         }
 
-        [Authorize(Roles = "admin,doctor")]
         [HttpPost]
+        [Authorize(Roles = "admin")]
+
         public async Task<IActionResult> Create([FromBody] LabReportRequest request)
         {
             var result = await _labReportService.CreateLabReportAsync(request);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        [Authorize(Roles = "admin,doctor")]
-        [HttpPost("{id:int}/result")]
+        [HttpPost("{id}/result")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> AddResult(int id, [FromBody] LabReportResultRequest request)
         {
             var result = await _labReportService.AddResultAsync(id, request);
@@ -48,7 +49,7 @@ namespace SCMS.Domain.Features.LabReports
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        [HttpGet("{id:int}/pdf")]
+        [HttpGet("{id}/pdf")]
         public async Task<IActionResult> GetPdf(int id)
         {
             var userId = User.GetUserId();

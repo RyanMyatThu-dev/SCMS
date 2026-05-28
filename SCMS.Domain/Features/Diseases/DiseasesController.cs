@@ -21,7 +21,7 @@ namespace SCMS.Domain.Features.Diseases
         {
             paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 50;
+            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
             var result = await _diseaseService.GetDiseasesAsync(query, paginationRequest);
             return result.IsSuccess ? Ok(result) : BadRequest(result);

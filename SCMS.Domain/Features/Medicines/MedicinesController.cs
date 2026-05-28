@@ -7,7 +7,7 @@ using SCMS.Shared.Contracts.Medicines;
 namespace SCMS.Domain.Features.Medicines
 {
     [ApiController]
-    [Authorize(Roles = "admin,doctor")]
+    [Authorize(Roles = "admin")]
     [Route("api/[controller]")]
     public class MedicinesController : ControllerBase
     {
@@ -21,7 +21,7 @@ namespace SCMS.Domain.Features.Medicines
         [HttpGet]
         public async Task<IActionResult> SearchMedicines([FromQuery] string? query, [FromQuery] PaginationRequest paginationRequest)
         {
-            paginationRequest ??= new PaginationRequest();
+            //paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
@@ -95,7 +95,7 @@ namespace SCMS.Domain.Features.Medicines
             return Ok(result);
         }
 
-        [HttpPost("batches")]
+        [HttpPost]
         public async Task<IActionResult> CreateBatch([FromBody] CreateBatchRequest request)
         {
             var result = await _medicineService.CreateBatchAsync(request);
