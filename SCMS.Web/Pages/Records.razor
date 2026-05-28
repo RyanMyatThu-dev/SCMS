@@ -28,12 +28,26 @@
     </section>
     <div class="toolbar">
         <button class="secondary" type="button" @onclick="() => DownloadSummary(summary.PatientId)">Summary PDF</button>
+        <button class="secondary" type="button" @onclick="() => PreviewSummary(summary.PatientId)">Preview HTML</button>
     </div>
 }
 
 @if (!string.IsNullOrWhiteSpace(downloadMessage))
 {
     <p class="status">@downloadMessage</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(summaryHtml))
+{
+    <section class="item-card" style="margin-bottom: 22px;">
+        <div class="split" style="align-items: center;">
+            <h2 style="margin: 0;">Summary preview</h2>
+            <button class="secondary" type="button" @onclick="ClosePreview">Close</button>
+        </div>
+        <div style="margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; overflow: auto;">
+            @((MarkupString)summaryHtml)
+        </div>
+    </section>
 }
 
 <section class="two-column">
@@ -81,6 +95,7 @@
     private PatientHistoryResponse? history;
     private MedicalSummaryResponse? summary;
     private string? downloadMessage;
+    private string? summaryHtml;
 
     [SupplyParameterFromQuery]
     public int? PatientId { get; set; }
@@ -103,11 +118,12 @@
         history = (await Api.PatientHistoryAsync(selectedPatientId)).Data;
         summary = (await Api.MedicalSummaryAsync(selectedPatientId)).Data;
         var rx = await Api.PrescriptionsAsync(selectedPatientId);
-        var labs = await Api.LabReportsAsync(selectedPatientId);
+        var labs = await Api.PatientLabReportsAsync(selectedPatientId);
         prescriptions.Clear();
         labReports.Clear();
         prescriptions.AddRange(rx.Data);
         labReports.AddRange(labs.Data);
+        summaryHtml = null;
     }
 
     private async Task DownloadAsync(string relativePath, string fileName)
@@ -118,6 +134,18 @@
 
     private Task DownloadSummary(int patientId)
         => DownloadAsync($"api/patients/{patientId}/summary/pdf", $"medical-summary-{patientId}.pdf");
+
+    private async Task PreviewSummary(int patientId)
+    {
+        var result = await Api.MedicalSummaryHtmlAsync(patientId);
+        summaryHtml = result.IsSuccess ? result.Data : null;
+        downloadMessage = result.IsSuccess ? null : result.Message;
+    }
+
+    private void ClosePreview()
+    {
+        summaryHtml = null;
+    }
 
     private Task DownloadPrescription(int prescriptionId)
         => DownloadAsync($"api/prescriptions/{prescriptionId}/pdf", $"prescription-{prescriptionId}.pdf");

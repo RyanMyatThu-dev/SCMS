@@ -19,8 +19,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("ScmsWeb", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5270")
-            .WithOrigins("https://localhost:7111")
+            .WithOrigins("http://localhost:5270", "https://localhost:7111")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials(); 

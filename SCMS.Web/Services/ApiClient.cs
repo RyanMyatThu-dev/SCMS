@@ -58,6 +58,28 @@ namespace SCMS.Web.Services
             return result;
         }
 
+        public async Task<Result<AuthResponse>> RefreshAsync()
+        {
+            var refreshToken = await _tokenStore.GetRefreshTokenAsync();
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return Result<AuthResponse>.Failure("No refresh token is available.");
+            }
+
+            var result = await PostAsync<RefreshTokenRequest, AuthResponse>(
+                "api/auth/refresh",
+                new RefreshTokenRequest { RefreshToken = refreshToken },
+                authorize: false);
+
+            if (result.IsSuccess && result.Data != null)
+            {
+                await _tokenStore.SaveAsync(result.Data);
+                _authState.NotifyAuthenticationChanged();
+            }
+
+            return result;
+        }
+
         public async Task LogoutAsync()
         {
             // Logout endpoint is not implemented on the backend;
@@ -102,7 +124,7 @@ namespace SCMS.Web.Services
         public Task<Result<List<MedicineCategoryResponse>>> GetMedicineCategoriesAsync()
             => GetAsync<List<MedicineCategoryResponse>>("api/medicines/categories");
 
-        public async Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, byte[]? imageBytes, string? fileName)
+        public async Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, byte[]? imageBytes, string? fileName, string? contentType = null)
         {
             try
             {
@@ -123,7 +145,7 @@ namespace SCMS.Web.Services
                 if (imageBytes != null && !string.IsNullOrWhiteSpace(fileName))
                 {
                     var fileContent = new ByteArrayContent(imageBytes);
-                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType ?? "application/octet-stream");
                     content.Add(fileContent, "image", fileName);
                 }
 
@@ -136,7 +158,7 @@ namespace SCMS.Web.Services
             }
         }
 
-        public async Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, byte[]? imageBytes, string? fileName)
+        public async Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, byte[]? imageBytes, string? fileName, string? contentType = null)
         {
             try
             {
@@ -158,7 +180,7 @@ namespace SCMS.Web.Services
                 if (imageBytes != null && !string.IsNullOrWhiteSpace(fileName))
                 {
                     var fileContent = new ByteArrayContent(imageBytes);
-                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType ?? "application/octet-stream");
                     content.Add(fileContent, "image", fileName);
                 }
 
@@ -205,6 +227,9 @@ namespace SCMS.Web.Services
         public Task<Result<PaymentDetailsResponse>> SubmitManualPaymentProofAsync(ManualPaymentProofRequest request)
             => PostAsync<ManualPaymentProofRequest, PaymentDetailsResponse>("api/payments/manual-proof", request);
 
+        public Task<Result<PaymentDetailsResponse>> ProcessPaymentCallbackAsync(ProcessPaymentCallbackRequest request)
+            => PostAsync<ProcessPaymentCallbackRequest, PaymentDetailsResponse>("api/payments/gateway-callback", request);
+
         public Task<PagedResult<PatientProfileResponse>> PatientProfilesAsync(int pageSize = 50)
             => GetPagedAsync<PatientProfileResponse>($"api/patients?pageSize={pageSize}");
 
@@ -219,6 +244,12 @@ namespace SCMS.Web.Services
 
         public Task<Result<MedicalSummaryResponse>> MedicalSummaryAsync(int patientId)
             => GetAsync<MedicalSummaryResponse>($"api/patients/{patientId}/summary");
+
+        public Task<Result<string>> MedicalSummaryHtmlAsync(int patientId)
+            => GetStringAsync($"api/patients/{patientId}/summary/html");
+
+        public Task<PagedResult<LabReportResponse>> PatientLabReportsAsync(int patientId, int pageSize = 100)
+            => GetPagedAsync<LabReportResponse>($"api/patients/{patientId}/lab-reports?pageSize={pageSize}");
 
         public Task<PagedResult<LabReportResponse>> LabReportsAsync(int? patientId = null)
             => GetPagedAsync<LabReportResponse>($"api/labreports?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");
@@ -262,10 +293,16 @@ namespace SCMS.Web.Services
         public Task<PagedResult<PrescriptionResponse>> PrescriptionsAsync(int? patientId = null)
             => GetPagedAsync<PrescriptionResponse>($"api/prescriptions?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");
 
+        public Task<Result<PrescriptionResponse>> PrescriptionAsync(int id)
+            => GetAsync<PrescriptionResponse>($"api/prescriptions/prescriptions/{id}");
+
         // ── Notifications ──
 
         public Task<PagedResult<NotificationResponse>> GetNotificationsAsync(bool includeAll = false, int pageSize = 50)
             => GetPagedAsync<NotificationResponse>($"api/notifications?{Query(("includeAll", includeAll ? "true" : null), ("pageSize", pageSize.ToString()))}");
+
+        public Task<Result<NotificationResponse>> CreateNotificationAsync(CreateNotificationRequest request)
+            => PostAsync<CreateNotificationRequest, NotificationResponse>("api/notifications", request);
 
         public Task<Result> MarkNotificationAsReadAsync(int id)
             => PostPlainAsync($"api/notifications/{id}/read", new { });
@@ -327,6 +364,23 @@ namespace SCMS.Web.Services
             catch (HttpRequestException ex)
             {
                 return PagedResult<TData>.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        private async Task<Result<string>> GetStringAsync(string url)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                var response = await _http.GetAsync(url);
+                var body = await response.Content.ReadAsStringAsync();
+                return response.IsSuccessStatusCode
+                    ? Result<string>.Success(body)
+                    : Result<string>.Failure(CreateApiFailureMessage(response, body));
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result<string>.Failure(CreateFetchFailureMessage(ex));
             }
         }
 

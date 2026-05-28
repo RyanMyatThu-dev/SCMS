@@ -18,6 +18,7 @@ using SCMS.Domain.Features.Prescriptions;
 using SCMS.Domain.Security;
 using Microsoft.AspNetCore.Builder;
 using CloudinaryDotNet;
+using SCMS.Domain.Features.Photo;
 
 namespace SCMS.Domain
 {
@@ -49,7 +50,7 @@ namespace SCMS.Domain
             services.AddScoped<PaymentService>();
             services.AddScoped<PdfDocumentService>();
             services.AddScoped<PrescriptionService>();
-            services.AddScoped<SCMS.Domain.Features.Photo.PhotoService>();
+            services.AddScoped<PhotoService>();
             services.AddHostedService<InventoryMonitorService>();
 
              // Cloudinary configuration
@@ -84,9 +85,67 @@ namespace SCMS.Domain
             using var scope = services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<ScmsDbContext>();
             await context.Database.EnsureCreatedAsync();
+            await EnsureSqliteSchemaCompatibilityAsync(context, logger);
             await SqliteRealWorldSeeder.SeedAsync(context, configuration);
             await SeedSqliteDemoUsersAsync(context, configuration);
             logger.LogInformation("SQLite database is ready.");
+        }
+
+        private static async Task EnsureSqliteSchemaCompatibilityAsync(ScmsDbContext context, ILogger logger)
+        {
+            await EnsureSqliteColumnAsync(context, logger, "tbl_medicine", "image_url", "TEXT");
+            await EnsureSqliteColumnAsync(context, logger, "tbl_medicine", "image_id", "TEXT");
+        }
+
+        private static async Task EnsureSqliteColumnAsync(
+            ScmsDbContext context,
+            ILogger logger,
+            string tableName,
+            string columnName,
+            string columnDefinition)
+        {
+            var connection = context.Database.GetDbConnection();
+            var shouldClose = connection.State != System.Data.ConnectionState.Open;
+            if (shouldClose)
+            {
+                await connection.OpenAsync();
+            }
+
+            try
+            {
+                await using var readCommand = connection.CreateCommand();
+                readCommand.CommandText = $"PRAGMA table_info({tableName});";
+                var exists = false;
+
+                await using (var reader = await readCommand.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            exists = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (exists)
+                {
+                    return;
+                }
+
+                await using var alterCommand = connection.CreateCommand();
+                alterCommand.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
+                await alterCommand.ExecuteNonQueryAsync();
+                logger.LogInformation("Added SQLite compatibility column {Table}.{Column}.", tableName, columnName);
+            }
+            finally
+            {
+                if (shouldClose)
+                {
+                    await connection.CloseAsync();
+                }
+            }
         }
 
         private static async Task SeedSqliteDemoUsersAsync(ScmsDbContext context, IConfiguration configuration)
