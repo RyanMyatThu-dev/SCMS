@@ -54,16 +54,20 @@ public static class TestData
         return patient;
     }
 
+    private static int _appointmentSeq = 0;
+
     public static TblAppointment AddAppointment(
         TestDatabase db,
         TblPatient patient,
         DateTime? datetime = null,
         string status = "pending",
-        string? notes = "Consultation")
+        string? notes = "Consultation",
+        string? appointmentCode = null)
     {
+        var code = appointmentCode ?? $"APT-{Interlocked.Increment(ref _appointmentSeq):D3}";
         var appointment = new TblAppointment
         {
-            AppointmentCode = $"APT-{Guid.NewGuid():N}"[..22].ToUpperInvariant(),
+            AppointmentCode = code,
             PatientId = patient.PatientId,
             Datetime = datetime ?? DateTime.UtcNow.AddHours(2),
             Status = status,

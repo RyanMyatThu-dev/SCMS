@@ -31,10 +31,10 @@ namespace SCMS.Domain.Features.Appointments
             {
                 return Result<BookAppointmentResponse>.Failure("Patient id is required.");
             }
-            if (request.Datetime == default)
-            {
-                return Result<BookAppointmentResponse>.Failure("Appointment date and time is required.");
-            }
+            //if (request.Datetime == default)
+            //{
+            //    return Result<BookAppointmentResponse>.Failure("Appointment date and time is required.");
+            //}
             if (request.Datetime <= DateTime.UtcNow)
             {
                 return Result<BookAppointmentResponse>.Failure("Appointment date and time must be in the future.");
@@ -49,9 +49,26 @@ namespace SCMS.Domain.Features.Appointments
                 return Result<BookAppointmentResponse>.Failure("Patient not found.");
             }
 
-            // Generate a unique appointment code
-            var dateStr = request.Datetime.ToString("yyyyMMdd");
-            var code = $"APT-{dateStr}-{Guid.NewGuid():N}"[..22].ToUpperInvariant();
+            // Generate a daily-sequential appointment code (APT-001, resets each day)
+            var appointmentDate = request.Datetime.Date;
+            var nextDay = appointmentDate.AddDays(1);
+
+            var todayCodes = await _context.TblAppointments
+                .Where(a => a.Datetime >= appointmentDate && a.Datetime < nextDay)
+                .Select(a => a.AppointmentCode)
+                .ToListAsync();
+
+            var maxSeq = todayCodes
+                .Where(c => c != null && c.StartsWith("APT-"))
+                .Select(c =>
+                {
+                    var numPart = c.Substring(4); // after "APT-"
+                    return int.TryParse(numPart, out var n) ? n : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            var code = $"APT-{(maxSeq + 1):D3}";
 
             // Save the appointment
             var appointment = new TblAppointment
