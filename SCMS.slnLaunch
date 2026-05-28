@@ -1,0 +1,17 @@
+[
+  {
+    "Name": "API + UI ",
+    "Projects": [
+      {
+        "Path": "SCMS.Api\\SCMS.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      },
+      {
+        "Path": "SCMS.Web\\SCMS.Web.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  }
+]
