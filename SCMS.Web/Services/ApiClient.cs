@@ -106,6 +106,28 @@ namespace SCMS.Web.Services
         public Task<Result> QuarantineExpiredBatchesAsync()
             => PostPlainAsync("api/medicines/quarantine-expired", new { });
 
+        // ── Medicine Batch CRUD ──
+
+        public Task<PagedResult<BatchDetailResponse>> GetBatchesAsync(
+            string? query = null, string? status = null, int? medicineId = null,
+            string? sortBy = null, bool sortDescending = false, int pageNumber = 1, int pageSize = 20)
+            => GetPagedAsync<BatchDetailResponse>($"api/medicines/batches?{Query(
+                ("query", query), ("status", status), ("medicineId", medicineId?.ToString()),
+                ("sortBy", sortBy), ("sortDescending", sortDescending ? "true" : null),
+                ("pageNumber", pageNumber.ToString()), ("pageSize", pageSize.ToString()))}");
+
+        public Task<Result<BatchDetailResponse>> GetBatchByIdAsync(int id)
+            => GetAsync<BatchDetailResponse>($"api/medicines/batches/{id}");
+
+        public Task<Result<BatchDetailResponse>> CreateBatchAsync(CreateBatchRequest request)
+            => PostAsync<CreateBatchRequest, BatchDetailResponse>("api/medicines/batches", request);
+
+        public Task<Result<BatchDetailResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request)
+            => PutAsync<UpdateBatchRequest, BatchDetailResponse>($"api/medicines/batches/{id}", request);
+
+        public Task<Result> DeleteBatchAsync(int id, bool force = false)
+            => DeletePlainAsync($"api/medicines/batches/{id}?force={force}");
+
         public Task<PagedResult<PaymentDetailsResponse>> PaymentsAsync(string? status = null)
             => GetPagedAsync<PaymentDetailsResponse>($"api/payments?{Query(("status", status), ("pageSize", "100"))}");
 
@@ -261,6 +283,33 @@ namespace SCMS.Web.Services
             catch (HttpRequestException ex)
             {
                 return Result<TData>.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        private async Task<Result<TData>> PutAsync<TRequest, TData>(string url, TRequest request)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                return await ReadResultAsync<TData>(await _http.PutAsJsonAsync(url, request));
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result<TData>.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        private async Task<Result> DeletePlainAsync(string url)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                var response = await _http.DeleteAsync(url);
+                return await ReadPlainResultAsync(response);
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result.Failure(CreateFetchFailureMessage(ex));
             }
         }
 
