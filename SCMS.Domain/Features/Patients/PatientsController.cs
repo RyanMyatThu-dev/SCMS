@@ -2,7 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Domain.Features.Documents;
-using SCMS.Domain.Features.LabReports;
+
 using SCMS.Domain.Security;
 using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared;
@@ -15,13 +15,11 @@ namespace SCMS.Domain.Features.Patients
     public class PatientsController : ControllerBase
     {
         private readonly PatientService _patientService;
-        private readonly LabReportService _labReportService;
         private readonly PdfDocumentService _pdfDocumentService;
 
-        public PatientsController(PatientService patientService, LabReportService labReportService, PdfDocumentService pdfDocumentService)
+        public PatientsController(PatientService patientService, PdfDocumentService pdfDocumentService)
         {
             _patientService = patientService;
-            _labReportService = labReportService;
             _pdfDocumentService = pdfDocumentService;
         }
 
@@ -63,7 +61,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}")]
+        [HttpGet("patients/{id}")]
         public async Task<IActionResult> GetPatientProfileById(int id)
         {
             var userId = User.GetUserId();
@@ -80,7 +78,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}/history")]
+        [HttpGet("{id}/history")]
         public async Task<IActionResult> GetPatientHistory(int id)
         {
             var userId = User.GetUserId();
@@ -97,7 +95,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}/summary")]
+        [HttpGet("{id}/summary")]
         public async Task<IActionResult> GetMedicalSummary(int id)
         {
             var userId = User.GetUserId();
@@ -114,7 +112,7 @@ namespace SCMS.Domain.Features.Patients
             return Ok(result);
         }
 
-        [HttpGet("{id:int}/summary/html")]
+        [HttpGet("{id}/summary/html")]
         public async Task<IActionResult> GetMedicalSummaryHtml(int id)
         {
             var userId = User.GetUserId();
@@ -127,7 +125,7 @@ namespace SCMS.Domain.Features.Patients
             return Content(html, "text/html");
         }
 
-        [HttpGet("{id:int}/summary/pdf")]
+        [HttpGet("{id}/summary/pdf")]
         public async Task<IActionResult> GetMedicalSummaryPdf(int id)
         {
             var userId = User.GetUserId();
@@ -141,18 +139,6 @@ namespace SCMS.Domain.Features.Patients
             return File(bytes, "application/pdf", $"medical-summary-{id}.pdf");
         }
 
-        [HttpGet("{id:int}/lab-reports")]
-        public async Task<IActionResult> GetPatientLabReports(int id, [FromQuery] PaginationRequest paginationRequest)
-        {
-            var userId = User.GetUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(Result.Failure("User id is required."));
-            }
 
-            paginationRequest ??= new PaginationRequest();
-            var result = await _labReportService.GetLabReportsAsync(id, userId.Value, User.IsStaff(), paginationRequest);
-            return result.IsSuccess ? Ok(result) : BadRequest(result);
-        }
     }
 }

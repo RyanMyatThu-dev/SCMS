@@ -80,7 +80,7 @@
                 {
                     <div style="margin-bottom: 16px;">
                         <span style="font-weight: bold;">Diagnosis</span>
-                        <Select TItem="DiseaseResponse" TItemValue="int?" @bind-Value="prescription.DiseaseId" 
+                        <Select TItem="DiseaseResponse" TItemValue="int?" @bind-Value="prescription.DiseaseId"
                                 DataSource="diseases" ValueName="@nameof(DiseaseResponse.Id)" LabelName="@nameof(DiseaseResponse.Name)"
                                 Style="width: 100%; margin-top: 8px;" Placeholder="General consultation" />
                     </div>

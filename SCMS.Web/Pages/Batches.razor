@@ -1,0 +1,667 @@
+@page "/inventory/batches"
+@attribute [Authorize(Roles = "admin,doctor")]
+@inject ApiClient Api
+
+<PageTitle>Medicine Batches</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Medicine Batches</h1>
+        <p>Track, sort, filter, quarantine, and manage all medicine batches.</p>
+    </div>
+    <div class="toolbar">
+        <a href="/inventory"><button class="secondary">Back to Inventory</button></a>
+        <button class="primary" @onclick="OpenCreateForm">Add Batch</button>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(globalMessage))
+{
+    <Alert Type="@(globalMessage.Contains("error") || globalMessage.Contains("failed") || globalMessage.Contains("Cannot") ? AlertType.Error : AlertType.Success)" 
+           Message="@globalMessage" ShowIcon="true" Closable OnClose="ClearGlobalMessage" Style="margin-bottom: 16px;" />
+}
+
+<!-- Filters and Sorting Toolbar -->
+<section class="workspace-header" style="background: #fff; padding: 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 20px; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between;">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; flex: 1;">
+        <input class="field compact" placeholder="Search batch no/medicine..." @bind="query" @bind:after="OnSearch" style="max-width: 250px;" />
+        
+        <Select TItem="string" TItemValue="string" Value="statusFilter" ValueChanged="OnStatusFilterChanged" Style="width: 140px;" Placeholder="All Statuses">
+            <SelectOptions>
+                <SelectOption TItemValue="string" TItem="string" Value="@("")" Label="All Statuses" />
+                <SelectOption TItemValue="string" TItem="string" Value="@("active")" Label="Active" />
+                <SelectOption TItemValue="string" TItem="string" Value="@("expired")" Label="Expired" />
+                <SelectOption TItemValue="string" TItem="string" Value="@("disposed")" Label="Disposed" />
+            </SelectOptions>
+        </Select>
+
+        <Select TItem="MedicineSearchResponse" TItemValue="int?" Value="medicineIdFilter" ValueChanged="OnMedicineFilterChanged" DataSource="medicines" 
+                ValueName="@nameof(MedicineSearchResponse.MedicineId)" LabelName="@nameof(MedicineSearchResponse.Name)"
+                Style="width: 220px;" Placeholder="All Medicines" EnableSearch AllowClear />
+        
+        <button class="secondary" @onclick="ResetFilters">Clear</button>
+    </div>
+
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="font-size: 13px; color: var(--muted);">Sort:</span>
+        <Select TItem="string" TItemValue="string" Value="sortBy" ValueChanged="OnSortByChanged" Style="width: 150px;">
+            <SelectOptions>
+                <SelectOption TItemValue="string" TItem="string" Value='@("MedicineName")' Label="Medicine Name" />
+                <SelectOption TItemValue="string" TItem="string" Value='@("BatchNo")' Label="Batch Number" />
+                <SelectOption TItemValue="string" TItem="string" Value='@("Quantity")' Label="Quantity" />
+                <SelectOption TItemValue="string" TItem="string" Value='@("ExpiryDate")' Label="Expiry Date" />
+                <SelectOption TItemValue="string" TItem="string" Value='@("Status")' Label="Status" />
+            </SelectOptions>
+        </Select>
+        <Button OnClick="ToggleSortDirection" Size="@ButtonSize.Default">
+            @(sortDescending ? "↓ Desc" : "↑ Asc")
+        </Button>
+    </div>
+</section>
+
+<!-- Batches Table -->
+<section class="table-surface">
+    @if (isLoading)
+    {
+        <div class="loading-card">
+            <div class="loading-pulse">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <p>Loading batches...</p>
+        </div>
+    }
+    else if (batches.Count == 0)
+    {
+        <div class="empty-state" style="text-align: center; padding: 40px;">
+            <p style="color: var(--muted); font-size: 16px; margin: 0;">No medicine batches found matching the criteria.</p>
+        </div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Medicine</th>
+                    <th>Batch No</th>
+                    <th>Qty</th>
+                    <th>Expiry</th>
+                    <th>Received/Mfg Date</th>
+                    <th>Supplier/Manufacturer</th>
+                    <th>Status</th>
+                    <th style="width: 150px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var batch in batches)
+                {
+                    <tr>
+                        <td><strong>@batch.MedicineName</strong></td>
+                        <td><code>@batch.BatchNo</code></td>
+                        <td>@batch.Quantity.ToString("N0")</td>
+                        <td>
+                            <span style="color: @(batch.ExpiryDate <= DateOnly.FromDateTime(DateTime.Today) ? "var(--accent-2)" : "inherit")">
+                                @batch.ExpiryDate.ToString("yyyy-MM-dd")
+                            </span>
+                        </td>
+                        <td>
+                            <div>Received: @(batch.ReceivedDate?.ToString("yyyy-MM-dd") ?? "-")</div>
+                            <div style="font-size: 11px; color: var(--muted);">Mfg: @batch.ManufactureDate.ToString("yyyy-MM-dd")</div>
+                        </td>
+                        <td>
+                            <div>@batch.SupplierName</div>
+                            <div style="font-size: 11px; color: var(--muted);">Mfg: @batch.Manufacturer</div>
+                        </td>
+                        <td>
+                            <span class="badge @batch.Status">@batch.Status</span>
+                        </td>
+                        <td class="actions">
+                            <Space>
+                                <SpaceItem>
+                                    <Button Type="@ButtonType.Default" Size="@ButtonSize.Small" OnClick="() => OpenEditForm(batch)">Edit</Button>
+                                </SpaceItem>
+                                <SpaceItem>
+                                    <Button Danger Size="@ButtonSize.Small" OnClick="() => DeleteBatch(batch.Id)">Delete</Button>
+                                </SpaceItem>
+                            </Space>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<!-- Pagination -->
+@if (!isLoading && totalCount > 0)
+{
+    <div class="split" style="margin-top: 16px; align-items: center; padding: 0 8px;">
+        <span style="font-size: 13px; color: var(--muted);">
+            Showing @((pageNumber - 1) * pageSize + 1) to @Math.Min(pageNumber * pageSize, totalCount) of @totalCount entries
+        </span>
+        <Space>
+            <SpaceItem>
+                <Button Disabled="@(pageNumber <= 1)" OnClick="PrevPage">Previous</Button>
+            </SpaceItem>
+            <SpaceItem>
+                <Button Disabled="@(pageNumber * pageSize >= totalCount)" OnClick="NextPage">Next</Button>
+            </SpaceItem>
+        </Space>
+    </div>
+}
+
+<!-- Create/Edit Modal Dialog -->
+@if (showForm)
+{
+    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: grid; place-items: center; padding: 24px;">
+        <div style="background: #fff; border-radius: 8px; width: 100%; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; flex-direction: column; max-height: calc(100vh - 48px);">
+            <div style="padding: 16px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: 700;">@(isEditMode ? "Edit Batch" : "Add Medicine Batch")</h3>
+                <button type="button" class="ghost" @onclick="CloseForm" style="border: none; font-size: 24px; cursor: pointer; min-height: auto; padding: 4px; display: inline-flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+            </div>
+            
+            <div style="padding: 24px; overflow-y: auto; flex: 1;">
+                <EditForm Model="formModel" OnValidSubmit="SaveBatch">
+                    <DataAnnotationsValidator />
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <Alert Type="@AlertType.Error" Message="@formError" ShowIcon="true" Style="margin-bottom: 16px;" />
+                    }
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Medicine *</label>
+                        @if (isEditMode)
+                        {
+                            <Input class="field" Value="@selectedMedicineName" Disabled="true" />
+                        }
+                        else
+                        {
+                            <Select TItem="MedicineSearchResponse" TItemValue="int" Value="formModel.MedId" ValueChanged="OnFormMedicineChanged"
+                                    DataSource="medicines" ValueName="@nameof(MedicineSearchResponse.MedicineId)" LabelName="@nameof(MedicineSearchResponse.Name)"
+                                    Placeholder="Select a medicine" Style="width: 100%;" EnableSearch />
+                        }
+                    </div>
+
+                    <div class="form-grid">
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Batch Number *</label>
+                            <Input @bind-Value="formModel.BatchNo" class="field" Placeholder="e.g. B-102" />
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Quantity *</label>
+                            <AntDesign.InputNumber @bind-Value="formModel.Quantity" Style="width: 100%; height: 38px; border-radius: 6px;" Min="0" />
+                        </div>
+                    </div>
+
+                    <div class="form-grid" style="margin-top: 16px;">
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Manufacture Date *</label>
+                            <DatePicker TValue="DateTime?" Value="manufactureDate" ValueChanged="OnManufactureDateChanged" Style="width: 100%; height: 38px;" Format="yyyy-MM-dd" />
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Expiry Date *</label>
+                            <DatePicker TValue="DateTime?" Value="expiryDate" ValueChanged="OnExpiryDateChanged" Style="width: 100%; height: 38px;" Format="yyyy-MM-dd" />
+                        </div>
+                    </div>
+
+                    <div class="form-grid" style="margin-top: 16px;">
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Received Date</label>
+                            <DatePicker TValue="DateTime?" Value="receivedDate" ValueChanged="OnReceivedDateChanged" Style="width: 100%; height: 38px;" Format="yyyy-MM-dd" />
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Status *</label>
+                            <Select TItem="string" TItemValue="string" @bind-Value="formModel.Status" Style="width: 100%;">
+                                <SelectOptions>
+                                    <SelectOption TItemValue="string" TItem="string" Value="@("active")" Label="Active" />
+                                    <SelectOption TItemValue="string" TItem="string" Value="@("expired")" Label="Expired" />
+                                    <SelectOption TItemValue="string" TItem="string" Value="@("disposed")" Label="Disposed" />
+                                </SelectOptions>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid" style="margin-top: 16px; margin-bottom: 24px;">
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Manufacturer *</label>
+                            <Input @bind-Value="formModel.Manufacturer" class="field" Placeholder="e.g. Pfizer" />
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--ink);">Supplier Name</label>
+                            <Input @bind-Value="formModel.SupplierName" class="field" Placeholder="e.g. Apex Health" />
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--line); padding-top: 16px; text-align: right;">
+                        <Space>
+                            <SpaceItem><Button OnClick="CloseForm">Cancel</Button></SpaceItem>
+                            <SpaceItem><Button Type="@ButtonType.Primary" HtmlType="submit" Loading="isSaving">Save</Button></SpaceItem>
+                        </Space>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Warning/Force Modal -->
+@if (showDeleteWarning)
+{
+    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1010; display: grid; place-items: center; padding: 24px;">
+        <div style="background: #fff; border-radius: 8px; width: 100%; max-width: 500px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 24px;">
+            <h3 style="color: var(--accent-2); margin-top: 0; margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                ⚠️ Warning: Historical Prescriptions Found
+            </h3>
+            <p style="margin-top: 0; margin-bottom: 24px; line-height: 1.5; color: var(--ink);">
+                @deleteWarningMessage
+            </p>
+            <div style="text-align: right;">
+                <Space>
+                    <SpaceItem><Button OnClick="CancelDelete">Cancel</Button></SpaceItem>
+                    <SpaceItem><Button Danger OnClick="ConfirmForceDelete" Loading="isDeleting">Yes, Force Delete</Button></SpaceItem>
+                </Space>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly List<BatchDetailResponse> batches = new();
+    private readonly List<MedicineSearchResponse> medicines = new();
+    private bool isLoading = true;
+    private string? globalMessage;
+
+    // Filters and sorting state
+    private string? query;
+    private string? statusFilter = "";
+    private int? medicineIdFilter;
+    private string sortBy = "MedicineName";
+    private bool sortDescending = false;
+
+    // Pagination state
+    private int pageNumber = 1;
+    private int pageSize = 10;
+    private int totalCount = 0;
+
+    // Form Modal state
+    private bool showForm = false;
+    private bool isEditMode = false;
+    private string? selectedMedicineName;
+    private string? formError;
+    private bool isSaving = false;
+    private UpdateBatchRequest formModel = new();
+    private int editingBatchId;
+
+    // Form dates state helper
+    private DateTime? manufactureDate;
+    private DateTime? expiryDate;
+    private DateTime? receivedDate;
+
+    // Delete Warning state
+    private bool showDeleteWarning = false;
+    private string? deleteWarningMessage;
+    private int pendingDeleteBatchId;
+    private bool isDeleting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMedicines();
+        await LoadBatches();
+    }
+
+    private async Task LoadMedicines()
+    {
+        try
+        {
+            var result = await Api.SearchMedicinesAsync(pageSize: 150);
+            if (result.IsSuccess)
+            {
+                medicines.Clear();
+                medicines.AddRange(result.Data);
+            }
+        }
+        catch (Exception ex)
+        {
+            globalMessage = $"Error loading medicines: {ex.Message}";
+        }
+    }
+
+    private async Task LoadBatches()
+    {
+        isLoading = true;
+        try
+        {
+            var result = await Api.GetBatchesAsync(
+                query: query,
+                status: statusFilter,
+                medicineId: medicineIdFilter,
+                sortBy: sortBy,
+                sortDescending: sortDescending,
+                pageNumber: pageNumber,
+                pageSize: pageSize
+            );
+
+            if (result.IsSuccess)
+            {
+                batches.Clear();
+                batches.AddRange(result.Data);
+                totalCount = result.Pagination.TotalCount;
+            }
+            else
+            {
+                globalMessage = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            globalMessage = $"Error loading batches: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnSearch()
+    {
+        pageNumber = 1;
+        await LoadBatches();
+    }
+
+    private async Task OnStatusFilterChanged(string val)
+    {
+        statusFilter = val;
+        pageNumber = 1;
+        await LoadBatches();
+    }
+
+    private async Task OnMedicineFilterChanged(int? val)
+    {
+        medicineIdFilter = val;
+        pageNumber = 1;
+        await LoadBatches();
+    }
+
+    private async Task OnSortByChanged(string val)
+    {
+        sortBy = val;
+        await LoadBatches();
+    }
+
+    private async Task ToggleSortDirection()
+    {
+        sortDescending = !sortDescending;
+        await LoadBatches();
+    }
+
+    private async Task ResetFilters()
+    {
+        query = null;
+        statusFilter = "";
+        medicineIdFilter = null;
+        sortBy = "MedicineName";
+        sortDescending = false;
+        pageNumber = 1;
+        await LoadBatches();
+    }
+
+    private async Task PrevPage()
+    {
+        if (pageNumber > 1)
+        {
+            pageNumber--;
+            await LoadBatches();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (pageNumber * pageSize < totalCount)
+        {
+            pageNumber++;
+            await LoadBatches();
+        }
+    }
+
+    private void ClearGlobalMessage()
+    {
+        globalMessage = null;
+    }
+
+    // CREATE / EDIT FORM HANDLERS
+
+    private void OpenCreateForm()
+    {
+        isEditMode = false;
+        formError = null;
+        formModel = new UpdateBatchRequest
+        {
+            Status = "active",
+            MedId = medicines.FirstOrDefault()?.MedicineId ?? 0
+        };
+        manufactureDate = DateTime.Today.AddMonths(-1);
+        expiryDate = DateTime.Today.AddYears(1);
+        receivedDate = DateTime.Today;
+
+        formModel.ManufactureDate = DateOnly.FromDateTime(manufactureDate.Value);
+        formModel.ExpiryDate = DateOnly.FromDateTime(expiryDate.Value);
+        formModel.ReceivedDate = DateOnly.FromDateTime(receivedDate.Value);
+
+        showForm = true;
+    }
+
+    private void OpenEditForm(BatchDetailResponse batch)
+    {
+        isEditMode = true;
+        editingBatchId = batch.Id;
+        selectedMedicineName = batch.MedicineName;
+        formError = null;
+
+        formModel = new UpdateBatchRequest
+        {
+            MedId = batch.MedId,
+            BatchNo = batch.BatchNo,
+            Quantity = batch.Quantity,
+            Status = batch.Status,
+            Manufacturer = batch.Manufacturer,
+            SupplierName = batch.SupplierName
+        };
+
+        manufactureDate = batch.ManufactureDate.ToDateTime(TimeOnly.MinValue);
+        expiryDate = batch.ExpiryDate.ToDateTime(TimeOnly.MinValue);
+        receivedDate = batch.ReceivedDate?.ToDateTime(TimeOnly.MinValue);
+
+        formModel.ManufactureDate = batch.ManufactureDate;
+        formModel.ExpiryDate = batch.ExpiryDate;
+        formModel.ReceivedDate = batch.ReceivedDate;
+
+        showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+    }
+
+    private void OnFormMedicineChanged(int medId)
+    {
+        formModel.MedId = medId;
+    }
+
+    private void OnManufactureDateChanged(DateTime? val)
+    {
+        manufactureDate = val;
+        if (val.HasValue)
+        {
+            formModel.ManufactureDate = DateOnly.FromDateTime(val.Value);
+        }
+    }
+
+    private void OnExpiryDateChanged(DateTime? val)
+    {
+        expiryDate = val;
+        if (val.HasValue)
+        {
+            formModel.ExpiryDate = DateOnly.FromDateTime(val.Value);
+        }
+    }
+
+    private void OnReceivedDateChanged(DateTime? val)
+    {
+        receivedDate = val;
+        if (val.HasValue)
+        {
+            formModel.ReceivedDate = DateOnly.FromDateTime(val.Value);
+        }
+        else
+        {
+            formModel.ReceivedDate = null;
+        }
+    }
+
+    private async Task SaveBatch()
+    {
+        formError = null;
+
+        // Perform client side checks
+        if (formModel.MedId <= 0)
+        {
+            formError = "Please select a valid medicine.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(formModel.BatchNo))
+        {
+            formError = "Batch number is required.";
+            return;
+        }
+        if (formModel.Quantity < 0)
+        {
+            formError = "Quantity cannot be negative.";
+            return;
+        }
+        if (formModel.ExpiryDate <= formModel.ManufactureDate)
+        {
+            formError = "Expiry date must be after manufacture date.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(formModel.Manufacturer))
+        {
+            formError = "Manufacturer is required.";
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            Result<BatchDetailResponse> result;
+            if (isEditMode)
+            {
+                result = await Api.UpdateBatchAsync(editingBatchId, formModel);
+            }
+            else
+            {
+                // CreateBatchRequest has same properties
+                var createReq = new CreateBatchRequest
+                {
+                    MedId = formModel.MedId,
+                    BatchNo = formModel.BatchNo,
+                    Quantity = formModel.Quantity,
+                    ExpiryDate = formModel.ExpiryDate,
+                    ManufactureDate = formModel.ManufactureDate,
+                    ReceivedDate = formModel.ReceivedDate,
+                    SupplierName = formModel.SupplierName,
+                    Manufacturer = formModel.Manufacturer,
+                    Status = formModel.Status
+                };
+                result = await Api.CreateBatchAsync(createReq);
+            }
+
+            if (result.IsSuccess)
+            {
+                globalMessage = result.Message;
+                showForm = false;
+                await LoadBatches();
+            }
+            else
+            {
+                formError = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            formError = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    // DELETE BATCH HANDLERS
+
+    private async Task DeleteBatch(int id)
+    {
+        globalMessage = null;
+        try
+        {
+            var result = await Api.DeleteBatchAsync(id, force: false);
+            if (result.IsSuccess)
+            {
+                globalMessage = result.Message;
+                await LoadBatches();
+            }
+            else
+            {
+                // Check if it is a warning with force option
+                if (result.Message != null && result.Message.Contains("WARNING:"))
+                {
+                    pendingDeleteBatchId = id;
+                    deleteWarningMessage = result.Message;
+                    showDeleteWarning = true;
+                }
+                else
+                {
+                    globalMessage = result.Message;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            globalMessage = $"Error deleting batch: {ex.Message}";
+        }
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteWarning = false;
+        pendingDeleteBatchId = 0;
+        deleteWarningMessage = null;
+    }
+
+    private async Task ConfirmForceDelete()
+    {
+        isDeleting = true;
+        try
+        {
+            var result = await Api.DeleteBatchAsync(pendingDeleteBatchId, force: true);
+            globalMessage = result.Message;
+            if (result.IsSuccess)
+            {
+                showDeleteWarning = false;
+                pendingDeleteBatchId = 0;
+                deleteWarningMessage = null;
+                await LoadBatches();
+            }
+        }
+        catch (Exception ex)
+        {
+            globalMessage = $"Error performing force delete: {ex.Message}";
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+}

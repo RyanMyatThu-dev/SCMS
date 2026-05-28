@@ -19,7 +19,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("ScmsWeb", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173") 
+            .WithOrigins("http://localhost:5270", "https://localhost:7111")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials(); 
@@ -34,8 +34,6 @@ builder.Services
         
         var issuer = builder.Configuration["Jwt:Issuer"] ?? "SCMS.Api";
         var audience = builder.Configuration["Jwt:Audience"] ?? "SCMS.Web";
-        
-        
         var signingKey = builder.Configuration["Jwt:SigningKey"] ?? "SCMS development signing key - 32 characters long!";
 
         options.TokenValidationParameters = new TokenValidationParameters

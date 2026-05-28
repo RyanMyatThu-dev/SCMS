@@ -104,17 +104,17 @@ INSERT INTO tbl_medicine_category (id, name) VALUES
 (10007, 'Supplements and ORS')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO tbl_medicine (medicine_id, category_id, name, description, image_url, unit_price, created_at, updated_at, delete_flag) VALUES
-(10001, 10001, 'Paracetamol 500 mg tablet', 'First-line fever and mild pain relief.', NULL, 150.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10002, 10002, 'Amoxicillin 500 mg capsule', 'Beta-lactam antibiotic for selected bacterial infections.', NULL, 350.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10003, 10003, 'Cetirizine 10 mg tablet', 'Non-sedating antihistamine for allergic rhinitis and urticaria.', NULL, 120.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10004, 10007, 'Oral Rehydration Salts sachet', 'WHO-style oral rehydration support for diarrhea and vomiting.', NULL, 500.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10005, 10005, 'Salbutamol 100 mcg inhaler', 'Short-acting bronchodilator for wheeze and asthma rescue use.', NULL, 6500.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10006, 10006, 'Metformin 500 mg tablet', 'First-line oral therapy for type 2 diabetes mellitus.', NULL, 200.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10007, 10006, 'Amlodipine 5 mg tablet', 'Calcium-channel blocker for hypertension management.', NULL, 250.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10008, 10004, 'Omeprazole 20 mg capsule', 'Proton-pump inhibitor for gastritis and reflux symptoms.', NULL, 300.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10009, 10007, 'Vitamin B Complex tablet', 'Supplement for nutritional support and neuropathy risk.', NULL, 180.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
-(10010, 10002, 'Cefixime 200 mg tablet', 'Cephalosporin antibiotic reserved for selected indications.', NULL, 750.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false)
+INSERT INTO tbl_medicine (medicine_id, category_id, name, description, image_url, image_id, unit_price, created_at, updated_at, delete_flag) VALUES
+(10001, 10001, 'Paracetamol 500 mg tablet', 'First-line fever and mild pain relief.', NULL, NULL, 150.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10002, 10002, 'Amoxicillin 500 mg capsule', 'Beta-lactam antibiotic for selected bacterial infections.', NULL, NULL, 350.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10003, 10003, 'Cetirizine 10 mg tablet', 'Non-sedating antihistamine for allergic rhinitis and urticaria.', NULL, NULL, 120.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10004, 10007, 'Oral Rehydration Salts sachet', 'WHO-style oral rehydration support for diarrhea and vomiting.', NULL, NULL, 500.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10005, 10005, 'Salbutamol 100 mcg inhaler', 'Short-acting bronchodilator for wheeze and asthma rescue use.', NULL, NULL, 6500.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10006, 10006, 'Metformin 500 mg tablet', 'First-line oral therapy for type 2 diabetes mellitus.', NULL, NULL, 200.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10007, 10006, 'Amlodipine 5 mg tablet', 'Calcium-channel blocker for hypertension management.', NULL, NULL, 250.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10008, 10004, 'Omeprazole 20 mg capsule', 'Proton-pump inhibitor for gastritis and reflux symptoms.', NULL, NULL, 300.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10009, 10007, 'Vitamin B Complex tablet', 'Supplement for nutritional support and neuropathy risk.', NULL, NULL, 180.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false),
+(10010, 10002, 'Cefixime 200 mg tablet', 'Cephalosporin antibiotic reserved for selected indications.', NULL, NULL, 750.00, CURRENT_TIMESTAMP - INTERVAL '39 days', CURRENT_TIMESTAMP, false)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO tbl_medicine_batch (id, med_id, batch_no, quantity, expiry_date, received_date, supplier_name, status, created_at, updated_at, delete_flag) VALUES

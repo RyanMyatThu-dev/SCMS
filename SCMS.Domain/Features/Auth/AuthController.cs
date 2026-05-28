@@ -41,26 +41,14 @@ namespace SCMS.Domain.Features.Auth
             return result.IsSuccess ? Ok(result) : Unauthorized(result);
         }
 
-        [Authorize]
-        [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
-        {
-            var result = await _authService.LogoutAsync(request.RefreshToken);
-            return Ok(result);
-        }
+        //[Authorize]
+        //[HttpPost("logout")]
+        //public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+        //{
+        //    var result = await _authService.LogoutAsync(request.RefreshToken);
+        //    return Ok(result);
+        //}
+        // don't need to consdier the logout . frontend will just delete the token from local storage and the backend will handle the expired token when it comes in with a request.
 
-        [Authorize]
-        [HttpGet("me")]
-        public async Task<IActionResult> Me()
-        {
-            var userId = User.GetUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(Result.Failure("User id claim is missing."));
-            }
-
-            var result = await _authService.GetCurrentUserAsync(userId.Value);
-            return result.IsSuccess ? Ok(result) : Unauthorized(result);
-        }
     }
 }

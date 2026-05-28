@@ -9,13 +9,16 @@ using SCMS.Domain.Features.Dashboards;
 using SCMS.Domain.Features.Diseases;
 using SCMS.Domain.Features.Documents;
 using SCMS.Domain.Features.FollowUps;
-using SCMS.Domain.Features.LabReports;
+
 using SCMS.Domain.Features.Medicines;
 using SCMS.Domain.Features.Notifications;
 using SCMS.Domain.Features.Patients;
 using SCMS.Domain.Features.Payments;
 using SCMS.Domain.Features.Prescriptions;
 using SCMS.Domain.Security;
+using Microsoft.AspNetCore.Builder;
+using CloudinaryDotNet;
+using SCMS.Domain.Features.Photo;
 
 namespace SCMS.Domain
 {
@@ -23,6 +26,7 @@ namespace SCMS.Domain
     {
         public static IMvcBuilder AddScmsFeatureControllers(this IServiceCollection services)
         {
+
             return services
                 .AddControllers()
                 .AddApplicationPart(typeof(FeatureManager).Assembly);
@@ -30,7 +34,8 @@ namespace SCMS.Domain
 
         public static IServiceCollection AddScmsFeatureServices(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddDbContext<ScmsDbContext>(options => ConfigureDatabaseProvider(options, configuration));
+
+            services.AddDbContext<AppDbContext>(options => ConfigureDatabaseProvider(options, configuration));
             services.AddSingleton<JwtTokenFactory>();
             services.AddSingleton<PasswordHashingService>();
             services.AddScoped<AppointmentsService>();
@@ -38,15 +43,35 @@ namespace SCMS.Domain
             services.AddScoped<DashboardService>();
             services.AddScoped<DiseaseService>();
             services.AddScoped<FollowUpService>();
-            services.AddScoped<LabReportService>();
+
             services.AddScoped<MedicineService>();
             services.AddScoped<NotificationService>();
             services.AddScoped<PatientService>();
             services.AddScoped<PaymentService>();
             services.AddScoped<PdfDocumentService>();
             services.AddScoped<PrescriptionService>();
+            services.AddScoped<PhotoService>();
             services.AddHostedService<InventoryMonitorService>();
 
+             // Cloudinary configuration
+            var cloudName = new[] { "Cloudinary:CloudName", "CLOUDINARY_CLOUD_NAME", "cloud_name" }
+                .Select(key => configuration[key])
+                .FirstOrDefault(val => !string.IsNullOrWhiteSpace(val))?.Trim();
+
+            var apiKey = new[] { "Cloudinary:ApiKey", "CLOUDINARY_API_KEY", "api_key" }
+                .Select(key => configuration[key])
+                .FirstOrDefault(val => !string.IsNullOrWhiteSpace(val))?.Trim();
+
+            var apiSecret = new[] { "Cloudinary:ApiSecret", "CLOUDINARY_API_SECRET", "api_secret" }
+                .Select(key => configuration[key])
+                .FirstOrDefault(val => !string.IsNullOrWhiteSpace(val))?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(cloudName) && !string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiSecret))
+            {
+                var account = new Account(cloudName, apiKey, apiSecret);
+                var cloudinary = new CloudinaryDotNet.Cloudinary(account);
+                services.AddSingleton(cloudinary);
+            }
             return services;
         }
 
@@ -58,14 +83,72 @@ namespace SCMS.Domain
             }
 
             using var scope = services.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ScmsDbContext>();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await context.Database.EnsureCreatedAsync();
+            await EnsureSqliteSchemaCompatibilityAsync(context, logger);
             await SqliteRealWorldSeeder.SeedAsync(context, configuration);
             await SeedSqliteDemoUsersAsync(context, configuration);
             logger.LogInformation("SQLite database is ready.");
         }
 
-        private static async Task SeedSqliteDemoUsersAsync(ScmsDbContext context, IConfiguration configuration)
+        private static async Task EnsureSqliteSchemaCompatibilityAsync(AppDbContext context, ILogger logger)
+        {
+            await EnsureSqliteColumnAsync(context, logger, "tbl_medicine", "image_url", "TEXT");
+            await EnsureSqliteColumnAsync(context, logger, "tbl_medicine", "image_id", "TEXT");
+        }
+
+        private static async Task EnsureSqliteColumnAsync(
+            AppDbContext context,
+            ILogger logger,
+            string tableName,
+            string columnName,
+            string columnDefinition)
+        {
+            var connection = context.Database.GetDbConnection();
+            var shouldClose = connection.State != System.Data.ConnectionState.Open;
+            if (shouldClose)
+            {
+                await connection.OpenAsync();
+            }
+
+            try
+            {
+                await using var readCommand = connection.CreateCommand();
+                readCommand.CommandText = $"PRAGMA table_info({tableName});";
+                var exists = false;
+
+                await using (var reader = await readCommand.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            exists = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (exists)
+                {
+                    return;
+                }
+
+                await using var alterCommand = connection.CreateCommand();
+                alterCommand.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
+                await alterCommand.ExecuteNonQueryAsync();
+                logger.LogInformation("Added SQLite compatibility column {Table}.{Column}.", tableName, columnName);
+            }
+            finally
+            {
+                if (shouldClose)
+                {
+                    await connection.CloseAsync();
+                }
+            }
+        }
+
+        private static async Task SeedSqliteDemoUsersAsync(AppDbContext context, IConfiguration configuration)
         {
             if (configuration.GetValue("Database:SeedDemoUsers", true) == false)
             {
@@ -118,7 +201,7 @@ namespace SCMS.Domain
         }
 
         private static async Task<TblUser> EnsureDemoUserAsync(
-            ScmsDbContext context,
+            AppDbContext context,
             string name,
             string mobileNo,
             string email,

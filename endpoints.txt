@@ -1,0 +1,78 @@
+# SCMS Web API Endpoints
+
+## Appointments
+- `POST   /api/Appointments`
+- `GET    /api/Appointments`
+- `PATCH  /api/Appointments/{id}/status`
+- `POST   /api/Appointments/{id}/reschedule`
+- `GET    /api/Appointments/{id}/queue-status`
+- `POST   /api/Appointments/call-next`
+
+## Auth
+- `POST   /api/Auth/register`
+- `POST   /api/Auth/login`
+- `POST   /api/Auth/refresh`
+
+## Dashboards
+- `GET    /api/Dashboards/dashboard`
+- `GET    /api/Dashboards/patient-dashboard`
+
+## Diseases
+- `GET    /api/Diseases`
+- `POST   /api/Diseases`
+- `PUT    /api/Diseases`
+- `DELETE /api/Diseases/{id}`
+
+## FollowUps
+- `GET    /api/FollowUps`
+- `POST   /api/FollowUps`
+- `POST   /api/FollowUps/{id}/complete`
+
+## LabReports
+- `POST   /api/LabReports`
+- `POST   /api/LabReports/{id}/result`
+- `GET    /api/LabReports`
+- `GET    /api/LabReports/{id}/pdf`
+
+## Medicines
+- `GET    /api/Medicines`
+- `POST   /api/Medicines`
+- `PUT    /api/Medicines/{id}`
+- `DELETE /api/Medicines/{id}`
+- `GET    /api/Medicines/categories`
+- `POST   /api/Medicines/quarantine-expired`
+- `GET    /api/Medicines/alerts`
+- `GET    /api/Medicines/batches`
+- `GET    /api/Medicines/batches/{id}`
+- `PUT    /api/Medicines/batches/{id}`
+- `DELETE /api/Medicines/batches/{id}`
+
+## Notifications
+- `GET    /api/Notifications`
+- `POST   /api/Notifications`
+- `POST   /api/Notifications/{id}/read`
+
+## Patients
+- `POST   /api/Patients`
+- `GET    /api/Patients`
+- `GET    /api/Patients/patients/{id}`
+- `GET    /api/Patients/{id}/history`
+- `GET    /api/Patients/{id}/summary`
+- `GET    /api/Patients/{id}/summary/html`
+- `GET    /api/Patients/{id}/summary/pdf`
+- `GET    /api/Patients/{id}/lab-reports`
+
+## Payments
+- `GET    /api/Payments`
+- `POST   /api/Payments/gateway-callback`
+- `POST   /api/Payments/manual-proof`
+- `POST   /api/Payments/{id}/approve`
+- `GET    /api/Payments/{id}/invoice/pdf`
+
+## Prescriptions
+- `GET    /api/Prescriptions`
+- `POST   /api/Prescriptions`
+- `GET    /api/Prescriptions/prescriptions/{id}`
+- `GET    /api/Prescriptions/templates`
+- `POST   /api/Prescriptions/templates`
+- `GET    /api/Prescriptions/{id}/pdf`

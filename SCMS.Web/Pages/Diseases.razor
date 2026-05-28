@@ -1,0 +1,257 @@
+@page "/diseases"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Diseases</PageTitle>
+<PageHeader Title="Disease Management" Subtitle="View and manage medical conditions" />
+
+<div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <span>Filter:</span>
+        <AntDesign.Input @bind-Value="searchQuery" Placeholder="Search diseases..." Style="width: 200px;" />
+    </div>
+    <AuthorizeView Roles="admin,doctor">
+        <Authorized>
+            <Button Type="@ButtonType.Primary" OnClick="ShowCreateModal">Add Disease</Button>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+@if (isLoading)
+{
+    <AntDesign.Spin />
+}
+else if (diseases == null || diseases.Count == 0)
+{
+    <Alert Type="@AlertType.Info" Message="No diseases found. Click 'Add Disease' to create one." ShowIcon="true" />
+}
+else
+{
+    <Table TItem="DiseaseResponse" DataSource="diseases" Size="TableSize.Small" Bordered>
+        <Column TData="int" Title="ID">
+            @context.Id
+        </Column>
+        <Column TData="string" Title="Name">
+            @context.Name
+        </Column>
+        <Column TData="string" Title="Description">
+            @(context.Description ?? "-")
+        </Column>
+        <Column TData="string" Title="Actions">
+            <AuthorizeView Roles="admin,doctor" Context="authContext">
+                <Authorized>
+                    <Space>
+                        <SpaceItem>
+                            <Button Type="@ButtonType.Default" Size="@ButtonSize.Small" OnClick="() => ShowEditModal(context)">
+                                Edit
+                            </Button>
+                        </SpaceItem>
+                        <SpaceItem>
+                            <Button Danger Size="@ButtonSize.Small" OnClick="() => ConfirmDelete(context.Id, context.Name)">
+                                Deactivate
+                            </Button>
+                        </SpaceItem>
+                    </Space>
+                </Authorized>
+            </AuthorizeView>
+        </Column>
+    </Table>
+}
+
+<AntDesign.Modal Visible="@showCreateModal" 
+                 Title="@(editingDisease == null ? "Add New Disease" : "Edit Disease")" 
+                 OnCancel="HideCreateModal" 
+                 OnOk="HandleSave" 
+                 OkText="@("Save")" 
+                 CancelText="@("Cancel")">
+    <div>
+        <AntDesign.Form Model="@diseaseForm" @ref="formRef" Layout="FormLayout.Vertical" TModel="DiseaseFormDto">
+            <AntDesign.FormItem Label="Name">
+                <AntDesign.Input @bind-Value="diseaseForm.Name" />
+                <AntDesign.FormItem.ValidateMessages>
+                    @if (!string.IsNullOrEmpty(nameError))
+                    {
+                        <div class="ant-form-item-explain-error" style="color: #ff4d4f;">@nameError</div>
+                    }
+                </AntDesign.FormItem.ValidateMessages>
+            </AntDesign.FormItem>
+            <AntDesign.FormItem Label="Description">
+                <AntDesign.TextArea @bind-Value="diseaseForm.Description" Rows="3" />
+            </AntDesign.FormItem>
+        </AntDesign.Form>
+    </div>
+</AntDesign.Modal>
+
+<AntDesign.Modal Visible="@showDeleteModal" 
+                 Title="Confirm Deactivation" 
+                 OnCancel="HideDeleteModal" 
+                 OnOk="HandleConfirmDelete" 
+                 OkText="@("Confirm")" 
+                 CancelText="@("Cancel")">
+    <p>Are you sure you want to deactivate "<strong>@diseaseToDelete?.Name</strong>"?</p>
+    <p>This will remove it from selection lists and cannot be undone easily.</p>
+</AntDesign.Modal>
+
+@code {
+    private List<DiseaseResponse> diseases = new();
+    private bool isLoading = true;
+    private string searchQuery = "";
+
+    // Form state
+    private DiseaseFormDto diseaseForm = new();
+    private bool showCreateModal = false;
+    private DiseaseResponse? editingDisease = null;
+    private Form<DiseaseFormDto>? formRef; 
+    private string? nameError;
+
+    // Delete state
+    private DiseaseResponse? diseaseToDelete = null;
+    private bool showDeleteModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDiseases();
+    }
+
+    private async Task LoadDiseases()
+    {
+        isLoading = true;
+        try
+        {
+            var result = await Api.DiseasesAsync(searchQuery);
+            if (result.IsSuccess)
+            {
+                diseases = result.Data;
+            }
+            else
+            {
+                diseases = new();
+            }
+        }
+        catch (Exception)
+        {
+            diseases = new();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        editingDisease = null;
+        diseaseForm = new DiseaseFormDto();
+        nameError = null;
+        showCreateModal = true;
+    }
+
+    private void ShowEditModal(DiseaseResponse disease)
+    {
+        editingDisease = disease;
+        diseaseForm = new DiseaseFormDto
+        {
+            Name = disease.Name,
+            Description = disease.Description ?? ""
+        };
+        nameError = null;
+        showCreateModal = true;
+    }
+
+    private void HideCreateModal()
+    {
+        showCreateModal = false;
+        editingDisease = null;
+        diseaseForm = new DiseaseFormDto();
+        nameError = null;
+        if (formRef != null)
+        {
+            formRef.Reset();
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        if (formRef == null) return;
+
+        if (string.IsNullOrWhiteSpace(diseaseForm.Name))
+        {
+            nameError = "Disease name is required";
+            return;
+        }
+
+        nameError = null;
+
+        try
+        {
+            Result<DiseaseResponse> result;
+            if (editingDisease == null)
+            {
+                var createRequest = new CreateDiseaseRequest
+                {
+                    Name = diseaseForm.Name.Trim(),
+                    Description = string.IsNullOrWhiteSpace(diseaseForm.Description) ? null : diseaseForm.Description.Trim()
+                };
+                result = await Api.CreateDiseaseAsync(createRequest);
+            }
+            else
+            {
+                var updateRequest = new UpdateDiseaseRequest
+                {
+                    Id = editingDisease.Id,
+                    Name = diseaseForm.Name.Trim(),
+                    Description = string.IsNullOrWhiteSpace(diseaseForm.Description) ? null : diseaseForm.Description.Trim()
+                };
+                result = await Api.UpdateDiseaseAsync(updateRequest);
+            }
+
+            if (result.IsSuccess)
+            {
+                await LoadDiseases();
+                HideCreateModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving disease: {ex.Message}");
+        }
+    }
+
+    private void ConfirmDelete(int id, string name)
+    {
+        diseaseToDelete = diseases.FirstOrDefault(d => d.Id == id);
+        showDeleteModal = true;
+    }
+
+    private void HideDeleteModal()
+    {
+        showDeleteModal = false;
+        diseaseToDelete = null;
+    }
+
+    private async Task HandleConfirmDelete()
+    {
+        if (diseaseToDelete == null) return;
+
+        try
+        {
+            var result = await Api.DeactivateDiseaseAsync(diseaseToDelete.Id);
+
+            if (result.IsSuccess)
+            {
+                await LoadDiseases();
+                HideDeleteModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting disease: {ex.Message}");
+        }
+    }
+
+    private class DiseaseFormDto
+    {
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+    }
+}

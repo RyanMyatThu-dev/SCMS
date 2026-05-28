@@ -1,5 +1,5 @@
 using SCMS.Domain.Features.Documents;
-using SCMS.Shared.Contracts.LabReports;
+
 using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared.Contracts.Prescriptions;
 
@@ -41,20 +41,9 @@ public class PdfDocumentServiceTests
             PaymentMethod = "manual",
             PaymentStatus = "paid"
         });
-        var lab = service.CreateLabReportPdf(new LabReportResponse
-        {
-            Id = 3,
-            PatientName = "Patient",
-            TestName = "CBC",
-            Status = "completed",
-            CreatedAt = DateTime.UtcNow,
-            ResultSummary = "Normal"
-        });
-
         AssertPdf(summary);
         AssertPdf(prescription);
         AssertPdf(invoice);
-        AssertPdf(lab);
     }
 
     private static void AssertPdf(byte[] bytes)

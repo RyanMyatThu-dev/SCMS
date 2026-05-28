@@ -11,7 +11,7 @@ namespace SCMS.Domain.Features.Payments
 {
     public class PaymentService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
         private static readonly HashSet<string> AllowedPaymentStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
             "pending",
@@ -21,7 +21,7 @@ namespace SCMS.Domain.Features.Payments
             "refunded"
         };
 
-        public PaymentService(ScmsDbContext context)
+        public PaymentService(AppDbContext context)
         {
             _context = context;
         }

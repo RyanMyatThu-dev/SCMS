@@ -19,7 +19,7 @@ namespace SCMS.Domain.Features.FollowUps
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] int? patientId, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetFollowUp([FromQuery] int? patientId, [FromQuery] PaginationRequest paginationRequest)
         {
             var userId = User.GetUserId();
             if (!userId.HasValue) return Unauthorized(Result.Failure("User id claim is missing."));
@@ -29,17 +29,18 @@ namespace SCMS.Domain.Features.FollowUps
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        [Authorize(Roles = "admin,doctor")]
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] FollowUpRequest request)
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> CreateFollowUp([FromBody] FollowUpRequest request)
         {
             var result = await _followUpService.CreateFollowUpAsync(request);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        [Authorize(Roles = "admin,doctor")]
-        [HttpPost("{id:int}/complete")]
-        public async Task<IActionResult> Complete(int id)
+        [HttpPost("{id}/complete")]
+        [Authorize(Roles = "admin")]
+
+        public async Task<IActionResult> CompleteFollowUp(int id)
         {
             var result = await _followUpService.CompleteFollowUpAsync(id);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
