@@ -8,11 +8,11 @@ namespace SCMS.Domain.Features.Auth
 {
     public class AuthService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
         private readonly PasswordHashingService _passwords;
         private readonly JwtTokenFactory _tokens;
 
-        public AuthService(ScmsDbContext context, PasswordHashingService passwords, JwtTokenFactory tokens)
+        public AuthService(AppDbContext context, PasswordHashingService passwords, JwtTokenFactory tokens)
         {
             _context = context;
             _passwords = passwords;

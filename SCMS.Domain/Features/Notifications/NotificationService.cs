@@ -11,9 +11,9 @@ namespace SCMS.Domain.Features.Notifications
 {
     public class NotificationService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
 
-        public NotificationService(ScmsDbContext context)
+        public NotificationService(AppDbContext context)
         {
             _context = context;
         }

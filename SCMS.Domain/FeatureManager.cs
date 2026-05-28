@@ -9,7 +9,7 @@ using SCMS.Domain.Features.Dashboards;
 using SCMS.Domain.Features.Diseases;
 using SCMS.Domain.Features.Documents;
 using SCMS.Domain.Features.FollowUps;
-using SCMS.Domain.Features.LabReports;
+
 using SCMS.Domain.Features.Medicines;
 using SCMS.Domain.Features.Notifications;
 using SCMS.Domain.Features.Patients;
@@ -35,7 +35,7 @@ namespace SCMS.Domain
         public static IServiceCollection AddScmsFeatureServices(this IServiceCollection services, IConfiguration configuration)
         {
 
-            services.AddDbContext<ScmsDbContext>(options => ConfigureDatabaseProvider(options, configuration));
+            services.AddDbContext<AppDbContext>(options => ConfigureDatabaseProvider(options, configuration));
             services.AddSingleton<JwtTokenFactory>();
             services.AddSingleton<PasswordHashingService>();
             services.AddScoped<AppointmentsService>();
@@ -43,7 +43,7 @@ namespace SCMS.Domain
             services.AddScoped<DashboardService>();
             services.AddScoped<DiseaseService>();
             services.AddScoped<FollowUpService>();
-            services.AddScoped<LabReportService>();
+
             services.AddScoped<MedicineService>();
             services.AddScoped<NotificationService>();
             services.AddScoped<PatientService>();
@@ -83,7 +83,7 @@ namespace SCMS.Domain
             }
 
             using var scope = services.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ScmsDbContext>();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await context.Database.EnsureCreatedAsync();
             await EnsureSqliteSchemaCompatibilityAsync(context, logger);
             await SqliteRealWorldSeeder.SeedAsync(context, configuration);
@@ -91,14 +91,14 @@ namespace SCMS.Domain
             logger.LogInformation("SQLite database is ready.");
         }
 
-        private static async Task EnsureSqliteSchemaCompatibilityAsync(ScmsDbContext context, ILogger logger)
+        private static async Task EnsureSqliteSchemaCompatibilityAsync(AppDbContext context, ILogger logger)
         {
             await EnsureSqliteColumnAsync(context, logger, "tbl_medicine", "image_url", "TEXT");
             await EnsureSqliteColumnAsync(context, logger, "tbl_medicine", "image_id", "TEXT");
         }
 
         private static async Task EnsureSqliteColumnAsync(
-            ScmsDbContext context,
+            AppDbContext context,
             ILogger logger,
             string tableName,
             string columnName,
@@ -148,7 +148,7 @@ namespace SCMS.Domain
             }
         }
 
-        private static async Task SeedSqliteDemoUsersAsync(ScmsDbContext context, IConfiguration configuration)
+        private static async Task SeedSqliteDemoUsersAsync(AppDbContext context, IConfiguration configuration)
         {
             if (configuration.GetValue("Database:SeedDemoUsers", true) == false)
             {
@@ -201,7 +201,7 @@ namespace SCMS.Domain
         }
 
         private static async Task<TblUser> EnsureDemoUserAsync(
-            ScmsDbContext context,
+            AppDbContext context,
             string name,
             string mobileNo,
             string email,

@@ -1,5 +1,5 @@
 using System.Text;
-using SCMS.Shared.Contracts.LabReports;
+
 using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared.Contracts.Prescriptions;
 
@@ -52,21 +52,7 @@ namespace SCMS.Domain.Features.Documents
             return CreateSimplePdf($"Invoice {payment.Id}", text);
         }
 
-        public byte[] CreateLabReportPdf(LabReportResponse report)
-        {
-            var text = $"""
-            Lab Report #{report.Id}
-            Patient: {report.PatientName}
-            Test: {report.TestName}
-            Status: {report.Status}
-            Requested: {report.CreatedAt:yyyy-MM-dd HH:mm}
-            Due: {report.DueAt?.ToString("yyyy-MM-dd HH:mm") ?? "-"}
-            Notes: {report.Notes ?? "-"}
-            Result: {report.ResultSummary ?? "Pending"}
-            Attachment: {report.AttachmentUrl ?? "-"}
-            """;
-            return CreateSimplePdf($"Lab Report {report.Id}", text);
-        }
+
 
         private static byte[] CreateSimplePdf(string title, string text)
         {

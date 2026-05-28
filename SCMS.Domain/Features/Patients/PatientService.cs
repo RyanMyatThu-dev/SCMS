@@ -12,9 +12,9 @@ namespace SCMS.Domain.Features.Patients
 {
     public class PatientService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
 
-        public PatientService(ScmsDbContext context)
+        public PatientService(AppDbContext context)
         {
             _context = context;
         }
@@ -206,22 +206,6 @@ namespace SCMS.Domain.Features.Patients
                         LinkedId = p.Id
                     });
                 }
-            }
-
-            var labReports = await _context.TblLabReports
-                .Where(l => l.PatientId == patientId && l.DeleteFlag != true)
-                .ToListAsync();
-
-            foreach (var lab in labReports)
-            {
-                response.Timeline.Add(new TimelineItemDto
-                {
-                    Date = lab.CompletedAt ?? lab.CreatedAt ?? DateTime.UtcNow,
-                    Type = lab.Status == "completed" ? "Lab Result" : "Lab Request",
-                    Title = $"{lab.TestName} ({lab.Status})",
-                    Description = lab.ResultSummary ?? lab.Notes ?? "Lab workflow item",
-                    LinkedId = lab.Id
-                });
             }
 
             // Sort timeline chronologically (latest first)

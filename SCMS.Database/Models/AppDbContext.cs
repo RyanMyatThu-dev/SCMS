@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace SCMS.Database.Models;
 
-public partial class ScmsDbContext : DbContext
+public partial class AppDbContext : DbContext
 {
-    public ScmsDbContext()
+    public AppDbContext()
     {
     }
 
-    public ScmsDbContext(DbContextOptions<ScmsDbContext> options)
+    public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
     {
     }
@@ -20,8 +20,6 @@ public partial class ScmsDbContext : DbContext
     public virtual DbSet<TblDisease> TblDiseases { get; set; }
 
     public virtual DbSet<TblFollowUp> TblFollowUps { get; set; }
-
-    public virtual DbSet<TblLabReport> TblLabReports { get; set; }
 
     public virtual DbSet<TblMedicine> TblMedicines { get; set; }
 
@@ -54,6 +52,14 @@ public partial class ScmsDbContext : DbContext
     public virtual DbSet<TblUserRole> TblUserRoles { get; set; }
 
     public virtual DbSet<TblUserToken> TblUserTokens { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        if (!optionsBuilder.IsConfigured)
+        {
+            optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=SCMS_db;Username=postgres;Password=admin;");
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -163,59 +169,6 @@ public partial class ScmsDbContext : DbContext
                 .HasConstraintName("fk_follow_up_prescription");
         });
 
-        modelBuilder.Entity<TblLabReport>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("tbl_lab_report_pkey");
-
-            entity.ToTable("tbl_lab_report");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.AppointmentId).HasColumnName("appointment_id");
-            entity.Property(e => e.AttachmentUrl)
-                .HasMaxLength(500)
-                .HasColumnName("attachment_url");
-            entity.Property(e => e.CompletedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("completed_at");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.DeleteFlag).HasColumnName("delete_flag");
-            entity.Property(e => e.DueAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("due_at");
-            entity.Property(e => e.Notes).HasColumnName("notes");
-            entity.Property(e => e.PatientId).HasColumnName("patient_id");
-            entity.Property(e => e.PrescriptionId).HasColumnName("prescription_id");
-            entity.Property(e => e.ResultSummary).HasColumnName("result_summary");
-            entity.Property(e => e.Status)
-                .HasMaxLength(50)
-                .HasComment("requested / completed")
-                .HasColumnName("status");
-            entity.Property(e => e.TestName)
-                .HasMaxLength(255)
-                .HasColumnName("test_name");
-            entity.Property(e => e.UpdatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("updated_at");
-
-            entity.HasOne(d => d.Appointment).WithMany(p => p.TblLabReports)
-                .HasForeignKey(d => d.AppointmentId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("fk_lab_report_appointment");
-
-            entity.HasOne(d => d.Patient).WithMany(p => p.TblLabReports)
-                .HasForeignKey(d => d.PatientId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_lab_report_patient");
-
-            entity.HasOne(d => d.Prescription).WithMany(p => p.TblLabReports)
-                .HasForeignKey(d => d.PrescriptionId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("fk_lab_report_prescription");
-        });
-
         modelBuilder.Entity<TblMedicine>(entity =>
         {
             entity.HasKey(e => e.MedicineId).HasName("tbl_medicine_pkey");
@@ -233,9 +186,6 @@ public partial class ScmsDbContext : DbContext
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(500)
                 .HasColumnName("image_url");
-            entity.Property(e => e.ImageId)
-                .HasMaxLength(255)
-                .HasColumnName("image_id");
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .HasColumnName("name");
@@ -395,7 +345,7 @@ public partial class ScmsDbContext : DbContext
                 .HasColumnName("paid_at");
             entity.Property(e => e.PaymentMethod)
                 .HasMaxLength(50)
-                .HasComment("cash / card / kbzpay / wavepay")
+                .HasComment("cash / online")
                 .HasColumnName("payment_method");
             entity.Property(e => e.PaymentScreenshot)
                 .HasMaxLength(500)
@@ -702,7 +652,7 @@ public partial class ScmsDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Role)
                 .HasMaxLength(50)
-                .HasComment("admin / doctor / patient / user")
+                .HasComment("admin / user")
                 .HasColumnName("role");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 

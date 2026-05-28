@@ -26,7 +26,7 @@ Both projects must run simultaneously; the `.slnLaunch.user` multi-startup profi
 |---------|------|
 | `SCMS.Api` | ASP.NET Core 8 Web API — controllers, JWT auth, SignalR hubs, Swagger/Scalar |
 | `SCMS.Domain` | Business logic, **controllers live here too** (loaded via `AddApplicationPart`) |
-| `SCMS.Database` | EF Core `ScmsDbContext` and scaffolded `Tbl*` entity models |
+| `SCMS.Database` | EF Core `AppDbContext` and scaffolded `Tbl*` entity models |
 | `SCMS.Shared` | `Result`/`Result<T>` pattern, pagination, **request/response DTOs** (`Contracts/`) |
 | `SCMS.Web` | Blazor WebAssembly frontend using **Ant Design Blazor** (`AntDesign` 1.6) |
 | `SCMS.Domain.Tests` | xUnit tests, mirror the `Features/` folder structure |
@@ -77,7 +77,7 @@ All service methods return `Result` or `Result<T>` (from `SCMS.Shared`). Never t
 - **Dual-provider**: SQLite (default local dev) or PostgreSQL (Docker / prod). Controlled by `Database:Provider` in appsettings.
 - **No EF migrations** — SQLite uses `EnsureCreated()` + seeder; PostgreSQL uses `db.sql` + `seed.realworld.sql` mounted into Docker.
 - Entity models are scaffold-generated in `SCMS.Database/Models/` with `Tbl` prefix (e.g. `TblPatient`). Don't rename them.
-- The `ScmsDbContext` is large (~33 KB) and fully scaffolded — edit with care.
+- The `AppDbContext` is large (~33 KB) and fully scaffolded — edit with care.
 - SQLite DB file lands at `SCMS.Api/scms.local.db` — gitignored. Delete it to reset local data.
 
 ### Demo credentials (SQLite)
