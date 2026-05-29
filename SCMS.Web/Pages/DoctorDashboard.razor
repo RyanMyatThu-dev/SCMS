@@ -34,9 +34,9 @@ else
                 {
                     <article class="item-card">
                         <strong>@patient.TokenNumber. @patient.PatientName</strong>
-                        <span>@patient.Time - @patient.AppointmentCode</span>
-                        <p>@patient.ReasonForVisit</p>
-                        <a href="@($"consultation/{patient.AppointmentId}")">Start</a>
+                        <span>@patient.Datetime - @patient.AppointmentCode</span>
+                        <p>@patient.Notes</p>
+                        <a href="@($"consultation/{patient.Id}")">Start</a>
                     </article>
                 }
             </div>

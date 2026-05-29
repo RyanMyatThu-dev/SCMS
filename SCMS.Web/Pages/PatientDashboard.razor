@@ -53,6 +53,44 @@ else
             </div>
         </div>
     </section>
+
+    <section class="two-column" style="margin-top: 2rem;">
+        <div>
+            <h2>Recent prescriptions</h2>
+            <div class="list-stack">
+                @foreach (var pres in dashboard.PrescriptionHistory.Take(5))
+                {
+                    <article class="item-card">
+                        <strong>@pres.PatientName</strong>
+                        <span>@pres.CreatedAt.ToString("MMM dd, yyyy") - @pres.DiseaseName</span>
+                        <a href="@($"prescriptions/{pres.Id}")">View</a>
+                    </article>
+                }
+                @if (!dashboard.PrescriptionHistory.Any())
+                {
+                    <p class="text-muted">No recent prescriptions.</p>
+                }
+            </div>
+        </div>
+        <div>
+            <h2>Outstanding balances</h2>
+            <div class="list-stack">
+                @foreach (var bal in dashboard.OutstandingBalances)
+                {
+                    <article class="item-card warning">
+                        <strong>@bal.AppointmentCode</strong>
+                        <span>Amount: @bal.Amount.ToString("C")</span>
+                        <p>Status: @bal.PaymentStatus</p>
+                        <a href="@($"payments/{bal.Id}")">Pay now</a>
+                    </article>
+                }
+                @if (!dashboard.OutstandingBalances.Any())
+                {
+                    <p class="text-muted">No outstanding balances.</p>
+                }
+            </div>
+        </div>
+    </section>
 }
 
 @code {

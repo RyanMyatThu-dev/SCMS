@@ -1,4 +1,4 @@
-    using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -53,57 +53,14 @@ namespace SCMS.Domain.Features.Dashboards
             var thirtyDaysFromNow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30));
             var todayDateOnly = DateOnly.FromDateTime(DateTime.UtcNow);
 
-            // 1. Total appointments today
-            var todayAppointments = await _context.TblAppointments
-                .Include(a => a.Patient)
-                .Where(a => a.Datetime >= todayUtc && a.Datetime < tomorrowUtc)
-                .OrderBy(a => a.Id)
-                .ToListAsync();
-
-            var todayCount = todayAppointments.Count;
-
-            // 2. Next 3 upcoming patients
-            var upcomingList = todayAppointments
-                .Where(a => a.Status == "confirmed" || a.Status == "pending")
-                .Take(3)
-                .Select((a, idx) => new UpcomingPatientDto
-                {
-                    AppointmentId = a.Id,
-                    AppointmentCode = a.AppointmentCode,
-                    PatientName = a.Patient?.Name ?? "Unknown",
-                    Time = a.Datetime.ToString("t"),
-                    TokenNumber = todayAppointments.IndexOf(a) + 1,
-                    ReasonForVisit = a.Notes
-                })
-                .ToList();
-
-            // 3. Low stock and expiring alerts
-            var activeBatches = await _context.TblMedicineBatches
-                .Include(b => b.Med)
-                .Where(b => b.Status == "active" && b.ExpiryDate > todayDateOnly && b.DeleteFlag != true)
-                .ToListAsync();
-
-            var lowStockMeds = activeBatches
-                .GroupBy(b => b.MedId)
-                .Where(g => g.Sum(b => b.Quantity) < LowStockThreshold)
-                .Select(g => $"{g.First().Med?.Name ?? "Unknown"} (Stock: {g.Sum(b => b.Quantity)})")
-                .ToList();
-
-            var expiringBatches = activeBatches
-                .Where(b => b.ExpiryDate <= thirtyDaysFromNow && b.ExpiryDate > todayDateOnly)
-                .Select(b => $"{b.Med?.Name ?? "Unknown"} Batch {b.BatchNo} (Expires: {b.ExpiryDate:yyyy-MM-dd})")
-                .ToList();
-
-            // 4. Daily revenue overview (Consultation fees collected today)
-            var dailyRevenuePayments = await _context.TblPayments
-                .Where(p => p.PaymentStatus == "paid" && p.PaidAt.HasValue && p.PaidAt.Value >= todayUtc && p.PaidAt.Value < tomorrowUtc)
-                .Select(p => p.Amount)
-                .ToListAsync();
-            var dailyRevenue = dailyRevenuePayments.Sum();
+            var todayAppointments = await GetTodayAppointmentsAsync(todayUtc, tomorrowUtc);
+            var upcomingList = GetUpcomingPatients(todayAppointments);
+            var (lowStockMeds, expiringBatches) = await GetInventoryAlertsAsync(todayDateOnly, thirtyDaysFromNow);
+            var dailyRevenue = await GetDailyRevenueAsync(todayUtc, tomorrowUtc);
 
             return Result<DoctorDashboardResponse>.Success(new DoctorDashboardResponse
             {
-                TodayAppointmentsCount = todayCount,
+                TodayAppointmentsCount = todayAppointments.Count,
                 NextPatients = upcomingList,
                 LowStockAlertsCount = lowStockMeds.Count,
                 ExpiringBatchesCount = expiringBatches.Count,
@@ -115,32 +72,107 @@ namespace SCMS.Domain.Features.Dashboards
 
         public async Task<Result<PatientDashboardResponse>> GetPatientDashboardAsync(int userId)
         {
-            // 1. Fetch Patient Profiles for this User
-            var patients = await _context.TblPatients
-                .Where(p => p.UserId == userId && p.DeleteFlag != true)
-                .ToListAsync();
-
-            var patientProfiles = patients.Select(MapPatientToResponse).ToList();
+            var patients = await GetPatientProfilesAsync(userId);
             var patientIds = patients.Select(p => p.PatientId).ToList();
 
-            // 2. Fetch Upcoming Appointments
+            var upcomingResponseList = await GetUpcomingAppointmentsAsync(patientIds);
+            var prescriptionResponseList = await GetPrescriptionHistoryAsync(patientIds);
+            var outstandingPayments = await GetOutstandingBalancesAsync(patientIds);
+
+            return Result<PatientDashboardResponse>.Success(new PatientDashboardResponse
+            {
+                PatientProfiles = patients.Select(MapPatientToResponse).ToList(),
+                UpcomingAppointments = upcomingResponseList,
+                PrescriptionHistory = prescriptionResponseList,
+                OutstandingBalances = outstandingPayments
+            });
+        }
+
+        // --- Private Helper Methods for Doctor Dashboard ---
+
+        private async Task<List<TblAppointment>> GetTodayAppointmentsAsync(DateTime start, DateTime end)
+        {
+            return await _context.TblAppointments
+                .Include(a => a.Patient)
+                .Where(a => a.Datetime >= start && a.Datetime < end)
+                .OrderBy(a => a.Id)
+                .ToListAsync();
+        }
+
+        private List<UpcomingPatientDto> GetUpcomingPatients(List<TblAppointment> todayAppointments)
+        {
+            return todayAppointments
+                .Where(a => a.Status == "confirmed" || a.Status == "pending")
+                .Take(3)
+                .Select((a, idx) => new UpcomingPatientDto
+                {
+                    Id = a.Id,
+                    AppointmentCode = a.AppointmentCode,
+                    PatientName = a.Patient?.Name ?? "Unknown",
+                    Datetime = a.Datetime.ToString("t"),
+                    TokenNumber = todayAppointments.IndexOf(a) + 1,
+                    Notes = a.Notes
+                })
+                .ToList();
+        }
+
+        private async Task<(List<string> LowStock, List<string> Expiring)> GetInventoryAlertsAsync(DateOnly today, DateOnly thirtyDaysFromNow)
+        {
+            var activeBatches = await _context.TblMedicineBatches
+                .Include(b => b.Med)
+                .Where(b => b.Status == "active" && b.ExpiryDate > today && b.DeleteFlag != true)
+                .ToListAsync();
+
+            var lowStockMeds = activeBatches
+                .GroupBy(b => b.MedId)
+                .Where(g => g.Sum(b => b.Quantity) < LowStockThreshold)
+                .Select(g => $"{g.First().Med?.Name ?? "Unknown"} (Stock: {g.Sum(b => b.Quantity)})")
+                .ToList();
+
+            var expiringBatches = activeBatches
+                .Where(b => b.ExpiryDate <= thirtyDaysFromNow && b.ExpiryDate > today)
+                .Select(b => $"{b.Med?.Name ?? "Unknown"} Batch {b.BatchNo} (Expires: {b.ExpiryDate:yyyy-MM-dd})")
+                .ToList();
+
+            return (lowStockMeds, expiringBatches);
+        }
+
+        private async Task<decimal> GetDailyRevenueAsync(DateTime start, DateTime end)
+        {
+            return await _context.TblPayments
+                .Where(p => p.PaymentStatus == "paid" && p.PaidAt.HasValue && p.PaidAt.Value >= start && p.PaidAt.Value < end)
+                .SumAsync(p => p.Amount);
+        }
+
+        // --- Private Helper Methods for Patient Dashboard ---
+
+        private async Task<List<TblPatient>> GetPatientProfilesAsync(int userId)
+        {
+            return await _context.TblPatients
+                .Where(p => p.UserId == userId && p.DeleteFlag != true)
+                .ToListAsync();
+        }
+
+        private async Task<List<AppointmentDetailsResponse>> GetUpcomingAppointmentsAsync(List<int> patientIds)
+        {
             var upcomingAppts = await _context.TblAppointments
                 .Include(a => a.Patient)
                 .Where(a => patientIds.Contains(a.PatientId) && a.Datetime >= DateTime.UtcNow && (a.Status == "pending" || a.Status == "confirmed"))
                 .OrderBy(a => a.Datetime)
                 .ToListAsync();
 
-            // We need to retrieve all today's appointments to determine the token numbers for each upcoming appointment
             var upcomingResponseList = new List<AppointmentDetailsResponse>();
             foreach (var a in upcomingAppts)
             {
                 var today = a.Datetime.Date;
                 var tomorrow = today.AddDays(1);
+                
                 var todayList = await _context.TblAppointments
                     .Where(x => x.Datetime >= today && x.Datetime < tomorrow && x.Status != "cancelled")
                     .OrderBy(x => x.Id)
                     .Select(x => x.Id)
                     .ToListAsync();
+                
                 var token = todayList.IndexOf(a.Id) + 1;
 
                 upcomingResponseList.Add(new AppointmentDetailsResponse
@@ -158,7 +190,11 @@ namespace SCMS.Domain.Features.Dashboards
                 });
             }
 
-            // 3. Fetch Prescription History
+            return upcomingResponseList;
+        }
+
+        private async Task<List<PrescriptionResponse>> GetPrescriptionHistoryAsync(List<int> patientIds)
+        {
             var prescriptions = await _context.TblPrescriptions
                 .Include(p => p.Patient)
                 .Include(p => p.Appointment)
@@ -171,19 +207,21 @@ namespace SCMS.Domain.Features.Dashboards
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
-            var prescriptionResponseList = prescriptions.Select(MapPrescriptionToResponse).ToList();
+            return prescriptions.Select(MapPrescriptionToResponse).ToList();
+        }
 
-            // 4. Fetch Outstanding Balances
+        private async Task<List<UnpaidInvoiceDto>> GetOutstandingBalancesAsync(List<int> patientIds)
+        {
             var appointmentIds = await _context.TblAppointments
                 .Where(a => patientIds.Contains(a.PatientId))
                 .Select(a => a.Id)
                 .ToListAsync();
 
-            var outstandingPayments = await _context.TblPayments
+            return await _context.TblPayments
                 .Where(p => appointmentIds.Contains(p.AppointmentId) && p.PaymentStatus != "paid")
                 .Select(p => new UnpaidInvoiceDto
                 {
-                    PaymentId = p.Id,
+                    Id = p.Id,
                     AppointmentId = p.AppointmentId,
                     AppointmentCode = p.Appointment != null ? p.Appointment.AppointmentCode : "Unknown",
                     Amount = p.Amount,
@@ -193,15 +231,9 @@ namespace SCMS.Domain.Features.Dashboards
                     PaymentMethod = p.PaymentMethod
                 })
                 .ToListAsync();
-
-            return Result<PatientDashboardResponse>.Success(new PatientDashboardResponse
-            {
-                PatientProfiles = patientProfiles,
-                UpcomingAppointments = upcomingResponseList,
-                PrescriptionHistory = prescriptionResponseList,
-                OutstandingBalances = outstandingPayments
-            });
         }
+
+        // --- Mappers & Parsers ---
 
         private PatientProfileResponse MapPatientToResponse(TblPatient p)
         {
@@ -233,10 +265,7 @@ namespace SCMS.Domain.Features.Dashboards
             var itemsList = p.TblPrescriptionItems.Select(item => new PrescriptionItemResponseDto
             {
                 Id = item.Id,
-                MedicineId = item.MedicineId,
                 MedicineName = item.Medicine.Name,
-                MedicineBatchId = item.MedicineBatchId,
-                BatchNo = item.MedicineBatch?.BatchNo,
                 Dosage = item.Dosage,
                 Days = item.Days,
                 Quantity = item.Quantity,
