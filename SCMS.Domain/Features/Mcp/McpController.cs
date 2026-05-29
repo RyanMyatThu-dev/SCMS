@@ -98,13 +98,17 @@ namespace SCMS.Domain.Features.Mcp
                     {
                         new()
                         {
-                            Text = "You are a helpful, secure clinic assistant for the Smart Clinic Management System (SCMS). " +
-                                   "You have access to real-time clinic operations, EMR, and stock details through MCP tools. " +
+                            Text = "You are a helpful, secure clinic assistant for the Smart Clinic Management System (SCMS).\n" +
+                                   "You have access to real-time clinic operations, EMR, and stock details through MCP tools.\n" +
                                    "Rules:\n" +
                                    "- Support commands and queries in both English and Myanmar language. Always reply in the user's preferred language.\n" +
                                    "- Keep answers concise, clear, and direct (low token usage focus).\n" +
                                    "- Always retrieve data using the provided MCP tools before answering. NEVER fabricate patient details, stock levels, or EMR data.\n" +
-                                   "- Never diagnose patients or recommend prescription changes independently. Remind the user that clinical judgment belongs to the doctor."
+                                   "- Never diagnose patients or recommend prescription changes independently. Remind the user that clinical judgment belongs to the doctor.\n" +
+                                   "- For simple bulk rescheduling of today's active appointments (e.g., 'reschedule all appointments to start from 8:30 AM', or 'arrive clinic at 9 AM, reschedule today's appointments to start from 9:30 AM'), use the simple `reschedule_today_appointments` tool with the target start time. It will automatically shift all today's active slots relatively.\n" +
+                                   "- For fine-grained range-based rescheduling of specific time slots, use `reschedule_appointments_in_range`.\n" +
+                                   "- For status updates (confirm, cancel, complete) by Patient Name, use `update_appointment_status_by_patient_name` directly to search and apply changes.\n" +
+                                   "- For managing, showing, or recommending medication templates for specific diseases (e.g., 'what are the standard templates/pills for Asthma?', or 'save a template for Hypertension'), use `get_prescription_templates` and `create_prescription_template` tools."
                         }
                     }
                 };
@@ -134,12 +138,107 @@ namespace SCMS.Domain.Features.Mcp
                     };
 
                     var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
-                    var httpResponse = await HttpClient.PostAsJsonAsync(url, geminiReq);
+                    HttpResponseMessage httpResponse = null!;
+                    string errContent = string.Empty;
+                    bool callSuccessful = false;
 
-                    if (!httpResponse.IsSuccessStatusCode)
+                    for (int retry = 0; retry < 3; retry++)
                     {
-                        var errContent = await httpResponse.Content.ReadAsStringAsync();
-                        return BadRequest(Result<AiChatResponse>.Failure($"Gemini API request failed: {errContent}"));
+                        try
+                        {
+                            httpResponse = await HttpClient.PostAsJsonAsync(url, geminiReq);
+                            if (httpResponse.IsSuccessStatusCode)
+                            {
+                                callSuccessful = true;
+                                break;
+                            }
+
+                            errContent = await httpResponse.Content.ReadAsStringAsync();
+
+                            // Determine if error is transient (e.g. 503 or 429)
+                            bool isRetryable = false;
+                            try
+                            {
+                                var errObj = JsonSerializer.Deserialize<GeminiErrorResponse>(errContent);
+                                if (errObj?.Error != null)
+                                {
+                                    var code = errObj.Error.Code;
+                                    var status = errObj.Error.Status;
+                                    if (code == 503 || status == "UNAVAILABLE" || code == 429 || status == "RESOURCE_EXHAUSTED")
+                                    {
+                                        isRetryable = true;
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                if (httpResponse.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
+                                    (int)httpResponse.StatusCode == 429)
+                                {
+                                    isRetryable = true;
+                                }
+                            }
+
+                            if (!isRetryable)
+                            {
+                                break; // Do not retry auth or client errors
+                            }
+
+                            // Wait before retrying (exponential delay: 1s, 2s)
+                            await Task.Delay(TimeSpan.FromSeconds(retry + 1));
+                        }
+                        catch (Exception ex)
+                        {
+                            errContent = $"Network/connection error: {ex.Message}";
+                            // Retry network/connection errors too
+                            await Task.Delay(TimeSpan.FromSeconds(retry + 1));
+                        }
+                    }
+
+                    if (!callSuccessful)
+                    {
+                        string userFriendlyMessage = "The AI service is temporarily unavailable. Please try again in a moment.";
+
+                        if (httpResponse != null)
+                        {
+                            try
+                            {
+                                var errObj = JsonSerializer.Deserialize<GeminiErrorResponse>(errContent);
+                                if (errObj?.Error != null)
+                                {
+                                    var code = errObj.Error.Code;
+                                    var status = errObj.Error.Status;
+                                    var msg = errObj.Error.Message;
+
+                                    if (code == 503 || status == "UNAVAILABLE")
+                                    {
+                                        userFriendlyMessage = "The AI service is currently experiencing high demand and is temporarily unavailable. Please try again in a moment.";
+                                    }
+                                    else if (code == 429 || status == "RESOURCE_EXHAUSTED")
+                                    {
+                                        userFriendlyMessage = "The AI service has reached its rate limit. Please wait a moment before trying again.";
+                                    }
+                                    else if (code == 400 && msg.Contains("API key", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        userFriendlyMessage = "The configured Gemini API key is invalid. Please check your system configuration.";
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(msg))
+                                    {
+                                        userFriendlyMessage = $"AI service error: {msg}";
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                userFriendlyMessage = $"The AI service returned an unexpected response (HTTP {(int)httpResponse.StatusCode}). Please try again later.";
+                            }
+                        }
+                        else
+                        {
+                            userFriendlyMessage = $"Unable to communicate with the AI service. {errContent}";
+                        }
+
+                        return BadRequest(Result<AiChatResponse>.Failure(userFriendlyMessage));
                     }
 
                     var geminiRes = await httpResponse.Content.ReadFromJsonAsync<GeminiGenerateResponse>();
@@ -327,6 +426,24 @@ namespace SCMS.Domain.Features.Mcp
     {
         [JsonPropertyName("content")]
         public GeminiContent? Content { get; set; }
+    }
+
+    public class GeminiErrorResponse
+    {
+        [JsonPropertyName("error")]
+        public GeminiErrorDetails? Error { get; set; }
+    }
+
+    public class GeminiErrorDetails
+    {
+        [JsonPropertyName("code")]
+        public int Code { get; set; }
+
+        [JsonPropertyName("message")]
+        public string Message { get; set; } = string.Empty;
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = string.Empty;
     }
     #endregion
 }

@@ -278,6 +278,9 @@ namespace SCMS.Web.Services
         public Task<Result<PrescriptionTemplateResponse>> SavePrescriptionTemplateAsync(SaveTemplateRequest request)
             => PostAsync<SaveTemplateRequest, PrescriptionTemplateResponse>("api/prescriptions/templates", request);
 
+        public Task<Result<bool>> DeletePrescriptionTemplateAsync(int id)
+            => DeleteAsync<bool>($"api/prescriptions/templates/{id}");
+
         public Task<Result<PrescriptionResponse>> CreatePrescriptionAsync(CreatePrescriptionRequest request)
             => PostAsync<CreatePrescriptionRequest, PrescriptionResponse>("api/prescriptions", request);
 

@@ -664,6 +664,64 @@ const styles = `
       display: none;
     }
   }
+
+  /* Sleek circular spinner */
+  .spinner-ring {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .spinner-ring-dark {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 82, 204, 0.15);
+    border-radius: 50%;
+    border-top-color: ${PRIMARY};
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Shimmer effect for skeleton loading */
+  @keyframes shimmer {
+    0% {
+      background-position: -468px 0;
+    }
+    100% {
+      background-position: 468px 0;
+    }
+  }
+
+  .skeleton {
+    animation: shimmer 1.2s infinite linear;
+    background: linear-gradient(to right, #F2F4F7 8%, #EAECF0 18%, #F2F4F7 33%);
+    background-size: 800px 104px;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .skeleton-light {
+    animation: shimmer 1.2s infinite linear;
+    background: linear-gradient(to right, rgba(255,255,255,0.12) 8%, rgba(255,255,255,0.24) 18%, rgba(255,255,255,0.12) 33%);
+    background-size: 800px 104px;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .skeleton-text {
+    height: 12px;
+    border-radius: 4px;
+  }
 `;
 
 const safeArray = (data) => {
@@ -1383,8 +1441,15 @@ export default function AdminDashboard() {
           </div>
 
           <div className="top-actions" style={{ display: "flex", gap: 12 }}>
-            <button className="btn btn-outline" onClick={loadDashboardData}>
-              {loading ? "Loading..." : "Refresh"}
+            <button className="btn btn-outline" onClick={loadDashboardData} disabled={loading} style={{ minWidth: 100 }}>
+              {loading ? (
+                <>
+                  <span className="spinner-ring-dark" style={{ marginRight: 8 }} />
+                  <span>Loading</span>
+                </>
+              ) : (
+                "Refresh"
+              )}
             </button>
           </div>
         </header>
@@ -1473,119 +1538,119 @@ export default function AdminDashboard() {
 
                   <div className="cell-text">{patient.wait}</div>
 
-                  <div>
-                    <span className={`pill ${statusClass[patient.status]}`}>
-                      {statusLabel[patient.status]}
-                    </span>
+                {loading ? (
+                  Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={idx} className="table-row">
+                      <div className="token"><div className="skeleton skeleton-text" style={{ width: 45 }} /></div>
+
+                      <div className="patient-cell">
+                        <div
+                          className="avatar skeleton"
+                          style={{ background: "#EAECF0" }}
+                        />
+
+                        <div style={{ flex: 1 }}>
+                          <div className="skeleton skeleton-text" style={{ width: "70%", height: 14 }} />
+                          <div className="skeleton skeleton-text" style={{ width: "40%", height: 10, marginTop: 4 }} />
+                        </div>
+                      </div>
+
+                      <div className="cell-text">
+                        <div className="skeleton skeleton-text" style={{ width: "65%" }} />
+                      </div>
+
+                      <div className="cell-text">
+                        <div className="skeleton skeleton-text" style={{ width: "45%" }} />
+                      </div>
+
+                      <div>
+                        <div className="skeleton skeleton-text" style={{ width: 75, height: 24, borderRadius: 12 }} />
+                      </div>
+                    </div>
+                  ))
+                ) : queue.length === 0 ? (
+                  <div className="empty">No appointments found.</div>
+                ) : (
+                  queue.map((patient) => (
+                    <div key={patient.id} className="table-row">
+                      <div className="token">{patient.token}</div>
+
+                      <div className="patient-cell">
+                        <div
+                          className="avatar"
+                          style={{ background: patient.avatar }}
+                        >
+                          {getInitials(patient.name)}
+                        </div>
+
+                        <div style={{ minWidth: 0 }}>
+                          <div className="patient-name">{patient.name}</div>
+                          <div className="patient-meta">Age {patient.age}</div>
+                        </div>
+                      </div>
+
+                      <div className="cell-text">{patient.reason}</div>
+
+                      <div className="cell-text">{patient.wait}</div>
+
+                      <div>
+                        <span className={`pill ${statusClass[patient.status]}`}>
+                          {statusLabel[patient.status]}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </article>
+
+              <article className="card summary-card">
+                <div className="summary-top">
+                  <div className="section-title" style={{ color: "white" }}>
+                    Today's Summary
                   </div>
                 </div>
-              ))
-            )}
-          </article>
 
-          <article className="card summary-card">
-            <div className="summary-top">
-              <div className="section-title" style={{ color: "white" }}>
-                Today's Summary
-              </div>
-
-              <span className="summary-badge">Daily</span>
-            </div>
-
-            <div>
-              <div className="revenue-label">Revenue Collected</div>
-              <div className="revenue">
-                MMK {summary.revenue.toLocaleString()}
-              </div>
-            </div>
-
-            {[
-              {
-                label: "Consultations",
-                pct: summary.consultations.pct,
-                val: summary.consultations.val,
-              },
-
-              {
-                label: "Prescriptions",
-                pct: summary.prescriptions.pct,
-                val: summary.prescriptions.val,
-              },
-            ].map((metric) => (
-              <div key={metric.label} className="metric">
-                <div className="metric-row">
-                  <span>{metric.label}</span>
-                  <span>{metric.val}</span>
+                <div>
+                  <div className="revenue-label">Revenue Collected</div>
+                  <div className="revenue" style={{ display: "flex", alignItems: "center" }}>
+                    {loading ? (
+                      <div className="skeleton-light" style={{ width: 140, height: 38, margin: "5px 0" }} />
+                    ) : (
+                      <>RM {summary.revenue.toLocaleString()}</>
+                    )}
+                  </div>
                 </div>
 
-                <div className="progress">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${metric.pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+                {[
+                  {
+                    label: "Consultations",
+                    pct: summary.consultations.pct,
+                    val: summary.consultations.val,
+                  },
 
-            <div className="patient-flow">
-              <div
-                style={{
-                  textAlign: "center",
-                  fontWeight: 800,
-                  marginBottom: 14,
-                }}
-              >
-                Patient Flow
-              </div>
-
-              <MiniBarChart data={chartData} />
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  marginTop: 14,
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.78)",
-                }}
-              >
-                <span>■ Scheduled</span>
-                <span>■ Walk-in</span>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <section className="bottom-grid">
-          <article className="card">
-            <div className="card-header">
-              <div>
-                <div className="section-title">Upcoming Follow-Ups</div>
-                <div className="section-subtitle">Patients who need review</div>
-              </div>
-
-              <button className="btn btn-outline">View All</button>
-            </div>
-
-            <div className="list">
-              {recentFollowUps.length === 0 ? (
-                <div className="empty">No follow-ups found.</div>
-              ) : (
-                recentFollowUps.map((followUp, index) => (
-                  <div key={followUp.id || index} className="list-item">
-                    <div
-                      className="list-icon"
-                      style={{
-                        background: followUp.urgent ? "#FFF1F0" : PRIMARY_LIGHT,
-                        color: followUp.urgent ? DANGER : PRIMARY,
-                      }}
-                    >
-                      <NavIcon type="followups" />
+                  {
+                    label: "Prescriptions",
+                    pct: summary.prescriptions.pct,
+                    val: summary.prescriptions.val,
+                  },
+                ].map((metric) => (
+                  <div key={metric.label} className="metric">
+                    <div className="metric-row">
+                      <span>{metric.label}</span>
+                      <span>
+                        {loading ? (
+                          <div className="skeleton-light" style={{ width: 42, height: 14, display: "inline-block" }} />
+                        ) : (
+                          metric.val
+                        )}
+                      </span>
                     </div>
 
-                    <div style={{ flex: 1 }}>
-                      <div className="list-title">{followUp.name}</div>
-                      <div className="list-sub">{followUp.reason}</div>
+                    <div className="progress">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${loading ? 0 : metric.pct}%` }}
+                      />
                     </div>
 
                     <div style={{ textAlign: "right" }}>
@@ -1596,11 +1661,69 @@ export default function AdminDashboard() {
                       <div className="list-sub">{followUp.date}</div>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          </article>
-        </section>
+
+                  <button className="btn btn-outline">View All</button>
+                </div>
+
+                <div className="list">
+                  {loading ? (
+                    Array.from({ length: 3 }).map((_, idx) => (
+                      <div key={idx} className="list-item">
+                        <div
+                          className="list-icon skeleton"
+                          style={{
+                            background: "#EAECF0",
+                            width: 42,
+                            height: 42,
+                            borderRadius: 14
+                          }}
+                        />
+
+                        <div style={{ flex: 1 }}>
+                          <div className="skeleton skeleton-text" style={{ width: "40%", height: 14 }} />
+                          <div className="skeleton skeleton-text" style={{ width: "70%", height: 10, marginTop: 6 }} />
+                        </div>
+
+                        <div style={{ width: 80, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                          <div className="skeleton skeleton-text" style={{ width: 50, height: 10 }} />
+                        </div>
+                      </div>
+                    ))
+                  ) : recentFollowUps.length === 0 ? (
+                    <div className="empty">No follow-ups found.</div>
+                  ) : (
+                    recentFollowUps.map((followUp, index) => (
+                      <div key={followUp.id || index} className="list-item">
+                        <div
+                          className="list-icon"
+                          style={{
+                            background: followUp.urgent
+                              ? "#FFF1F0"
+                              : PRIMARY_LIGHT,
+                            color: followUp.urgent ? DANGER : PRIMARY,
+                          }}
+                        >
+                          <NavIcon type="followups" />
+                        </div>
+
+                        <div style={{ flex: 1 }}>
+                          <div className="list-title">{followUp.name}</div>
+                          <div className="list-sub">{followUp.reason}</div>
+                        </div>
+
+                        <div style={{ textAlign: "right" }}>
+                          {followUp.urgent ? (
+                            <span className="badge badge-danger">Urgent</span>
+                          ) : null}
+
+                          <div className="list-sub">{followUp.date}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
+            </section>
       </div>
     </>
   );

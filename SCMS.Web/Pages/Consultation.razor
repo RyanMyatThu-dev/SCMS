@@ -30,7 +30,7 @@
                                 DataSource="appointments" ValueName="@nameof(AppointmentDetailsResponse.Id)" 
                                 OnSelectedItemChanged="SelectAppointmentHandler" Style="width: 100%; margin-top: 8px;" Placeholder="Select appointment">
                             <ItemTemplate Context="appt">
-                                @appt.TokenNumber - @appt.PatientName - @appt.Datetime.ToString("MMM dd HH:mm")
+                                @appt.TokenNumber - @appt.PatientName - @appt.Datetime.ToString("MMM dd hh:mm tt")
                             </ItemTemplate>
                         </Select>
                     </div>
@@ -78,6 +78,18 @@
                 }
                 else if (currentStep == 1)
                 {
+                    @if (frequentPatientMedicines.Count > 0)
+                    {
+                        <div style="background: #F4F3FF; border: 1px solid #D6BBFB; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+                            <span style="font-weight: 700; color: #53389E; font-size: 13px; display: block; margin-bottom: 6px;">💊 Patient's Most Frequently Prescribed Medications</span>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                @foreach (var med in frequentPatientMedicines)
+                                {
+                                    <Tag Color="@("purple")" Style="font-size: 12px; padding: 4px 10px;">@med.MedicineName (@med.Count times)</Tag>
+                                }
+                            </div>
+                        </div>
+                    }
                     <div style="margin-bottom: 16px;">
                         <span style="font-weight: bold;">Diagnosis</span>
                         <Select TItem="DiseaseResponse" TItemValue="int?" @bind-Value="prescription.DiseaseId"
@@ -101,6 +113,18 @@
                 }
                 else if (currentStep == 2)
                 {
+                    @if (frequentPatientMedicines.Count > 0)
+                    {
+                        <div style="background: #F4F3FF; border: 1px solid #D6BBFB; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+                            <span style="font-weight: 700; color: #53389E; font-size: 13px; display: block; margin-bottom: 6px;">💊 Frequently Given Medications (Click to Quick-Add to prescription)</span>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                @foreach (var med in frequentPatientMedicines)
+                                {
+                                    <Tag Color="@("purple")" Style="font-size: 12px; padding: 6px 12px; cursor: pointer; font-weight: 600;" OnClick="() => QuickAddMedicine(med.MedicineName)">@med.MedicineName (@med.Count) +</Tag>
+                                }
+                            </div>
+                        </div>
+                    }
                     <div style="margin-bottom: 16px;">
                         <span style="font-weight: bold;">Medicines</span>
                         <Table TItem="PrescriptionItemDto" DataSource="prescription.Items" Size="TableSize.Small">
@@ -133,7 +157,7 @@
                     <div style="margin-top: 24px; text-align: right;">
                         <Space>
                             <SpaceItem><Button OnClick="PrevStep">Previous</Button></SpaceItem>
-                            <SpaceItem><Button OnClick="SaveTemplate">Save Template</Button></SpaceItem>
+                            <SpaceItem><Button OnClick="OpenSaveTemplateModal">Save Template</Button></SpaceItem>
                             <SpaceItem><Button Type="@ButtonType.Primary" OnClick="CreatePrescription" Loading="isSubmitting">Submit Prescription</Button></SpaceItem>
                         </Space>
                     </div>
@@ -158,6 +182,28 @@
             </div>
         </Card>
     </AntDesign.Col>
+
+    <AntDesign.Modal Visible="@showSaveTemplateModal" 
+                     Title="Save Prescription as Template" 
+                     OnCancel="HideSaveTemplateModal" 
+                     OnOk="ConfirmSaveTemplate" 
+                     OkText="@("Save Template")" 
+                     CancelText="@("Cancel")">
+        <div style="padding: 8px 0;">
+            <span style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px; color: #344054;">Template Name</span>
+            <Input @bind-Value="templateSaveName" Placeholder="e.g. Hypertension Monthly Review" Style="padding: 10px 14px; border-radius: 8px;" />
+            <div style="margin-top: 14px; font-size: 13px; color: #475467; background: #F8F9FC; padding: 12px; border-radius: 8px; border: 1px solid #EAECF0;">
+                <strong>Items to save (@prescription.Items.Count):</strong>
+                <ul style="margin: 8px 0 0 16px; padding: 0;">
+                    @foreach (var item in prescription.Items)
+                    {
+                        var medName = medicines.FirstOrDefault(m => m.MedicineId == item.MedicineId)?.Name ?? "Select Medicine";
+                        <li>@medName (@(item.Dosage ?? "Standard Dose") for @item.Days days)</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </AntDesign.Modal>
     <AntDesign.Col Span="8">
         <Card Title="History" Style="margin-bottom: 16px;">
             <Timeline>
@@ -170,16 +216,33 @@
                 }
             </Timeline>
         </Card>
-        <Card Title="Templates">
-            <List TItem="PrescriptionTemplateResponse">
-                @foreach (var templateItem in templates)
-                {
-                    <ListItem>
-                        <ListItemMeta Title="@templateItem.Name" Description="@templateItem.DiseaseName" />
-                        <Button Size="@ButtonSize.Small" OnClick="() => UseTemplate(templateItem)">Use</Button>
-                    </ListItem>
-                }
-            </List>
+        <Card Title="Templates" BodyStyle="padding: 16px;">
+            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #EAECF0; padding-bottom: 10px;">
+                <Checkbox @bind-Checked="showAllTemplates" Style="font-weight: 600; color: #475467;">Show all templates</Checkbox>
+            </div>
+
+            @if (GetFilteredTemplates() == null || !GetFilteredTemplates().Any())
+            {
+                <span style="color: #98a2b3; font-style: italic; font-size: 13px; display: block; text-align: center; padding: 16px 0;">No templates available.</span>
+            }
+            else
+            {
+                <div style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding: 2px;">
+                    @foreach (var templateItem in GetFilteredTemplates())
+                    {
+                        <div style="background: #ffffff; border: 1px solid #eaecf0; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); transition: all 0.2s;">
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: 700; color: #1d2939; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@templateItem.Name">@templateItem.Name</div>
+                                <div style="font-size: 11px; color: #667085; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px;">
+                                    <Icon Type="tags" />
+                                    @templateItem.DiseaseName
+                                </div>
+                            </div>
+                            <Button Size="@ButtonSize.Small" Type="@ButtonType.Primary" Ghost OnClick="() => UseTemplate(templateItem)" Style="border-radius: 6px; font-weight: 600; flex-shrink: 0;">Use</Button>
+                        </div>
+                    }
+                </div>
+            }
         </Card>
     </AntDesign.Col>
 </AntDesign.Row>
@@ -202,6 +265,15 @@
     private string? message;
     private int currentStep = 0;
     private bool isSubmitting = false;
+
+    // Naming modal & filtering
+    private bool showSaveTemplateModal = false;
+    private string templateSaveName = "";
+    private bool showAllTemplates = false;
+
+    // Patient prescriptions lookup
+    private List<PrescriptionResponse> patientPrescriptions = new();
+    private List<(string MedicineName, int Count)> frequentPatientMedicines = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -245,8 +317,24 @@
 
         prescription.AppointmentId = appt.Id;
         prescription.PatientId = appt.PatientId;
+
+        frequentPatientMedicines.Clear();
+
         history = (await Api.PatientHistoryAsync(appt.PatientId)).Data;
         summary = (await Api.MedicalSummaryAsync(appt.PatientId)).Data;
+
+        var rxResult = await Api.PrescriptionsAsync(appt.PatientId);
+        if (rxResult.IsSuccess && rxResult.Data != null)
+        {
+            patientPrescriptions = rxResult.Data;
+            frequentPatientMedicines = patientPrescriptions
+                .SelectMany(p => p.Items)
+                .GroupBy(i => i.MedicineName)
+                .Select(g => (MedicineName: g.Key, Count: g.Count()))
+                .OrderByDescending(x => x.Count)
+                .Take(5)
+                .ToList();
+        }
     }
 
     private void AddItem() => prescription.Items.Add(NewItem());
@@ -279,7 +367,7 @@
         isSubmitting = false;
     }
 
-    private async Task SaveTemplate()
+    private void OpenSaveTemplateModal()
     {
         var diseaseId = prescription.DiseaseId ?? diseases.FirstOrDefault()?.Id ?? 0;
         if (diseaseId <= 0)
@@ -288,9 +376,41 @@
             return;
         }
 
+        var diseaseName = diseases.FirstOrDefault(d => d.Id == diseaseId)?.Name ?? "Standard";
+        templateSaveName = $"{diseaseName} Protocol";
+        showSaveTemplateModal = true;
+    }
+
+    private void HideSaveTemplateModal()
+    {
+        showSaveTemplateModal = false;
+    }
+
+    private async Task ConfirmSaveTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(templateSaveName))
+        {
+            message = "Template name is required.";
+            return;
+        }
+
+        var diseaseId = prescription.DiseaseId ?? diseases.FirstOrDefault()?.Id ?? 0;
+        if (diseaseId <= 0)
+        {
+            message = "A disease is required before saving a template.";
+            return;
+        }
+
+        var medicineIds = prescription.Items.Select(i => i.MedicineId).ToList();
+        if (medicineIds.Count != medicineIds.Distinct().Count())
+        {
+            message = "A prescription template cannot contain duplicate medicines. Please remove duplicate medicine rows first.";
+            return;
+        }
+
         var result = await Api.SavePrescriptionTemplateAsync(new SaveTemplateRequest
         {
-            Name = $"Template {DateTime.Now:MMM-dd HH:mm}",
+            Name = templateSaveName.Trim(),
             DiseaseId = diseaseId,
             Items = prescription.Items.Select(i => new TemplateItemDto
             {
@@ -301,8 +421,46 @@
                 Instruction = i.Instruction
             }).ToList()
         });
+
         message = result.Message;
+        showSaveTemplateModal = false;
         await Load();
+    }
+
+    private void QuickAddMedicine(string medicineName)
+    {
+        var med = medicines.FirstOrDefault(m => string.Equals(m.Name, medicineName, StringComparison.OrdinalIgnoreCase));
+        if (med != null)
+        {
+            var existingItem = prescription.Items.FirstOrDefault(i => i.MedicineId == med.MedicineId);
+            if (existingItem == null)
+            {
+                prescription.Items.Add(new PrescriptionItemDto
+                {
+                    MedicineId = med.MedicineId,
+                    Days = 3,
+                    Quantity = 1,
+                    DoseQuantity = 1,
+                    DoseUnit = "tablet",
+                    MealTiming = "after_meal",
+                    Route = "oral"
+                });
+            }
+            message = $"Quick-added {medicineName} to prescription.";
+        }
+        else
+        {
+            message = $"Could not locate {medicineName} in inventory search.";
+        }
+    }
+
+    private IEnumerable<PrescriptionTemplateResponse> GetFilteredTemplates()
+    {
+        if (showAllTemplates || !prescription.DiseaseId.HasValue || prescription.DiseaseId.Value <= 0)
+        {
+            return templates;
+        }
+        return templates.Where(t => t.DiseaseId == prescription.DiseaseId.Value);
     }
 
     private void UseTemplate(PrescriptionTemplateResponse template)

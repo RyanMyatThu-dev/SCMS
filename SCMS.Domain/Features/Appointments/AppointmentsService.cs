@@ -36,9 +36,9 @@ namespace SCMS.Domain.Features.Appointments
             //{
             //    return Result<BookAppointmentResponse>.Failure("Appointment date and time is required.");
             //}
-            if (request.Datetime <= DateTime.UtcNow)
+            if (request.Datetime.Date < DateTime.UtcNow.Date)
             {
-                return Result<BookAppointmentResponse>.Failure("Appointment date and time must be in the future.");
+                return Result<BookAppointmentResponse>.Failure("Appointment date must be today or in the future.");
             }
 
             // Verify patient exists and belongs to the user (or is accessible)
@@ -65,14 +65,13 @@ namespace SCMS.Domain.Features.Appointments
 
                 var todayCodes = await _context.TblAppointments
                     .Where(a => a.Datetime >= appointmentDate && a.Datetime < nextDay)
-                    .Select(a => a.AppointmentCode)
                     .ToListAsync();
 
                 var maxSeq = todayCodes
+                    .Select(a => a.AppointmentCode)
                     .Where(c => c != null && c.StartsWith("APT-"))
                     .Select(c =>
                     {
-                        // Code is either APT-NNN or APT-NNN-XXXX; parse the NNN part
                         var parts = c.Substring(4).Split('-');
                         return int.TryParse(parts[0], out var n) ? n : 0;
                     })
@@ -83,11 +82,14 @@ namespace SCMS.Domain.Features.Appointments
                 var randomSuffix = Convert.ToHexString(Guid.NewGuid().ToByteArray())[..4];
                 appointmentCode = $"APT-{(maxSeq + 1):D3}-{randomSuffix}";
 
+                // Auto-assign slot time: first starts at 08:00 AM, each subsequent is spaced by 15 mins
+                var assignedTime = appointmentDate.AddHours(8).AddMinutes(todayCodes.Count * 15);
+
                 appointment = new TblAppointment
                 {
                     AppointmentCode = appointmentCode,
                     PatientId = request.PatientId,
-                    Datetime = request.Datetime,
+                    Datetime = assignedTime,
                     Status = "pending",
                     Notes = request.Notes,
                     CreatedAt = DateTime.UtcNow,
@@ -129,7 +131,7 @@ namespace SCMS.Domain.Features.Appointments
             {
                 UserId = patient.UserId,
                 Title = "Appointment Booked",
-                Description = $"Your appointment (Code: {appointmentCode}) has been booked for {request.Datetime:f} and is pending approval. You are {queueStatus.PatientsAhead + 1} in queue.",
+                Description = $"Your appointment (Code: {appointmentCode}) has been booked for {appointment.Datetime:hh:mm tt} (expected consultation) and is pending approval. REQUIRED ARRIVAL: Please arrive at the clinic 30 minutes earlier at {appointment.Datetime.AddMinutes(-30):hh:mm tt} for check-in. You are {queueStatus.PatientsAhead + 1} in queue.",
                 ActionRoute = $"/appointments/{appointment.Id}",
                 CreatedAt = DateTime.UtcNow,
                 DeleteFlag = false
@@ -360,6 +362,30 @@ namespace SCMS.Domain.Features.Appointments
                 DeleteFlag = false
             };
             _context.TblNotifications.Add(notification);
+
+            // Trigger 30-minutes pre-call notification for the patient scheduled 2 slots ahead (30 mins later)
+            var pendingQueue = await _context.TblAppointments
+                .Include(a => a.Patient)
+                .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Status == "pending" && a.Id > nextAppointment.Id)
+                .OrderBy(a => a.Id)
+                .Take(2)
+                .ToListAsync();
+
+            if (pendingQueue.Count > 0)
+            {
+                var preCallPatientAppt = pendingQueue.Count >= 2 ? pendingQueue[1] : pendingQueue[0];
+                var preCallNotification = new TblNotification
+                {
+                    UserId = preCallPatientAppt.Patient.UserId,
+                    Title = "Appointment Coming Up",
+                    Description = $"Your appointment (Token #{await GetTokenNumberAsync(preCallPatientAppt)}) is estimated to start in {(pendingQueue.Count >= 2 ? "30" : "15")} minutes. Please proceed to the clinic immediately.",
+                    ActionRoute = $"/appointments/{preCallPatientAppt.Id}",
+                    CreatedAt = DateTime.UtcNow,
+                    DeleteFlag = false
+                };
+                _context.TblNotifications.Add(preCallNotification);
+            }
+
             await _context.SaveChangesAsync();
 
             var token = await GetTokenNumberAsync(nextAppointment);
@@ -431,9 +457,10 @@ namespace SCMS.Domain.Features.Appointments
 
             var isYourTurn = appointment.Status == "confirmed" && activeAppt?.Id == appointment.Id;
 
+            var requiredArrival = appointment.Datetime.AddMinutes(-30);
             string message = ahead == 0
-                ? (isYourTurn ? "It is your turn!" : "You are next in queue.")
-                : $"You are number {ahead + 1} in queue. (There are {ahead} patient(s) ahead of you)";
+                ? (isYourTurn ? "It is your turn!" : "You are next in queue. Please make sure you are in the waiting area.")
+                : $"You are number {ahead + 1} in queue. REQUIRED ARRIVAL: Please arrive at the clinic by {requiredArrival:hh:mm tt} (30 mins before scheduled time).";
 
             return new AppointmentQueueStatusResponse
             {
