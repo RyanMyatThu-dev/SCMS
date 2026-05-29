@@ -1,7 +1,7 @@
 import React from "react";
 
 const Patients = () => {
-  return <div></div>;
+  return <div>hello</div>;
 };
 
 export default Patients;

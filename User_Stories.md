@@ -218,3 +218,42 @@
 - Doctor can deactivate diseases (soft delete) rather than permanently removing them
 - System prevents deletion of diseases that are referenced in active prescriptions
 - Disease list is available when prescribing medications or recording diagnoses
+
+---
+
+# 🤖 AI & MCP-Powered Features
+
+## 17. AI Clinic Management Assistant
+
+**User Story**
+
+> As a doctor or clinic staff, I want an AI-powered clinic assistant so that I can manage daily operations, check medicine inventory, and retrieve patient summaries using natural language chat.
+
+**Acceptance Criteria**
+
+- **Chat Interface:** Accessible from the clinic management dashboard for authorized clinic staff.
+- **MCP Integration:** Communicates with domain services using secure, read-only Model Context Protocol (MCP) tools, preventing direct database access.
+- **Daily Briefing:** Summarizes the day's appointments, waiting queue status, low-stock medicines, and batches expiring within 30 days.
+- **Patient Summary:** Answers queries about the next patient, latest visits, and recent prescription history.
+- **Inventory Stock Lookup:** Looks up medicine stock levels, batch expiry dates, and alerts for low/expiring stocks.
+- **Write Actions (Follow-ups):** Can trigger follow-up reminder creation through a write-capable MCP tool when explicitly requested.
+- **Safety Boundaries:** 
+  - Never diagnoses a patient or recommends prescription changes independently.
+  - Operates on a low token usage strategy by summarizing context and retrieving structured JSON.
+
+## 18. Smart Hospital Referral Document Preparation
+
+**User Story**
+
+> As a doctor, I want the system to draft a hospital referral letter using patient EMR data so that I can quickly prepare documents for external specialist care.
+
+**Acceptance Criteria**
+
+- **Contextual Trigger:** Accessible directly from the patient’s profile view.
+- **Doctor Input:** Doctor provides the target hospital, department, referral reason, doctor instructions, and urgency level.
+- **Staged MCP Retrieval:** Retrieves minimal required details (patient profile, latest visit, recent prescription history, and relevant lab reports) to optimize token usage.
+- **Polished Draft Generation:** AI generates a complete referral letter draft containing clinic/doctor details, patient demographics, chief complaint, relevant history, reason for referral, and a signature block.
+- **Review and Approval:** The letter is clearly labeled as a "Draft" and must be reviewed, edited, and approved by the doctor.
+- **PDF Generation:** Once approved, the document is saved and can be printed or downloaded as a PDF referral letter.
+- **Safety Rule:** Missing data is explicitly marked as "not recorded" instead of fabricating facts.
+

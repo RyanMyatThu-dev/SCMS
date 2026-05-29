@@ -16,11 +16,11 @@ namespace SCMS.Shared.Contracts.Dashboards
 
     public class UpcomingPatientDto
     {
-        public int AppointmentId { get; set; }
+        public int Id { get; set; }
         public string AppointmentCode { get; set; } = null!;
         public string PatientName { get; set; } = null!;
-        public string Time { get; set; } = null!;
+        public string Datetime { get; set; } = null!;
         public int TokenNumber { get; set; }
-        public string? ReasonForVisit { get; set; }
+        public string? Notes { get; set; }
     }
 }

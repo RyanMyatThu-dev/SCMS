@@ -1,39 +1,24 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
-// ─── ၁။ FEATURE STRUCTURE အသစ်အရ COMPONENTS များ IMPORT လုပ်ခြင်း ───
-import AdminDashboard from "./features/admin/components/AdminDashboard";
-import UserDashboard from "./features/user/components/UserDashboard";
-
-// Auth Features & Components
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
 import NotFound from "./pages/NotFound";
 import PatientPortal from "./pages/PatientPortal";
 
-// ကျန်ရှိသော Admin Features များ (အစ်ကို့ရဲ့ လက်ရှိ ဖိုင်လမ်းကြောင်းများအတိုင်း)
-import AdminAppointments from "./features/appointments/Appointment";
-import AdminDiseases from "./features/disease/Disease";
-import AdminDocuments from "./features/document/Documents";
-import AdminFollowUps from "./features/followUps/FollowUps";
-import AdminLabReports from "./features/labreports/LabReports";
-import AdminMedicines from "./features/medicines/Medicines";
+import AdminLayout from "./features/admin/components/AdminLayout";
+import AdminDashboard from "./features/admin/components/AdminDashboard";
 
-// ⚠️ User/Patient အတွက် နောက်ပိုင်းထည့်မည့် စာမျက်နှာများ (Placeholder များ ဖျက်ပြီး တိုက်ရိုက် Import လုပ်နိုင်သည်)
-const UserNewAppointment = () => (
-  <div className="p-6 font-bold">Book an Appointment (Patient)</div>
-);
-const UserMyDocuments = () => (
-  <div className="p-6 font-bold">My Medical Documents</div>
-);
-const UserMyPrescriptions = () => (
-  <div className="p-6 font-bold">My Prescriptions</div>
-);
-const UserMyPayments = () => (
-  <div className="p-6 font-bold">My Bills & Payments</div>
-);
+import Patients from "./features/patients/Patients";
+import Appointments from "./features/appointments/Appointment";
+import Prescriptions from "./features/prescriptions/Prescriptions";
+import FollowUps from "./features/followUps/FollowUps";
+import Payments from "./features/payments/Payments";
+import Notification from "./features/noti/Notification";
+import Medicines from "./features/medicines/Medicines";
+import Disease from "./features/disease/Disease";
+import Documents from "./features/document/Documents";
 
-// ─── ၂။ SPLASH SCREEN COMPONENT ───
 const SplashScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
     <div className="animate-bounce h-16 w-16 bg-indigo-600 text-white font-black text-2xl rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-4">
@@ -47,22 +32,15 @@ const SplashScreen = () => (
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [userRole, setUserRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // ─── ၃။ REFRESH စစ်ဆေးသည့်အပိုင်း ───
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const role = localStorage.getItem("userRole");
-
-    if (token && role) {
-      setIsAuthenticated(true);
-      setUserRole(role.toLowerCase());
-    }
+    setIsAuthenticated(Boolean(token));
 
     const timer = setTimeout(() => {
       setIsInitializing(false);
-    }, 1500);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, []);
@@ -132,6 +110,37 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
+    <Routes>
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/admin/dashboard" replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="patients" element={<Patients />} />
+        <Route path="appointments" element={<Appointments />} />
+        <Route path="prescriptions" element={<Prescriptions />} />
+        <Route path="followups" element={<FollowUps />} />
+        <Route path="payments" element={<Payments />} />
+        <Route path="notifications" element={<Notification />} />
+        <Route path="medicines" element={<Medicines />} />
+        <Route path="diseases" element={<Disease />} />
+        <Route path="documents" element={<Documents />} />
+      </Route>
+
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 

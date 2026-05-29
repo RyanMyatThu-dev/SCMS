@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { registerAPI } from "../../../services/authService";
-import { UserPlus, User, Phone, Lock, Eye, EyeOff } from "lucide-react";
+// Phone နေရာတွင် Mail ကို အစားထိုးသွင်းလိုက်ပါသည်
+import { UserPlus, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Swal from "sweetalert2";
 
 function Register() {
   const [name, setName] = useState("");
-  const [mobileNo, setMobileNo] = useState("");
+  const [email, setEmail] = useState(""); // mobileNo မှ email သို့ ပြောင်းလဲခြင်း
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,11 +30,12 @@ function Register() {
     setLoading(true);
 
     try {
+      // mobileNo နေရာတွင် email ကို API သို့ ပေးပို့ပါသည်
       await registerAPI({
         name,
-        mobileNo,
+        email,
         password,
-        role: "User",
+        role: "User", // စနစ်အလိုက် 'Patient' သို့မဟုတ် 'User' လိုအပ်သလို ပြောင်းနိုင်ပါသည်
       });
 
       Swal.fire({
@@ -96,22 +98,22 @@ function Register() {
               </div>
             </div>
 
-            {/* Mobile Number Input */}
+            {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mobile Number
+                Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <Phone size={18} />
+                  <Mail size={18} />
                 </div>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={mobileNo}
-                  onChange={(e) => setMobileNo(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 block w-full p-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  placeholder="09xxxxxxxxx"
+                  placeholder="user@example.com"
                 />
               </div>
             </div>
@@ -153,7 +155,7 @@ function Register() {
                   <Lock size={18} />
                 </div>
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? "text" : "password"} // စကားဝှက်ကို ကြည့်ရှုခြင်း/ဖျောက်ခြင်း စနစ်နှင့် ချိတ်ဆက်ထားပါသည်
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -171,7 +173,7 @@ function Register() {
             className="w-full flex justify-center py-2.5 px-4 text-sm font-semibold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:bg-indigo-400 mt-6"
           >
             <UserPlus size={18} className="mr-2" />
-            {loading ? "Creating Account..." : "Register"}
+            {loading ? "အကောင့်ဆောက်နေပါသည်..." : "Register"}
           </button>
         </form>
 
