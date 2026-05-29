@@ -13,24 +13,34 @@ const TEXT = "#1D2939";
 const MUTED = "#667085";
 const BORDER = "#E4E7EC";
 
+const emptyCreateForm = {
+  appointmentId: "",
+  prescriptionId: "",
+  amount: "",
+  tax: "0",
+  charges: "0",
+  paymentMethod: "cash",
+  paymentStatus: "pending",
+};
+
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.items)) return data.data.items;
   if (Array.isArray(data?.items)) return data.items;
   if (Array.isArray(data?.result)) return data.result;
   if (Array.isArray(data?.value)) return data.value;
   return [];
 };
 
-const getId = (p) => p.id || p.paymentId || p.payment_id;
+const getId = (p) => p?.id || p?.paymentId || p?.payment_id;
+const getAppointmentId = (a) => a?.id || a?.appointmentId || a?.appointment_id;
 
-const money = (value) => {
-  const n = Number(value || 0);
-  return n.toLocaleString("en-US", {
+const money = (value) =>
+  Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-};
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -51,18 +61,41 @@ export default function Payments() {
   const lang = outlet?.lang || localStorage.getItem("lang") || "en";
 
   const [payments, setPayments] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+
   const [selected, setSelected] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
 
   const t = {
     title: lang === "mm" ? "ငွေပေးချေမှုမှတ်တမ်း" : "Payment History",
     subtitle:
       lang === "mm"
-        ? "လူနာချိန်းဆိုမှုများအတွက် ငွေပေးချေမှုအခြေအနေများကို စစ်ဆေးနိုင်သည်"
-        : "Review appointment payments, proof screenshots, tax, charges and status",
+        ? "Appointment ID၊ Patient Name နှင့် ကျသင့်ငွေကို ချိတ်ဆက်ပြီး payment ဖန်တီးနိုင်သည်"
+        : "Create and review payments by appointment, patient, amount and status",
+    createPayment: lang === "mm" ? "Payment အသစ်" : "Create Payment",
+    appointment: lang === "mm" ? "ချိန်းဆိုမှု" : "Appointment",
+    patient: lang === "mm" ? "လူနာ" : "Patient",
+    amount: lang === "mm" ? "ကျသင့်ငွေ" : "Amount",
+    tax: lang === "mm" ? "အခွန်" : "Tax",
+    charges: lang === "mm" ? "ဝန်ဆောင်ခ" : "Charges",
+    method: lang === "mm" ? "ငွေပေးချေမှုနည်းလမ်း" : "Method",
+    status: lang === "mm" ? "အခြေအနေ" : "Status",
+    paidAt: lang === "mm" ? "ပေးချေသည့်နေ့" : "Paid At",
+    proof: lang === "mm" ? "ငွေလွှဲ Screenshot" : "Payment Proof",
+    details: lang === "mm" ? "အသေးစိတ်" : "Details",
+    approve: lang === "mm" ? "အတည်ပြုမည်" : "Approve",
+    invoice: lang === "mm" ? "Invoice" : "Invoice",
+    empty: lang === "mm" ? "Payment မတွေ့ပါ" : "No payments found",
+    refresh: lang === "mm" ? "ပြန်တင်မည်" : "Refresh",
+    close: lang === "mm" ? "ပိတ်မည်" : "Close",
     search:
       lang === "mm"
         ? "လူနာအမည် / appointment code ဖြင့်ရှာပါ..."
@@ -73,33 +106,32 @@ export default function Payments() {
     partial: lang === "mm" ? "တစ်စိတ်တစ်ပိုင်း" : "Partial",
     failed: lang === "mm" ? "မအောင်မြင်" : "Failed",
     refunded: lang === "mm" ? "ပြန်အမ်းပြီး" : "Refunded",
-    appointment: lang === "mm" ? "ချိန်းဆိုမှု" : "Appointment",
-    patient: lang === "mm" ? "လူနာ" : "Patient",
-    amount: lang === "mm" ? "ငွေပမာဏ" : "Amount",
-    tax: lang === "mm" ? "အခွန်" : "Tax",
-    charges: lang === "mm" ? "ဝန်ဆောင်ခ" : "Charges",
-    method: lang === "mm" ? "ငွေပေးချေမှုနည်းလမ်း" : "Method",
-    status: lang === "mm" ? "အခြေအနေ" : "Status",
-    paidAt: lang === "mm" ? "ပေးချေသည့်နေ့" : "Paid At",
-    proof: lang === "mm" ? "ငွေလွှဲ Screenshot" : "Payment Proof",
-    details: lang === "mm" ? "အသေးစိတ်" : "Details",
-    approve: lang === "mm" ? "အတည်ပြုမည်" : "Approve",
-    invoice: lang === "mm" ? "Invoice PDF" : "Invoice PDF",
-    empty: lang === "mm" ? "Payment မတွေ့ပါ" : "No payments found",
-    refresh: lang === "mm" ? "ပြန်တင်မည်" : "Refresh",
-    close: lang === "mm" ? "ပိတ်မည်" : "Close",
   };
 
-  const loadPayments = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
 
-      const data =
-        status === "all"
-          ? await scmsApi.payments.list()
-          : await scmsApi.payments.list(status);
+      const [paymentRes, appointmentRes, prescriptionRes] =
+        await Promise.allSettled([
+          status === "all"
+            ? scmsApi.payments.list()
+            : scmsApi.payments.list(status),
+          scmsApi.appointments.list(),
+          scmsApi.prescriptions.list(),
+        ]);
 
-      setPayments(toArray(data));
+      if (paymentRes.status === "fulfilled") {
+        setPayments(toArray(paymentRes.value));
+      }
+
+      if (appointmentRes.status === "fulfilled") {
+        setAppointments(toArray(appointmentRes.value));
+      }
+
+      if (prescriptionRes.status === "fulfilled") {
+        setPrescriptions(toArray(prescriptionRes.value));
+      }
     } catch (error) {
       console.error("Payment load error:", error);
       setPayments([]);
@@ -109,8 +141,25 @@ export default function Payments() {
   };
 
   useEffect(() => {
-    loadPayments();
+    loadData();
   }, [status]);
+
+  const selectedAppointment = useMemo(() => {
+    return appointments.find(
+      (a) => String(getAppointmentId(a)) === String(createForm.appointmentId),
+    );
+  }, [appointments, createForm.appointmentId]);
+
+  const appointmentPrescriptions = useMemo(() => {
+    if (!createForm.appointmentId) return [];
+
+    return prescriptions.filter((p) => {
+      const appointmentId =
+        p.appointmentId || p.appointment_id || p.appointment?.id;
+
+      return String(appointmentId) === String(createForm.appointmentId);
+    });
+  }, [prescriptions, createForm.appointmentId]);
 
   const filteredPayments = useMemo(() => {
     const keyword = search.toLowerCase();
@@ -129,9 +178,11 @@ export default function Payments() {
       (sum, p) => sum + Number(p.amount || 0),
       0,
     );
+
     const paid = payments.filter(
       (p) => String(p.paymentStatus || "").toLowerCase() === "paid",
     ).length;
+
     const pending = payments.filter(
       (p) => String(p.paymentStatus || "").toLowerCase() === "pending",
     ).length;
@@ -144,6 +195,64 @@ export default function Payments() {
     };
   }, [payments]);
 
+  const openCreate = () => {
+    setCreateForm(emptyCreateForm);
+    setShowCreate(true);
+  };
+
+  const handleCreateChange = (e) => {
+    const { name, value } = e.target;
+
+    setCreateForm((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "appointmentId" ? { prescriptionId: "" } : {}),
+    }));
+  };
+
+  const createPayment = async () => {
+    try {
+      if (!createForm.appointmentId) {
+        alert("Please select appointment.");
+        return;
+      }
+
+      if (!createForm.amount || Number(createForm.amount) <= 0) {
+        alert("Please enter valid amount.");
+        return;
+      }
+
+      setCreating(true);
+
+      const payload = {
+        appointmentId: Number(createForm.appointmentId),
+        prescriptionId: createForm.prescriptionId
+          ? Number(createForm.prescriptionId)
+          : null,
+        amount: Number(createForm.amount),
+        tax: Number(createForm.tax || 0),
+        charges: Number(createForm.charges || 0),
+        paymentMethod: createForm.paymentMethod,
+        paymentStatus: createForm.paymentStatus,
+      };
+
+      await scmsApi.payments.create(payload);
+
+      setShowCreate(false);
+      setCreateForm(emptyCreateForm);
+      await loadData();
+    } catch (error) {
+      console.error("Create payment error:", error);
+      alert(
+        error?.response?.data?.message ||
+          error?.response?.data?.title ||
+          "Create payment failed. Backend POST /Payments endpoint required.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const approvePayment = async (payment) => {
     try {
       const id = getId(payment);
@@ -151,7 +260,7 @@ export default function Payments() {
 
       await scmsApi.payments.approve(id);
 
-      await loadPayments();
+      await loadData();
       setSelected(null);
     } catch (error) {
       console.error("Approve payment error:", error);
@@ -191,9 +300,15 @@ export default function Payments() {
           <p style={subtitleStyle}>{t.subtitle}</p>
         </div>
 
-        <button onClick={loadPayments} style={outlineBtn}>
-          {t.refresh}
-        </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={openCreate} style={primaryBtn}>
+            + {t.createPayment}
+          </button>
+
+          <button onClick={loadData} style={outlineBtn}>
+            {t.refresh}
+          </button>
+        </div>
       </div>
 
       <section style={statsGrid}>
@@ -202,7 +317,7 @@ export default function Payments() {
         <StatCard label={t.pending} value={stats.pending} color={WARNING} />
         <StatCard
           label={t.amount}
-          value={`RM ${money(stats.totalAmount)}`}
+          value={`${money(stats.totalAmount)}MMK `}
           color={PRIMARY}
         />
       </section>
@@ -223,8 +338,7 @@ export default function Payments() {
           <option value="all">{t.all}</option>
           <option value="pending">{t.pending}</option>
           <option value="paid">{t.paid}</option>
-          <option value="partial">{t.partial}</option>
-          <option value="failed">{t.failed}</option>
+
           <option value="refunded">{t.refunded}</option>
         </select>
       </section>
@@ -249,6 +363,174 @@ export default function Payments() {
         </section>
       )}
 
+      {showCreate && (
+        <Modal onClose={() => setShowCreate(false)} width={780}>
+          <div style={modalHeader}>
+            <div>
+              <h2 style={modalTitle}>{t.createPayment}</h2>
+              <p style={subtitleStyle}>
+                Appointment ID, Patient Name နှင့် ကျသင့်ငွေ ထည့်ပါ။
+              </p>
+            </div>
+
+            <button onClick={() => setShowCreate(false)} style={closeBtn}>
+              X
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gap: 14 }}>
+            <label style={labelStyle}>
+              {t.appointment} / {t.patient}
+              <select
+                name="appointmentId"
+                value={createForm.appointmentId}
+                onChange={handleCreateChange}
+                style={inputStyle}
+              >
+                <option value="">Select appointment</option>
+                {appointments.map((a) => {
+                  const id = getAppointmentId(a);
+                  const patientName =
+                    a.patientName || a.patient?.name || a.name || "-";
+                  const code =
+                    a.appointmentCode || a.appointment_code || `APT-${id}`;
+
+                  return (
+                    <option key={id} value={id}>
+                      {code} - {patientName}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+
+            {selectedAppointment && (
+              <div style={detailHero}>
+                <div style={largeAvatar}>
+                  {(
+                    selectedAppointment.patientName ||
+                    selectedAppointment.patient?.name ||
+                    "PT"
+                  )
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+
+                <div>
+                  <h3 style={{ color: TEXT, fontSize: 20, fontWeight: 900 }}>
+                    {selectedAppointment.patientName ||
+                      selectedAppointment.patient?.name ||
+                      "-"}
+                  </h3>
+
+                  <p style={{ color: MUTED, marginTop: 5 }}>
+                    {selectedAppointment.appointmentCode ||
+                      selectedAppointment.appointment_code ||
+                      `APT-${getAppointmentId(selectedAppointment)}`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <label style={labelStyle}>
+              Prescription
+              <select
+                name="prescriptionId"
+                value={createForm.prescriptionId}
+                onChange={handleCreateChange}
+                style={inputStyle}
+              >
+                <option value="">No prescription / optional</option>
+                {appointmentPrescriptions.map((p) => {
+                  const id = p.id || p.prescriptionId || p.prescription_id;
+                  return (
+                    <option key={id} value={id}>
+                      Prescription #{id}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+
+            <div style={detailGrid}>
+              <label style={labelStyle}>
+                {t.amount} / ကျသင့်ငွေ
+                <input
+                  type="number"
+                  name="amount"
+                  value={createForm.amount}
+                  onChange={handleCreateChange}
+                  style={inputStyle}
+                  placeholder="50000"
+                />
+              </label>
+
+              <label style={labelStyle}>
+                {t.tax}
+                <input
+                  type="number"
+                  name="tax"
+                  value={createForm.tax}
+                  onChange={handleCreateChange}
+                  style={inputStyle}
+                />
+              </label>
+
+              <label style={labelStyle}>
+                {t.charges}
+                <input
+                  type="number"
+                  name="charges"
+                  value={createForm.charges}
+                  onChange={handleCreateChange}
+                  style={inputStyle}
+                />
+              </label>
+
+              <label style={labelStyle}>
+                {t.method}
+                <select
+                  name="paymentMethod"
+                  value={createForm.paymentMethod}
+                  onChange={handleCreateChange}
+                  style={inputStyle}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="online">Online</option>
+                </select>
+              </label>
+
+              <label style={labelStyle}>
+                {t.status}
+                <select
+                  name="paymentStatus"
+                  value={createForm.paymentStatus}
+                  onChange={handleCreateChange}
+                  style={inputStyle}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div style={modalActions}>
+            <button onClick={() => setShowCreate(false)} style={outlineBtn}>
+              Cancel
+            </button>
+
+            <button
+              onClick={createPayment}
+              disabled={creating}
+              style={primaryBtn}
+            >
+              {creating ? "Creating..." : t.createPayment}
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {selected && (
         <Modal onClose={() => setSelected(null)} width={820}>
           <div style={modalHeader}>
@@ -261,7 +543,7 @@ export default function Payments() {
             </div>
 
             <button onClick={() => setSelected(null)} style={closeBtn}>
-              ✕
+              X
             </button>
           </div>
 
@@ -281,9 +563,9 @@ export default function Payments() {
           </div>
 
           <div style={detailGrid}>
-            <Info label={t.amount} value={`RM ${money(selected.amount)}`} />
-            <Info label={t.tax} value={`RM ${money(selected.tax)}`} />
-            <Info label={t.charges} value={`RM ${money(selected.charges)}`} />
+            <Info label={t.amount} value={`MMK ${money(selected.amount)}`} />
+            <Info label={t.tax} value={`MMK ${money(selected.tax)}`} />
+            <Info label={t.charges} value={`MMK ${money(selected.charges)}`} />
             <Info label={t.method} value={selected.paymentMethod || "-"} />
             <Info label={t.status} value={selected.paymentStatus || "-"} />
             <Info label={t.paidAt} value={formatDate(selected.paidAt)} />
@@ -292,7 +574,6 @@ export default function Payments() {
           {selected.paymentScreenshot && (
             <div style={screenshotBox}>
               <strong>{t.proof}</strong>
-
               <img
                 src={selected.paymentScreenshot}
                 alt="Payment proof"
@@ -334,17 +615,7 @@ function PaymentCard({ payment, t, onView, onApprove, onInvoice, approving }) {
   const s = getStatusStyle(status);
 
   return (
-    <article
-      style={paymentCard}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-3px)";
-        e.currentTarget.style.boxShadow = "0 14px 28px rgba(16,24,40,0.08)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow = "0 1px 2px rgba(16,24,40,0.04)";
-      }}
-    >
+    <article style={paymentCard}>
       <div style={cardTop}>
         <div style={avatarStyle}>
           {(payment.patientName || "PT").slice(0, 2).toUpperCase()}
@@ -368,22 +639,11 @@ function PaymentCard({ payment, t, onView, onApprove, onInvoice, approving }) {
       </div>
 
       <div style={infoGrid}>
-        <Info label={t.amount} value={`RM ${money(payment.amount)}`} />
-        <Info label={t.tax} value={`RM ${money(payment.tax)}`} />
+        <Info label={t.amount} value={`MMK ${money(payment.amount)}`} />
+        <Info label={t.tax} value={`MMK ${money(payment.tax)}`} />
         <Info label={t.method} value={payment.paymentMethod || "-"} />
         <Info label={t.paidAt} value={formatDate(payment.paidAt)} />
       </div>
-
-      {payment.paymentScreenshot && (
-        <div style={miniProof}>
-          <span>{t.proof}</span>
-          <img
-            src={payment.paymentScreenshot}
-            alt="Proof"
-            style={miniProofImg}
-          />
-        </div>
-      )}
 
       <div style={actionRow}>
         <button onClick={onView} style={outlineBtn}>
@@ -457,12 +717,21 @@ function Modal({ children, onClose, width = 700 }) {
   );
 }
 
+const labelStyle = {
+  display: "grid",
+  gap: 7,
+  color: TEXT,
+  fontSize: 13,
+  fontWeight: 800,
+};
+
 const pageHeader = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
   marginBottom: 22,
   gap: 16,
+  flexWrap: "wrap",
 };
 
 const titleStyle = {
@@ -480,7 +749,7 @@ const subtitleStyle = {
 
 const statsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
   gap: 16,
   marginBottom: 18,
 };
@@ -501,6 +770,7 @@ const filterCard = {
   display: "flex",
   gap: 12,
   marginBottom: 18,
+  flexWrap: "wrap",
 };
 
 const inputStyle = {
@@ -525,7 +795,6 @@ const paymentCard = {
   borderRadius: 18,
   padding: 18,
   boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
-  transition: "0.18s ease",
 };
 
 const cardTop = {
@@ -648,7 +917,6 @@ const modalBox = {
   background: CARD,
   borderRadius: 22,
   padding: 24,
-  boxShadow: "0 24px 60px rgba(16,24,40,0.25)",
 };
 
 const modalHeader = {
@@ -720,23 +988,6 @@ const proofImage = {
   borderRadius: 14,
   border: `1px solid ${BORDER}`,
   background: "#fff",
-};
-
-const miniProof = {
-  marginTop: 14,
-  display: "grid",
-  gap: 8,
-  color: MUTED,
-  fontSize: 13,
-  fontWeight: 800,
-};
-
-const miniProofImg = {
-  width: "100%",
-  height: 120,
-  objectFit: "cover",
-  borderRadius: 12,
-  border: `1px solid ${BORDER}`,
 };
 
 const modalActions = {
