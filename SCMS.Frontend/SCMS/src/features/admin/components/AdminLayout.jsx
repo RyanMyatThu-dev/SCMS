@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -81,6 +81,14 @@ const navItems = [
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(localStorage.getItem("lang") || "en");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   const t = useMemo(() => labels[lang], [lang]);
 
@@ -293,7 +301,61 @@ export default function AdminLayout() {
             </div>
           </header>
 
-          <Outlet context={{ lang, t }} />
+          <style>{layoutStyles}</style>
+
+          {loading ? (
+            <div style={{ animation: "shimmer-fade 0.5s ease-in-out" }}>
+              {/* Stats Skeleton Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 18 }}>
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <div key={idx} className="skeleton-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 18, minHeight: 132, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div className="skeleton" style={{ width: 34, height: 34, borderRadius: 12 }} />
+                    <div className="skeleton" style={{ width: "60%", height: 10, margin: "12px 0 6px" }} />
+                    <div className="skeleton" style={{ width: "40%", height: 24 }} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Content Skeleton Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.65fr 0.8fr", gap: 18 }}>
+                {/* Patient Queue Skeleton Card */}
+                <div className="skeleton-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 20, minHeight: 380, display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ width: "100%" }}>
+                      <div className="skeleton" style={{ width: "30%", height: 18, marginBottom: 8 }} />
+                      <div className="skeleton" style={{ width: "50%", height: 12 }} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 0" }}>
+                        <div className="skeleton" style={{ width: 40, height: 12 }} />
+                        <div className="skeleton" style={{ width: 34, height: 34, borderRadius: "50%" }} />
+                        <div className="skeleton" style={{ width: "35%", height: 12 }} />
+                        <div className="skeleton" style={{ width: "20%", height: 12 }} />
+                        <div className="skeleton" style={{ width: 60, height: 24, borderRadius: 12, marginLeft: "auto" }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Summary Skeleton Card */}
+                <div className="skeleton-card" style={{ background: "linear-gradient(150deg, #0052CC 0%, #003D99 100%)", borderRadius: 18, padding: 22, minHeight: 380, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                  <div>
+                    <div className="skeleton-light" style={{ width: "40%", height: 16, marginBottom: 24 }} />
+                    <div className="skeleton-light" style={{ width: "60%", height: 12, marginBottom: 8 }} />
+                    <div className="skeleton-light" style={{ width: "80%", height: 36 }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div className="skeleton-light" style={{ width: "100%", height: 36, borderRadius: 8 }} />
+                    <div className="skeleton-light" style={{ width: "100%", height: 36, borderRadius: 8 }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Outlet context={{ lang, t }} />
+          )}
         </div>
       </main>
     </div>
@@ -316,3 +378,30 @@ const footerButtonStyle = {
   transition: "0.18s ease",
   textAlign: "left",
 };
+
+const layoutStyles = `
+  @keyframes shimmer {
+    0% { background-position: -468px 0; }
+    100% { background-position: 468px 0; }
+  }
+  .skeleton {
+    animation: shimmer 1.2s infinite linear;
+    background: linear-gradient(to right, #F2F4F7 8%, #EAECF0 18%, #F2F4F7 33%);
+    background-size: 800px 104px;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .skeleton-light {
+    animation: shimmer 1.2s infinite linear;
+    background: linear-gradient(to right, rgba(255,255,255,0.12) 8%, rgba(255,255,255,0.24) 18%, rgba(255,255,255,0.12) 33%);
+    background-size: 800px 104px;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  @keyframes shimmer-fade {
+    from { opacity: 0.8; }
+    to { opacity: 1; }
+  }
+`;
