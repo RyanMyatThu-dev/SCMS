@@ -6,16 +6,20 @@ using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared.Contracts.Notifications;
 using SCMS.Shared;
+using Microsoft.AspNetCore.SignalR;
+using SCMS.Domain.Realtime;
 
 namespace SCMS.Domain.Features.Notifications
 {
     public class NotificationService
     {
         private readonly AppDbContext _context;
+        private readonly IHubContext<NotificationsHub>? _hubContext;
 
-        public NotificationService(AppDbContext context)
+        public NotificationService(AppDbContext context, IHubContext<NotificationsHub>? hubContext = null)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         public async Task<PagedResult<NotificationResponse>> GetNotificationsAsync(int? userId, PaginationRequest paginationRequest)
@@ -73,15 +77,15 @@ namespace SCMS.Domain.Features.Notifications
             return Result.Success("Notification marked as read.");
         }
 
-        public async Task<Result> CreateNotificationAsync(int? userId, string title, string description, string? actionRoute)
+        public async Task<Result<NotificationResponse>> CreateNotificationAsync(int? userId, string title, string description, string? actionRoute)
         {
             if (string.IsNullOrWhiteSpace(title))
             {
-                return Result.Failure("Notification title is required.");
+                return Result<NotificationResponse>.Failure("Notification title is required.");
             }
             if (string.IsNullOrWhiteSpace(description))
             {
-                return Result.Failure("Notification description is required.");
+                return Result<NotificationResponse>.Failure("Notification description is required.");
             }
 
             var n = new TblNotification
@@ -96,7 +100,38 @@ namespace SCMS.Domain.Features.Notifications
 
             _context.TblNotifications.Add(n);
             await _context.SaveChangesAsync();
-            return Result.Success("Notification created.");
+
+            var response = new NotificationResponse
+            {
+                Id = n.Id,
+                Title = n.Title,
+                Description = n.Description,
+                ActionRoute = n.ActionRoute,
+                CreatedAt = n.CreatedAt ?? DateTime.UtcNow
+            };
+
+            try
+            {
+                if (_hubContext != null)
+                {
+                    if (userId.HasValue)
+                    {
+                        await _hubContext.Clients.User(userId.Value.ToString()).SendAsync("ReceiveNotification", response);
+                    }
+                    else
+                    {
+                        await _hubContext.Clients.Group("clinic-notifications").SendAsync("ReceiveNotification", response);
+                    }
+
+                    await _hubContext.Clients.All.SendAsync("NotificationsChanged");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SignalR Broadcast failed: {ex.Message}");
+            }
+
+            return Result<NotificationResponse>.Success(response, "Notification created.");
         }
     }
 }

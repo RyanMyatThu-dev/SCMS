@@ -1,5 +1,5 @@
 @page "/inventory"
-@attribute [Authorize(Roles = "admin,doctor")]
+@attribute [Authorize(Roles = "owner")]
 @inject ApiClient Api
 @using System.IO
 @using Microsoft.AspNetCore.Components.Forms

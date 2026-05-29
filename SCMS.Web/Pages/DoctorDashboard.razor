@@ -1,6 +1,6 @@
 @page "/doctor"
 @page "/doctor/dashboard"
-@attribute [Authorize(Roles = "admin,doctor")]
+@attribute [Authorize(Roles = "owner")]
 @inject ApiClient Api
 
 <PageTitle>Doctor Dashboard</PageTitle>

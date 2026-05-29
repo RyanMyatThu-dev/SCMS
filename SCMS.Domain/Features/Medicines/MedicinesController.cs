@@ -9,7 +9,7 @@ using SCMS.Shared.Contracts.Medicines;
 namespace SCMS.Domain.Features.Medicines
 {
     [ApiController]
-    [Authorize(Roles = "admin,doctor")]
+    [Authorize(Roles = "owner")]
     [Route("api/[controller]")]
     public class MedicinesController : ControllerBase
     {
@@ -36,7 +36,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPost("quarantine-expired")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> QuarantineExpiredBatches()
         {
             var result = await _medicineService.QuarantineExpiredBatchesAsync();
@@ -99,7 +99,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPost("batches")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> CreateBatch([FromBody] CreateBatchRequest request)
         {
             var result = await _medicineService.CreateBatchAsync(request);
@@ -111,7 +111,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPut("batches/{id}")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> UpdateBatch(int id, [FromBody] UpdateBatchRequest request)
         {
             var result = await _medicineService.UpdateBatchAsync(id, request);
@@ -123,7 +123,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpDelete("batches/{id}")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> DeleteBatch(int id, [FromQuery] bool force = false)
         {
             var result = await _medicineService.DeleteBatchAsync(id, force);
@@ -146,7 +146,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPost]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> CreateMedicine([FromForm] CreateMedicineRequest request, IFormFile? image)
         {
             var result = await _medicineService.CreateMedicineAsync(request, image);
@@ -158,7 +158,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> UpdateMedicine(int id, [FromForm] UpdateMedicineRequest request, IFormFile? image)
         {
             var result = await _medicineService.UpdateMedicineAsync(id, request, image);
@@ -170,7 +170,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> DeleteMedicine(int id)
         {
             var result = await _medicineService.DeleteMedicineAsync(id);

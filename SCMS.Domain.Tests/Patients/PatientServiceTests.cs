@@ -40,7 +40,7 @@ public class PatientServiceTests
     public async Task GetPatientProfilesAsync_ReturnsAllProfilesForStaff()
     {
         using var db = new TestDatabase();
-        var staff = TestData.AddUser(db, role: "doctor");
+        var staff = TestData.AddUser(db, role: "owner");
         var firstUser = TestData.AddUser(db);
         var secondUser = TestData.AddUser(db);
         TestData.AddPatient(db, firstUser, "Aye Aye");
@@ -61,7 +61,7 @@ public class PatientServiceTests
         using var db = new TestDatabase();
         var owner = TestData.AddUser(db);
         var stranger = TestData.AddUser(db);
-        var admin = TestData.AddUser(db, role: "admin");
+        var admin = TestData.AddUser(db, role: "owner");
         var patient = TestData.AddPatient(db, owner);
         var service = new PatientService(db.Context);
 

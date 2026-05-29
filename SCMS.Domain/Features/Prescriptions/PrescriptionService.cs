@@ -9,17 +9,20 @@ using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared;
+using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.Prescriptions
 {
     public class PrescriptionService
     {
         private readonly AppDbContext _context;
+        private readonly NotificationService? _notificationService;
         private const int LowStockThreshold = 20;
 
-        public PrescriptionService(AppDbContext context)
+        public PrescriptionService(AppDbContext context, NotificationService? notificationService = null)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         // Helper structure for serialization in Notes
@@ -169,6 +172,7 @@ namespace SCMS.Domain.Features.Prescriptions
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var prescriptionItemsToCreate = new List<TblPrescriptionItem>();
             var schedulesToCreate = new List<TblPrescriptionItemSchedule>();
+            var lowStockAlertsToSend = new List<(int MedicineId, string MedName, int TotalAvailable)>();
 
             foreach (var item in request.Items)
             {
@@ -194,18 +198,7 @@ namespace SCMS.Domain.Features.Prescriptions
                 if (totalAvailable < LowStockThreshold)
                 {
                     warnings.Add($"[LOW STOCK WARNING] '{med.Name}' is low in stock ({totalAvailable} left).");
-                    
-                    // Auto push notification for low stock (Story 8)
-                    var clinicNotification = new TblNotification
-                    {
-                        UserId = null, // Broadcast/staff notification
-                        Title = "Low Stock Alert",
-                        Description = $"Medicine '{med.Name}' has dropped below threshold with {totalAvailable} units remaining.",
-                        ActionRoute = $"/inventory/medicines/{med.MedicineId}",
-                        CreatedAt = DateTime.UtcNow,
-                        DeleteFlag = false
-                    };
-                    _context.TblNotifications.Add(clinicNotification);
+                    lowStockAlertsToSend.Add((med.MedicineId, med.Name, totalAvailable));
                 }
 
                 // Deduct stock FIFO
@@ -328,6 +321,33 @@ namespace SCMS.Domain.Features.Prescriptions
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                // Broadcast low stock alerts after successful commit
+                foreach (var alert in lowStockAlertsToSend)
+                {
+                    if (_notificationService != null)
+                    {
+                        await _notificationService.CreateNotificationAsync(
+                            null,
+                            "Low Stock Alert",
+                            $"Medicine '{alert.MedName}' has dropped below threshold with {alert.TotalAvailable} units remaining.",
+                            $"/inventory"
+                        );
+                    }
+                    else
+                    {
+                        _context.TblNotifications.Add(new TblNotification
+                        {
+                            UserId = null,
+                            Title = "Low Stock Alert",
+                            Description = $"Medicine '{alert.MedName}' has dropped below threshold with {alert.TotalAvailable} units remaining.",
+                            ActionRoute = $"/inventory",
+                            CreatedAt = DateTime.UtcNow,
+                            DeleteFlag = false
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                }
             }
             catch (DbUpdateException)
             {

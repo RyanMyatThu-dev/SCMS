@@ -2,16 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.FollowUps;
+using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.FollowUps
 {
     public class FollowUpService
     {
         private readonly AppDbContext _context;
+        private readonly NotificationService? _notificationService;
 
-        public FollowUpService(AppDbContext context)
+        public FollowUpService(AppDbContext context, NotificationService? notificationService = null)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResult<FollowUpResponse>> GetFollowUpsAsync(int? patientId, int currentUserId, bool isStaff, PaginationRequest paginationRequest)
@@ -73,15 +76,26 @@ namespace SCMS.Domain.Features.FollowUps
             };
 
             _context.TblFollowUps.Add(followUp);
-            _context.TblNotifications.Add(new TblNotification
+            if (_notificationService != null)
             {
-                UserId = patient.UserId,
-                Title = "Follow-up Scheduled",
-                Description = $"{patient.Name} has a follow-up due on {request.DueAt:yyyy-MM-dd HH:mm}.",
-                ActionRoute = $"/follow-ups?patientId={patient.PatientId}",
-                CreatedAt = DateTime.UtcNow,
-                DeleteFlag = false
-            });
+                await _notificationService.CreateNotificationAsync(
+                    patient.UserId,
+                    "Follow-up Scheduled",
+                    $"{patient.Name} has a follow-up due on {request.DueAt:yyyy-MM-dd HH:mm}.",
+                    $"/follow-ups?patientId={patient.PatientId}");
+            }
+            else
+            {
+                _context.TblNotifications.Add(new TblNotification
+                {
+                    UserId = patient.UserId,
+                    Title = "Follow-up Scheduled",
+                    Description = $"{patient.Name} has a follow-up due on {request.DueAt:yyyy-MM-dd HH:mm}.",
+                    ActionRoute = $"/follow-ups?patientId={patient.PatientId}",
+                    CreatedAt = DateTime.UtcNow,
+                    DeleteFlag = false
+                });
+            }
 
             await _context.SaveChangesAsync();
             followUp.Patient = patient;

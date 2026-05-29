@@ -62,7 +62,7 @@ namespace SCMS.Domain.Features.Auth
             _context.TblUserRoles.Add(new TblUserRole
             {
                 UserId = user.UserId,
-                Role = "patient"
+                Role = "user"
             });
             await _context.SaveChangesAsync();
 
@@ -190,12 +190,7 @@ namespace SCMS.Domain.Features.Auth
                 .Distinct()
                 .ToList();
 
-            if (roles.Contains("user") && !roles.Contains("patient"))
-            {
-                roles.Add("patient");
-            }
-
-            return roles.Count == 0 ? new List<string> { "patient" } : roles;
+            return roles.Count == 0 ? new List<string> { "user" } : roles;
         }
     }
 }

@@ -26,7 +26,7 @@
                     <td>@followUp.Recommendation</td>
                     <td><span class="badge @followUp.Status">@followUp.Status</span></td>
                     <td>
-                        <AuthorizeView Roles="admin,doctor">
+                        <AuthorizeView Roles="owner">
                             @if (followUp.Status != "completed")
                             {
                                 <button @onclick="() => Complete(followUp.Id)">Complete</button>

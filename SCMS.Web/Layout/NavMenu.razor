@@ -38,5 +38,5 @@
 
 @code {
     private static bool IsStaff(System.Security.Claims.ClaimsPrincipal user)
-        => user.IsInRole("admin") || user.IsInRole("doctor");
+        => user.IsInRole("owner");
 }

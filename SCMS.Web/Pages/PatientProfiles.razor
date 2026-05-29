@@ -64,7 +64,7 @@
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        isStaff = authState.User.IsInRole("admin") || authState.User.IsInRole("doctor");
+        isStaff = authState.User.IsInRole("owner");
         await Load();
     }
 

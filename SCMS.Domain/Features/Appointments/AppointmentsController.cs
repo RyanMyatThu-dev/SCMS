@@ -65,7 +65,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpPatch("{id}/status")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> UpdateAppointmentStatus(int id, [FromBody] UpdateAppointmentStatusRequest request)
         {
             var result = await _appointmentsService.UpdateAppointmentStatusAsync(id, request);
@@ -77,7 +77,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpPost("{id}/reschedule")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> RescheduleAppointment(int id, [FromBody] RescheduleAppointmentRequest request)
         {
             var result = await _appointmentsService.RescheduleAppointmentAsync(id, request);
@@ -100,7 +100,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpPost("call-next")]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> CallNextPatient()
         {
             var result = await _appointmentsService.CallNextPatientAsync();
