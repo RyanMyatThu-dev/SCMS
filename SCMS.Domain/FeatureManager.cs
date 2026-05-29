@@ -49,6 +49,7 @@ namespace SCMS.Domain
             services.AddScoped<PatientService>();
             services.AddScoped<PaymentService>();
             services.AddScoped<PdfDocumentService>();
+            services.AddScoped<ReportService>();
             services.AddScoped<PrescriptionService>();
             services.AddScoped<PhotoService>();
             services.AddHostedService<InventoryMonitorService>();

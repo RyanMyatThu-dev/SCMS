@@ -19,7 +19,7 @@ namespace SCMS.Domain.Features.Dashboards
         }
 
         [HttpGet("dashboard")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,doctor")]
         public async Task<IActionResult> GetDoctorDashboard()
         {
             var result = await _dashboardService.GetDoctorDashboardAsync();

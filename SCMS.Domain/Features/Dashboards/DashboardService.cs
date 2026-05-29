@@ -139,9 +139,11 @@ namespace SCMS.Domain.Features.Dashboards
 
         private async Task<decimal> GetDailyRevenueAsync(DateTime start, DateTime end)
         {
-            return await _context.TblPayments
+            var amounts = await _context.TblPayments
                 .Where(p => p.PaymentStatus == "paid" && p.PaidAt.HasValue && p.PaidAt.Value >= start && p.PaidAt.Value < end)
-                .SumAsync(p => p.Amount);
+                .Select(p => p.Amount)
+                .ToListAsync();
+            return amounts.Sum();
         }
 
         // --- Private Helper Methods for Patient Dashboard ---

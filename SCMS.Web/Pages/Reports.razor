@@ -1,0 +1,150 @@
+@page "/reports"
+@attribute [Authorize(Roles = "admin,doctor")]
+@inject ApiClient Api
+
+<PageTitle>Reports</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Reports</h1>
+        <p>Download various PDF reports for clinic operations.</p>
+    </div>
+</section>
+
+<div class="reports-grid">
+    <div class="report-card">
+        <h3>Appointments</h3>
+        <p>Daily or weekly overview of all appointments.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/appointments/pdf?reportType=daily", "appointment-report-daily.pdf")'>Daily PDF</button>
+            <button class="button" @onclick='() => Download("api/reports/appointments/pdf?reportType=weekly", "appointment-report-weekly.pdf")'>Weekly PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Revenue</h3>
+        <p>Income breakdown by payment method.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/revenue/pdf?reportType=daily", "revenue-report-daily.pdf")'>Daily PDF</button>
+            <button class="button" @onclick='() => Download("api/reports/revenue/pdf?reportType=weekly", "revenue-report-weekly.pdf")'>Weekly PDF</button>
+            <button class="button" @onclick='() => Download("api/reports/revenue/pdf?reportType=monthly", "revenue-report-monthly.pdf")'>Monthly PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Patient List</h3>
+        <p>Directory of all active patients with demographics.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/patients/pdf", "patient-list-report.pdf")'>Download PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Medicine Stock</h3>
+        <p>Inventory summary including low stock and expired batches.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/medicine-stock/pdf", "medicine-stock-report.pdf")'>Download PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Follow-ups</h3>
+        <p>Pending, completed, and overdue follow-up tracking.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/follow-ups/pdf", "follow-up-report-all.pdf")'>All Time PDF</button>
+            <button class="button" @onclick='() => Download("api/reports/follow-ups/pdf?reportType=monthly", "follow-up-report-monthly.pdf")'>Monthly PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Business Summary</h3>
+        <p>Monthly high-level overview of patients, income, and activities.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/business-summary/pdf", "business-summary.pdf")'>This Month PDF</button>
+        </div>
+    </div>
+</div>
+
+@if (isDownloading)
+{
+    <div class="download-overlay">
+        <p>Preparing PDF... Please wait.</p>
+    </div>
+}
+
+@code {
+    private bool isDownloading = false;
+
+    private async Task Download(string url, string filename)
+    {
+        isDownloading = true;
+        StateHasChanged();
+
+        await Api.DownloadFileAsync(url, filename);
+
+        isDownloading = false;
+        StateHasChanged();
+    }
+}
+
+<style>
+    .reports-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+    .report-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .report-card h3 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+        color: #1a1a1a;
+        font-size: 1.25rem;
+    }
+    .report-card p {
+        color: #666;
+        margin-bottom: 1.5rem;
+        flex-grow: 1;
+        font-size: 0.95rem;
+    }
+    .report-card .actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .report-card .button {
+        display: inline-block;
+        background: #f0f0f0;
+        color: #333;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        border: 1px solid #ccc;
+        transition: all 0.2s;
+    }
+    .report-card .button:hover {
+        background: #e4e4e4;
+        border-color: #bbb;
+    }
+    .download-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-size: 1.25rem;
+        color: #333;
+        font-weight: 500;
+    }
+</style>
