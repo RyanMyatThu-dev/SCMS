@@ -15,7 +15,7 @@ namespace SCMS.Shared.Contracts.Dashboards
 
     public class UnpaidInvoiceDto
     {
-        public int PaymentId { get; set; }
+        public int Id { get; set; }
         public int AppointmentId { get; set; }
         public string AppointmentCode { get; set; } = null!;
         public decimal Amount { get; set; }

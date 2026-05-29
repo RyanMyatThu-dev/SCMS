@@ -2,7 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Domain.Features.Documents;
-using SCMS.Domain.Features.LabReports;
+
 using SCMS.Domain.Security;
 using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared;
@@ -15,13 +15,11 @@ namespace SCMS.Domain.Features.Patients
     public class PatientsController : ControllerBase
     {
         private readonly PatientService _patientService;
-        private readonly LabReportService _labReportService;
         private readonly PdfDocumentService _pdfDocumentService;
 
-        public PatientsController(PatientService patientService, LabReportService labReportService, PdfDocumentService pdfDocumentService)
+        public PatientsController(PatientService patientService, PdfDocumentService pdfDocumentService)
         {
             _patientService = patientService;
-            _labReportService = labReportService;
             _pdfDocumentService = pdfDocumentService;
         }
 
@@ -141,18 +139,6 @@ namespace SCMS.Domain.Features.Patients
             return File(bytes, "application/pdf", $"medical-summary-{id}.pdf");
         }
 
-        [HttpGet("{id}/lab-reports")]
-        public async Task<IActionResult> GetPatientLabReports(int id, [FromQuery] PaginationRequest paginationRequest)
-        {
-            var userId = User.GetUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(Result.Failure("User id is required."));
-            }
 
-            paginationRequest ??= new PaginationRequest();
-            var result = await _labReportService.GetLabReportsAsync(id, userId.Value, User.IsStaff(), paginationRequest);
-            return result.IsSuccess ? Ok(result) : BadRequest(result);
-        }
     }
 }

@@ -13,11 +13,11 @@ namespace SCMS.Domain.Features.Medicines
 {
     public class MedicineService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
         private readonly PhotoService? _photoService;
         private const int LowStockThreshold = 20;
 
-        public MedicineService(ScmsDbContext context, PhotoService? photoService = null)
+        public MedicineService(AppDbContext context, PhotoService? photoService = null)
         {
             _context = context;
             _photoService = photoService;
@@ -77,7 +77,7 @@ namespace SCMS.Domain.Features.Medicines
                     Name = m.Name,
                     Description = m.Description,
                     ImageUrl = m.ImageUrl,
-                    ImageId = m.ImageId,
+                    ImageId = null,
                     UnitPrice = m.UnitPrice,
                     TotalStock = totalStock,
                     ActiveBatches = activeBatches,
@@ -564,7 +564,6 @@ namespace SCMS.Domain.Features.Medicines
                 Name = request.Name,
                 Description = request.Description,
                 ImageUrl = imageUrl,
-                ImageId = imageId,
                 UnitPrice = request.UnitPrice,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -587,7 +586,7 @@ namespace SCMS.Domain.Features.Medicines
                 Name = medicine.Name,
                 Description = medicine.Description,
                 ImageUrl = medicine.ImageUrl,
-                ImageId = medicine.ImageId,
+                ImageId = null,
                 UnitPrice = medicine.UnitPrice,
                 TotalStock = 0,
                 ActiveBatches = new(),
@@ -628,17 +627,20 @@ namespace SCMS.Domain.Features.Medicines
 
             if (request.RemoveImage || (imageFile != null && imageFile.Length > 0))
             {
-                if (!string.IsNullOrWhiteSpace(medicine.ImageId))
+                if (!string.IsNullOrWhiteSpace(medicine.ImageUrl))
                 {
                     if (_photoService == null)
                     {
                         return Result<MedicineSearchResponse>.Failure("Photo service is not configured.");
                     }
-                    await _photoService.DeletePhotoAsync(medicine.ImageId);
+                    var publicId = ExtractPublicIdFromUrl(medicine.ImageUrl);
+                    if (!string.IsNullOrWhiteSpace(publicId))
+                    {
+                        await _photoService.DeletePhotoAsync(publicId);
+                    }
                 }
 
                 medicine.ImageUrl = null;
-                medicine.ImageId = null;
             }
 
             if (imageFile != null && imageFile.Length > 0)
@@ -655,7 +657,6 @@ namespace SCMS.Domain.Features.Medicines
                 }
 
                 medicine.ImageUrl = uploadResult.Data.Url;
-                medicine.ImageId = uploadResult.Data.PublicId;
             }
 
             medicine.CategoryId = request.CategoryId;
@@ -699,7 +700,7 @@ namespace SCMS.Domain.Features.Medicines
                 Name = medicine.Name,
                 Description = medicine.Description,
                 ImageUrl = medicine.ImageUrl,
-                ImageId = medicine.ImageId,
+                ImageId = null,
                 UnitPrice = medicine.UnitPrice,
                 TotalStock = totalStock,
                 ActiveBatches = activeBatches,
@@ -731,11 +732,15 @@ namespace SCMS.Domain.Features.Medicines
                 return Result.Failure("Cannot delete this medicine. It is allocated to active prescription(s). Complete or cancel the related appointment(s) first.");
             }
 
-            if (!string.IsNullOrWhiteSpace(medicine.ImageId))
+            if (!string.IsNullOrWhiteSpace(medicine.ImageUrl))
             {
                 if (_photoService != null)
                 {
-                    await _photoService.DeletePhotoAsync(medicine.ImageId);
+                    var publicId = ExtractPublicIdFromUrl(medicine.ImageUrl);
+                    if (!string.IsNullOrWhiteSpace(publicId))
+                    {
+                        await _photoService.DeletePhotoAsync(publicId);
+                    }
                 }
             }
 
@@ -751,6 +756,27 @@ namespace SCMS.Domain.Features.Medicines
             await _context.SaveChangesAsync();
 
             return Result.Success("Medicine and its batches deleted successfully.");
+        }
+        private string? ExtractPublicIdFromUrl(string? url)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            try
+            {
+                var uri = new Uri(url);
+                var segments = uri.Segments;
+                if (segments.Length > 0)
+                {
+                    var lastSegment = segments[^1];
+                    var dotIndex = lastSegment.LastIndexOf('.');
+                    if (dotIndex > 0)
+                    {
+                        return lastSegment[..dotIndex];
+                    }
+                    return lastSegment;
+                }
+            }
+            catch {}
+            return null;
         }
     }
 }

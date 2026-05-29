@@ -6,7 +6,7 @@ namespace SCMS.Domain
 {
     internal static class SqliteRealWorldSeeder
     {
-        public static async Task SeedAsync(ScmsDbContext context, IConfiguration configuration)
+        public static async Task SeedAsync(AppDbContext context, IConfiguration configuration)
         {
             if (configuration.GetValue("Database:SeedRealWorldData", true) == false)
             {
@@ -208,14 +208,6 @@ namespace SCMS.Domain
                 await context.SaveChangesAsync();
             }
 
-            if (!await context.TblLabReports.AnyAsync(l => l.Id == 10001))
-            {
-                context.TblLabReports.AddRange(
-                    Lab(10001, 10001, 10001, 10001, "CBC", "completed", "Requested if fever continues.", "WBC normal, platelets stable.", null, now.AddDays(-1), now.AddHours(-20), now.AddDays(-1)),
-                    Lab(10002, 10002, 10002, 10002, "HbA1c", "completed", "Diabetes monitoring.", "HbA1c 7.8%. Review adherence and diet.", null, now.AddDays(-12), now.AddDays(-13), now.AddDays(-14)),
-                    Lab(10003, 10001, 10008, null, "Dengue NS1 and CBC", "requested", "Review before pending lab follow-up.", null, null, today.AddDays(1).AddHours(9), null, now.AddHours(-3)));
-                await context.SaveChangesAsync();
-            }
 
             if (!await context.TblFollowUps.AnyAsync(f => f.Id == 10001))
             {
@@ -260,7 +252,7 @@ namespace SCMS.Domain
             await RefreshMovingDemoDatesAsync(context, today, now);
         }
 
-        private static async Task RefreshMovingDemoDatesAsync(ScmsDbContext context, DateTime today, DateTime now)
+        private static async Task RefreshMovingDemoDatesAsync(AppDbContext context, DateTime today, DateTime now)
         {
             var demoAppointments = await context.TblAppointments
                 .Where(a => a.Id >= 10001 && a.Id <= 10009)
@@ -290,12 +282,6 @@ namespace SCMS.Domain
                 dengueReview.UpdatedAt = now;
             }
 
-            var lab = await context.TblLabReports.FirstOrDefaultAsync(l => l.Id == 10003);
-            if (lab != null)
-            {
-                lab.DueAt = today.AddDays(1).AddHours(9);
-                lab.UpdatedAt = now;
-            }
 
             await context.SaveChangesAsync();
         }
@@ -312,7 +298,7 @@ namespace SCMS.Domain
             appointment.UpdatedAt = DateTime.UtcNow;
         }
 
-        private static async Task ReleaseLegacyDemoMobilesAsync(ScmsDbContext context)
+        private static async Task ReleaseLegacyDemoMobilesAsync(AppDbContext context)
         {
             var admin = await context.TblUsers.FirstOrDefaultAsync(u => u.Email == "admin@scms.demo" && u.MobileNo == "09970001001");
             if (admin != null)
@@ -349,8 +335,8 @@ namespace SCMS.Domain
         private static TblMedicineCategory Category(int id, string name)
             => new() { Id = id, Name = name };
 
-        private static TblMedicine Medicine(int id, int categoryId, string name, string description, decimal price, DateTime createdAt, DateTime updatedAt)
-            => new() { MedicineId = id, CategoryId = categoryId, Name = name, Description = description, UnitPrice = price, CreatedAt = createdAt, UpdatedAt = updatedAt, DeleteFlag = false };
+        private static TblMedicine Medicine(int id, int categoryId, string name, string description, decimal price, DateTime createdAt, DateTime updatedAt, string? imageUrl = null, string? imageId = null)
+            => new() { MedicineId = id, CategoryId = categoryId, Name = name, Description = description, UnitPrice = price, CreatedAt = createdAt, UpdatedAt = updatedAt, DeleteFlag = false, ImageUrl = imageUrl };
 
         private static TblMedicineBatch Batch(int id, int medId, string batchNo, int quantity, DateTime expiry, DateTime received, string supplier, string status, DateTime createdAt, DateTime updatedAt)
             => new() { Id = id, MedId = medId, BatchNo = batchNo, Quantity = quantity, ExpiryDate = DateOnly.FromDateTime(expiry), ReceivedDate = DateOnly.FromDateTime(received), SupplierName = supplier, Status = status, CreatedAt = createdAt, UpdatedAt = updatedAt, DeleteFlag = false };
@@ -364,8 +350,8 @@ namespace SCMS.Domain
         private static TblPrescriptionItem RxItem(int id, int rxId, int medId, int? batchId, string dosage, int days, int qty, string instruction, DateTime at)
             => new() { Id = id, PrescriptionId = rxId, MedicineId = medId, MedicineBatchId = batchId, Dosage = dosage, Days = days, Quantity = qty, Instruction = instruction, CreatedAt = at, UpdatedAt = at, DeleteFlag = false };
 
-        private static TblPrescriptionItemSchedule Schedule(int id, int itemId, DateTime start, DateTime end, string doseTime, decimal doseQuantity, string doseUnit, string mealTiming, string route, int? intervalHours, int? intervalDays, bool isAsNeeded, string note, DateTime at)
-            => new() { Id = id, PrescriptionItemId = itemId, StartDate = DateOnly.FromDateTime(start), EndDate = DateOnly.FromDateTime(end), DoseTime = doseTime, DoseQuantity = doseQuantity, DoseUnit = doseUnit, MealTiming = mealTiming, Route = route, IntervalHours = intervalHours, IntervalDays = intervalDays, IsAsNeeded = isAsNeeded, Note = note, CreatedAt = at, UpdatedAt = at, DeleteFlag = false };
+        private static TblPrescriptionItemSchedule Schedule(int id, int itemId, DateTime start, DateTime end, string doseTime, decimal doseQuantity, string doseUnit, string mealTiming, string route, int? intervalHours, int? intervalDays, bool isAsNeeded, string note, DateTime at, string? dayOfWeek = null, string? bodySite = null)
+            => new() { Id = id, PrescriptionItemId = itemId, StartDate = DateOnly.FromDateTime(start), EndDate = DateOnly.FromDateTime(end), DoseTime = doseTime, DoseQuantity = doseQuantity, DoseUnit = doseUnit, MealTiming = mealTiming, Route = route, IntervalHours = intervalHours, IntervalDays = intervalDays, IsAsNeeded = isAsNeeded, Note = note, CreatedAt = at, UpdatedAt = at, DeleteFlag = false, DayOfWeek = dayOfWeek, BodySite = bodySite };
 
         private static TblPayment Payment(int id, int appointmentId, int? prescriptionId, decimal amount, decimal tax, decimal charges, string method, string status, string? screenshot, DateTime? paidAt, DateTime updatedAt)
             => new() { Id = id, AppointmentId = appointmentId, PrescriptionId = prescriptionId, Amount = amount, Tax = tax, Charges = charges, PaymentMethod = method, PaymentStatus = status, PaymentScreenshot = screenshot, PaidAt = paidAt, UpdatedAt = updatedAt };
@@ -376,8 +362,6 @@ namespace SCMS.Domain
         private static TblRolePermission RolePermission(int id, int roleId, int permissionId)
             => new() { Id = id, RoleId = roleId, PermissionId = permissionId };
 
-        private static TblLabReport Lab(int id, int patientId, int? appointmentId, int? prescriptionId, string testName, string status, string notes, string? result, string? attachment, DateTime? dueAt, DateTime? completedAt, DateTime createdAt)
-            => new() { Id = id, PatientId = patientId, AppointmentId = appointmentId, PrescriptionId = prescriptionId, TestName = testName, Status = status, Notes = notes, ResultSummary = result, AttachmentUrl = attachment, DueAt = dueAt, CompletedAt = completedAt, CreatedAt = createdAt, UpdatedAt = createdAt, DeleteFlag = false };
 
         private static TblFollowUp FollowUp(int id, int patientId, int? appointmentId, int? prescriptionId, DateTime dueAt, string recommendation, string status, DateTime? completedAt, DateTime createdAt, DateTime updatedAt)
             => new() { Id = id, PatientId = patientId, AppointmentId = appointmentId, PrescriptionId = prescriptionId, DueAt = dueAt, Recommendation = recommendation, Status = status, CompletedAt = completedAt, CreatedAt = createdAt, UpdatedAt = updatedAt, DeleteFlag = false };

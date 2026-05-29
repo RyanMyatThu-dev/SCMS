@@ -12,7 +12,7 @@ namespace SCMS.Domain.Features.Appointments
 {
     public class AppointmentsService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
         private static readonly HashSet<string> AllowedStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
             "pending",
@@ -21,7 +21,7 @@ namespace SCMS.Domain.Features.Appointments
             "completed"
         };
 
-        public AppointmentsService(ScmsDbContext context)
+        public AppointmentsService(AppDbContext context)
         {
             _context = context;
         }

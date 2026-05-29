@@ -18,7 +18,7 @@ public partial class TblPayment
     public decimal Charges { get; set; }
 
     /// <summary>
-    /// cash / card / kbzpay / wavepay
+    /// cash / online
     /// </summary>
     public string PaymentMethod { get; set; } = null!;
 

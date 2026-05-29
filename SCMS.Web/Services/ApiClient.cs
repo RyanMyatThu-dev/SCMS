@@ -8,12 +8,13 @@ using SCMS.Shared.Contracts.Auth;
 using SCMS.Shared.Contracts.Dashboards;
 using SCMS.Shared.Contracts.Diseases;
 using SCMS.Shared.Contracts.FollowUps;
-using SCMS.Shared.Contracts.LabReports;
+
 using SCMS.Shared.Contracts.Medicines;
 using SCMS.Shared.Contracts.Notifications;
 using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared.Contracts.Prescriptions;
+using SCMS.Shared.Contracts.Mcp;
 
 namespace SCMS.Web.Services
 {
@@ -49,6 +50,28 @@ namespace SCMS.Web.Services
         public async Task<Result<AuthResponse>> RegisterAsync(RegisterRequest request)
         {
             var result = await PostAsync<RegisterRequest, AuthResponse>("api/auth/register", request, authorize: false);
+            if (result.IsSuccess && result.Data != null)
+            {
+                await _tokenStore.SaveAsync(result.Data);
+                _authState.NotifyAuthenticationChanged();
+            }
+
+            return result;
+        }
+
+        public async Task<Result<AuthResponse>> RefreshAsync()
+        {
+            var refreshToken = await _tokenStore.GetRefreshTokenAsync();
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return Result<AuthResponse>.Failure("No refresh token is available.");
+            }
+
+            var result = await PostAsync<RefreshTokenRequest, AuthResponse>(
+                "api/auth/refresh",
+                new RefreshTokenRequest { RefreshToken = refreshToken },
+                authorize: false);
+
             if (result.IsSuccess && result.Data != null)
             {
                 await _tokenStore.SaveAsync(result.Data);
@@ -102,7 +125,7 @@ namespace SCMS.Web.Services
         public Task<Result<List<MedicineCategoryResponse>>> GetMedicineCategoriesAsync()
             => GetAsync<List<MedicineCategoryResponse>>("api/medicines/categories");
 
-        public async Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, byte[]? imageBytes, string? fileName)
+        public async Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, byte[]? imageBytes, string? fileName, string? contentType = null)
         {
             try
             {
@@ -123,7 +146,7 @@ namespace SCMS.Web.Services
                 if (imageBytes != null && !string.IsNullOrWhiteSpace(fileName))
                 {
                     var fileContent = new ByteArrayContent(imageBytes);
-                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType ?? "application/octet-stream");
                     content.Add(fileContent, "image", fileName);
                 }
 
@@ -136,7 +159,7 @@ namespace SCMS.Web.Services
             }
         }
 
-        public async Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, byte[]? imageBytes, string? fileName)
+        public async Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, byte[]? imageBytes, string? fileName, string? contentType = null)
         {
             try
             {
@@ -158,7 +181,7 @@ namespace SCMS.Web.Services
                 if (imageBytes != null && !string.IsNullOrWhiteSpace(fileName))
                 {
                     var fileContent = new ByteArrayContent(imageBytes);
-                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType ?? "application/octet-stream");
                     content.Add(fileContent, "image", fileName);
                 }
 
@@ -188,7 +211,7 @@ namespace SCMS.Web.Services
             => GetAsync<BatchDetailResponse>($"api/medicines/batches/{id}");
 
         public Task<Result<BatchDetailResponse>> CreateBatchAsync(CreateBatchRequest request)
-            => PostAsync<CreateBatchRequest, BatchDetailResponse>("api/medicines", request);
+            => PostAsync<CreateBatchRequest, BatchDetailResponse>("api/medicines/batches", request);
 
         public Task<Result<BatchDetailResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request)
             => PutAsync<UpdateBatchRequest, BatchDetailResponse>($"api/medicines/batches/{id}", request);
@@ -205,6 +228,9 @@ namespace SCMS.Web.Services
         public Task<Result<PaymentDetailsResponse>> SubmitManualPaymentProofAsync(ManualPaymentProofRequest request)
             => PostAsync<ManualPaymentProofRequest, PaymentDetailsResponse>("api/payments/manual-proof", request);
 
+        public Task<Result<PaymentDetailsResponse>> ProcessPaymentCallbackAsync(ProcessPaymentCallbackRequest request)
+            => PostAsync<ProcessPaymentCallbackRequest, PaymentDetailsResponse>("api/payments/gateway-callback", request);
+
         public Task<PagedResult<PatientProfileResponse>> PatientProfilesAsync(int pageSize = 50)
             => GetPagedAsync<PatientProfileResponse>($"api/patients?pageSize={pageSize}");
 
@@ -220,14 +246,10 @@ namespace SCMS.Web.Services
         public Task<Result<MedicalSummaryResponse>> MedicalSummaryAsync(int patientId)
             => GetAsync<MedicalSummaryResponse>($"api/patients/{patientId}/summary");
 
-        public Task<PagedResult<LabReportResponse>> LabReportsAsync(int? patientId = null)
-            => GetPagedAsync<LabReportResponse>($"api/labreports?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");
+        public Task<Result<string>> MedicalSummaryHtmlAsync(int patientId)
+            => GetStringAsync($"api/patients/{patientId}/summary/html");
 
-        public Task<Result<LabReportResponse>> CreateLabReportAsync(LabReportRequest request)
-            => PostAsync<LabReportRequest, LabReportResponse>("api/labreports", request);
 
-        public Task<Result<LabReportResponse>> AddLabResultAsync(int id, LabReportResultRequest request)
-            => PostAsync<LabReportResultRequest, LabReportResponse>($"api/labreports/{id}/result", request);
 
         public Task<PagedResult<FollowUpResponse>> FollowUpsAsync(int? patientId = null)
             => GetPagedAsync<FollowUpResponse>($"api/followups?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");
@@ -241,6 +263,15 @@ namespace SCMS.Web.Services
         public Task<PagedResult<DiseaseResponse>> DiseasesAsync(string? query = null)
             => GetPagedAsync<DiseaseResponse>($"api/diseases?{Query(("query", query), ("pageSize", "100"))}");
 
+        public Task<Result<DiseaseResponse>> CreateDiseaseAsync(CreateDiseaseRequest request)
+            => PostAsync<CreateDiseaseRequest, DiseaseResponse>("api/diseases", request);
+
+        public Task<Result<DiseaseResponse>> UpdateDiseaseAsync(UpdateDiseaseRequest request)
+            => PutAsync<UpdateDiseaseRequest, DiseaseResponse>("api/diseases", request);
+
+        public Task<Result<bool>> DeactivateDiseaseAsync(int id)
+            => DeleteAsync<bool>($"api/diseases/{id}");
+
         public Task<PagedResult<PrescriptionTemplateResponse>> PrescriptionTemplatesAsync(int? diseaseId = null)
             => GetPagedAsync<PrescriptionTemplateResponse>($"api/prescriptions/templates?{Query(("diseaseId", diseaseId?.ToString()), ("pageSize", "100"))}");
 
@@ -253,13 +284,29 @@ namespace SCMS.Web.Services
         public Task<PagedResult<PrescriptionResponse>> PrescriptionsAsync(int? patientId = null)
             => GetPagedAsync<PrescriptionResponse>($"api/prescriptions?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");
 
+        public Task<Result<PrescriptionResponse>> PrescriptionAsync(int id)
+            => GetAsync<PrescriptionResponse>($"api/prescriptions/prescriptions/{id}");
+
         // ── Notifications ──
 
         public Task<PagedResult<NotificationResponse>> GetNotificationsAsync(bool includeAll = false, int pageSize = 50)
             => GetPagedAsync<NotificationResponse>($"api/notifications?{Query(("includeAll", includeAll ? "true" : null), ("pageSize", pageSize.ToString()))}");
 
+        public Task<Result<NotificationResponse>> CreateNotificationAsync(CreateNotificationRequest request)
+            => PostAsync<CreateNotificationRequest, NotificationResponse>("api/notifications", request);
+
         public Task<Result> MarkNotificationAsReadAsync(int id)
             => PostPlainAsync($"api/notifications/{id}/read", new { });
+
+        // ── MCP & AI Features ──
+        public Task<Result<List<McpToolDefinition>>> GetMcpToolsAsync()
+            => GetAsync<List<McpToolDefinition>>("api/mcp/tools");
+
+        public Task<Result<McpToolCallResponse>> CallMcpToolAsync(McpToolCallRequest request)
+            => PostAsync<McpToolCallRequest, McpToolCallResponse>("api/mcp/tools/call", request);
+
+        public Task<Result<AiChatResponse>> McpChatAsync(AiChatRequest request)
+            => PostAsync<AiChatRequest, AiChatResponse>("api/mcp/chat", request);
 
         public string DownloadUrl(string relativePath)
             => $"{ApiBaseAddress}/{relativePath.TrimStart('/')}";
@@ -318,6 +365,23 @@ namespace SCMS.Web.Services
             catch (HttpRequestException ex)
             {
                 return PagedResult<TData>.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        private async Task<Result<string>> GetStringAsync(string url)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                var response = await _http.GetAsync(url);
+                var body = await response.Content.ReadAsStringAsync();
+                return response.IsSuccessStatusCode
+                    ? Result<string>.Success(body)
+                    : Result<string>.Failure(CreateApiFailureMessage(response, body));
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result<string>.Failure(CreateFetchFailureMessage(ex));
             }
         }
 
@@ -389,6 +453,20 @@ namespace SCMS.Web.Services
             catch (HttpRequestException ex)
             {
                 return Result.Failure(CreateFetchFailureMessage(ex));
+            }
+        }
+
+        private async Task<Result<TData>> DeleteAsync<TData>(string url)
+        {
+            try
+            {
+                await EnsureAuthorizationAsync();
+                var response = await _http.DeleteAsync(url);
+                return await ReadResultAsync<TData>(response);
+            }
+            catch (HttpRequestException ex)
+            {
+                return Result<TData>.Failure(CreateFetchFailureMessage(ex));
             }
         }
 

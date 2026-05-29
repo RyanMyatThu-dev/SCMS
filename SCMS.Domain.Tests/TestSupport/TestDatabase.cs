@@ -13,15 +13,15 @@ public sealed class TestDatabase : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
-        var options = new DbContextOptionsBuilder<ScmsDbContext>()
+        var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlite(_connection)
             .Options;
 
-        Context = new ScmsDbContext(options);
+        Context = new AppDbContext(options);
         Context.Database.EnsureCreated();
     }
 
-    public ScmsDbContext Context { get; }
+    public AppDbContext Context { get; }
 
     public void Dispose()
     {

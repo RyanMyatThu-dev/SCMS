@@ -1,4 +1,13 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&family=Padauk:wght@400;700&display=swap");
+
 :root {
+  /* Patient Portal theme */
+  --blue-600: #1e40af;
+  --blue-50: #eff6ff;
+  --blue-700: #1e3a8a;
+  --font-mm: "Padauk", sans-serif;
+  --font-en: "DM Sans", system-ui, sans-serif;
+
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -52,6 +61,7 @@
 
 body {
   margin: 0;
+  font-family: var(--font-mm), var(--font-en);
 }
 
 #root {

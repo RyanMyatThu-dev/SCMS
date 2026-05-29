@@ -19,15 +19,11 @@ namespace SCMS.Domain.Features.Dashboards
         }
 
         [HttpGet("dashboard")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,doctor")]
         public async Task<IActionResult> GetDoctorDashboard()
         {
             var result = await _dashboardService.GetDoctorDashboardAsync();
-            if (result.IsFailure)
-            {
-                return BadRequest(result);
-            }
-            return Ok(result);
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
         [HttpGet("patient-dashboard")]
@@ -40,11 +36,7 @@ namespace SCMS.Domain.Features.Dashboards
             }
 
             var result = await _dashboardService.GetPatientDashboardAsync(userId.Value);
-            if (result.IsFailure)
-            {
-                return BadRequest(result);
-            }
-            return Ok(result);
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
     }
 }
