@@ -1354,73 +1354,35 @@ export default function AdminDashboard() {
     <>
       <style>{styles}</style>
 
-      <div className="app-shell">
-        <aside className="sidebar">
-          <div className="brand">
-            <div className="brand-title manrope">SCMS</div>
-            <div className="brand-subtitle">Smart Clinic Management</div>
+      <div className="dashboard-content" style={{ width: "100%" }}>
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 24,
+            gap: 16,
+            flexWrap: "wrap"
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: MUTED }}>
+              Clinic A • {dateStr}
+            </h2>
+            {apiError ? <div className="alert" style={{ marginTop: 8 }}>{apiError}</div> : null}
           </div>
 
-          <nav className="nav">
-            {navItems.map((item) => {
-              const active = location.pathname === item.route;
-
-              return (
-                <button
-                  key={item.key}
-                  className={`nav-item ${active ? "active" : ""}`}
-                  onClick={() => handleNavigate(item)}
-                >
-                  <NavIcon type={item.icon} />
-                  <span className="nav-text">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="sidebar-footer">
-            <button className="nav-item">
-              <NavIcon type="settings" />
-              <span className="nav-text">Settings</span>
+          <div className="top-actions" style={{ display: "flex", gap: 12 }}>
+            <button className="btn btn-outline" onClick={loadDashboardData}>
+              {loading ? "Loading..." : "Refresh"}
             </button>
 
-            <button className="nav-item" onClick={handleLogout}>
-              <NavIcon type="logout" />
-              <span className="nav-text">Logout</span>
+            <button className="btn btn-primary">
+              <span>+</span>
+              <span className="hide-mobile">New Prescription</span>
             </button>
           </div>
-        </aside>
-
-        <main className="main">
-          <div className="main-inner">
-            <header className="topbar">
-              <div>
-                <h1 className="title manrope">Admin Dashboard</h1>
-                <p className="subtitle">Clinic A • {dateStr}</p>
-
-                {apiError ? <div className="alert">{apiError}</div> : null}
-              </div>
-
-              <div className="top-actions">
-                <button className="btn btn-outline" onClick={loadDashboardData}>
-                  {loading ? "Loading..." : "Refresh"}
-                </button>
-
-                <button className="btn btn-primary">
-                  <span>+</span>
-                  <span className="hide-mobile">New Prescription</span>
-                </button>
-
-                <div className="profile-card">
-                  <div className="profile-avatar">AD</div>
-
-                  <div>
-                    <div className="profile-name">Admin User</div>
-                    <div className="profile-role">System Administrator</div>
-                  </div>
-                </div>
-              </div>
-            </header>
+        </header>
 
             <section className="stats-grid">
               {stats.map((stat, index) => (
@@ -1643,8 +1605,6 @@ export default function AdminDashboard() {
                 </div>
               </article>
             </section>
-          </div>
-        </main>
       </div>
     </>
   );
