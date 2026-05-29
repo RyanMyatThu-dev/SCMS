@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import scmsApi from "../../services/scmsApi";
 
@@ -163,12 +163,10 @@ export default function UserNewAppointment() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{t.date}</label>
-              <input
-                type="date"
+              <DatePickerDD
                 value={bookingDate}
                 min={tomorrowStr}
                 onChange={(e) => setBookingDate(e.target.value)}
-                style={inputStyle}
                 required
               />
             </div>
@@ -221,3 +219,34 @@ const inputStyle = {
   fontSize: 14,
   background: "#F9FAFB",
 };
+
+function DatePickerDD({ value, onChange, min, required }) {
+  const ref = useRef(null);
+  const formatted = (() => {
+    if (!value) return "";
+    const [y, m, d] = value.split("-");
+    if (!y || !m || !d) return value;
+    return `${d}-${m}-${y}`;
+  })();
+  const openPicker = () => {
+    if (ref.current) {
+      try { ref.current.showPicker(); } catch { ref.current.click(); }
+    }
+  };
+  return (
+    <div style={{ ...inputStyle, position: "relative", cursor: "pointer", display: "flex", alignItems: "center" }} onClick={openPicker}>
+      <span style={{ color: formatted ? TEXT : MUTED, pointerEvents: "none" }}>
+        {formatted || "dd-MM-yyyy"}
+      </span>
+      <input
+        ref={ref}
+        type="date"
+        value={value}
+        min={min}
+        onChange={onChange}
+        required={required}
+        style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer" }}
+      />
+    </div>
+  );
+}

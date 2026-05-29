@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import DateInput from "../components/DateInput";
 import { paymentsApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -206,8 +207,7 @@ export default function PaymentsPage() {
           {/* Date Picker */}
           <div className="relative w-full sm:w-44">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <input
-              type="date"
+            <DateInput
               className="input input-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
               value={dateFilter}
               onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}

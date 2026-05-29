@@ -20,6 +20,7 @@ import {
   Truck
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import DateInput from "../components/DateInput";
 import { medicinesApi } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -598,8 +599,7 @@ export default function BatchesPage() {
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-scms-text">Manufacture Date *</span>
-                <input
-                  type="date"
+                <DateInput
                   required
                   className="input input-bordered h-11 rounded-xl text-xs w-full font-mono"
                   value={form.manufactureDate}
@@ -609,8 +609,7 @@ export default function BatchesPage() {
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-scms-text">Expiry Date *</span>
-                <input
-                  type="date"
+                <DateInput
                   required
                   className="input input-bordered h-11 rounded-xl text-xs w-full font-mono text-rose-700"
                   value={form.expiryDate}
@@ -620,8 +619,7 @@ export default function BatchesPage() {
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-scms-text">Received Date</span>
-                <input
-                  type="date"
+                <DateInput
                   className="input input-bordered h-11 rounded-xl text-xs w-full font-mono"
                   value={form.receivedDate}
                   onChange={(e) => setForm(p => ({ ...p, receivedDate: e.target.value }))}

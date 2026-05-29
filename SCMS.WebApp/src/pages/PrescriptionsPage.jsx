@@ -14,9 +14,11 @@ import {
   Droplet,
   User,
   Calendar,
+  Pill,
   X
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import DateInput from "../components/DateInput";
 import { prescriptionsApi, patientsApi, diseasesApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -219,8 +221,7 @@ export default function PrescriptionsPage() {
           {/* Date Picker */}
           <div className="relative w-full sm:w-40">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <input
-              type="date"
+            <DateInput
               className="input input-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
               value={dateFilter}
               onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}

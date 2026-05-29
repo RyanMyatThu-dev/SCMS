@@ -121,10 +121,11 @@ export default function UserDashboard() {
   const formatDate = (val) => {
     if (!val) return "";
     const date = new Date(val);
-    return isNaN(date.getTime()) ? String(val) : date.toLocaleString(language === "mm" ? "my-MM" : "en-US", {
-      dateStyle: "medium",
-      timeStyle: "short"
-    });
+    if (isNaN(date.getTime())) return String(val);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
   };
 
   if (!activeProfile) {

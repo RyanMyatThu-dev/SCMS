@@ -24,6 +24,7 @@ import {
   X
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import DateInput from "../components/DateInput";
 import {
   appointmentsApi,
   patientsApi,
@@ -247,7 +248,7 @@ export default function AppointmentsPage() {
       {
         medicineId: med.medicineId,
         medicineName: med.name,
-        dosage: "1-0-1",
+        dosage: "Twice Daily (Morning & Night)",
         days: 5,
         quantity: 10,
         instruction: "After meal",
@@ -413,7 +414,7 @@ export default function AppointmentsPage() {
       return {
         medicineId: item.medicineId,
         medicineName: item.medicineName,
-        dosage: item.dosage || "1-0-1",
+        dosage: item.dosage || "Twice Daily (Morning & Night)",
         days: item.days || 5,
         quantity: item.quantity || 10,
         instruction: item.instruction || "After meal",
@@ -935,8 +936,7 @@ export default function AppointmentsPage() {
                     <div className="space-y-3 animate-fadeIn">
                       <label className="block">
                         <span className="block font-bold text-slate-500 mb-1">Follow-up Due Date</span>
-                        <input
-                          type="date"
+                        <DateInput
                           className="input input-bordered h-9 text-xs w-full bg-white rounded-lg"
                           value={followUpDate}
                           onChange={(e) => setFollowUpDate(e.target.value)}
@@ -1015,14 +1015,42 @@ export default function AppointmentsPage() {
                           </div>
 
                           <div className="grid gap-2 grid-cols-4 text-[11px]">
-                            <label className="block">
+                            <label className="block col-span-1">
                               <span className="block text-slate-400 font-bold mb-0.5">Dosage</span>
-                              <input
-                                placeholder="1-0-1"
-                                className="input input-bordered input-xs h-7 rounded text-center w-full"
-                                value={item.dosage}
-                                onChange={(e) => updateItemField(item.medicineId, "dosage", e.target.value)}
-                              />
+                              <select
+                                className="select select-bordered select-xs h-7 rounded w-full font-semibold"
+                                value={
+                                  ["Once Daily (Morning)", "Once Daily (Night)", "Twice Daily (Morning & Night)", "Three Times Daily", "Four Times Daily", "As Needed (PRN)"].includes(item.dosage)
+                                    ? item.dosage
+                                    : "custom"
+                                }
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === "custom") {
+                                    updateItemField(item.medicineId, "dosage", "1 tab daily");
+                                  } else {
+                                    updateItemField(item.medicineId, "dosage", val);
+                                  }
+                                }}
+                              >
+                                <option value="Once Daily (Morning)">Once Daily (Morning)</option>
+                                <option value="Once Daily (Night)">Once Daily (Night)</option>
+                                <option value="Twice Daily (Morning & Night)">Twice Daily (Morning & Night)</option>
+                                <option value="Three Times Daily">Three Times Daily</option>
+                                <option value="Four Times Daily">Four Times Daily</option>
+                                <option value="As Needed (PRN)">As Needed (PRN)</option>
+                                <option value="custom">Custom...</option>
+                              </select>
+                              
+                              {!["Once Daily (Morning)", "Once Daily (Night)", "Twice Daily (Morning & Night)", "Three Times Daily", "Four Times Daily", "As Needed (PRN)"].includes(item.dosage) && (
+                                <input
+                                  type="text"
+                                  className="input input-bordered input-xs h-6 rounded mt-1 text-center w-full text-[10px]"
+                                  value={item.dosage}
+                                  onChange={(e) => updateItemField(item.medicineId, "dosage", e.target.value)}
+                                  placeholder="e.g. Every 8 hours"
+                                />
+                              )}
                             </label>
 
                             <label className="block">

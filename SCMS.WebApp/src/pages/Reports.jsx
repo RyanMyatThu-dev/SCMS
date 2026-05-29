@@ -12,6 +12,7 @@ import {
   X
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import DateInput from "../components/DateInput";
 import { useLanguage } from "../context/LanguageContext";
 import { downloadBlob, reportsApi } from "../services/scmsApi";
 import { showError, showAlert } from "../services/dialogs";
@@ -181,8 +182,7 @@ export default function Reports() {
             <span className="mb-2 block text-xs font-black text-scms-text">Report Target Date</span>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-              <input
-                type="date"
+              <DateInput
                 className="input input-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border font-mono"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}

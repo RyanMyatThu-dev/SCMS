@@ -432,7 +432,7 @@ namespace SCMS.Domain.Features.Documents
                 item.Amount.ToString("N2"),
                 item.Tax.ToString("N2"),
                 item.Total.ToString("N2"),
-                item.PaidAt?.ToString("MM-dd HH:mm") ?? "-"
+                item.PaidAt?.ToString("dd-MM-yyyy") ?? "-"
             }).ToList();
 
             if (txRows.Count == 0)
