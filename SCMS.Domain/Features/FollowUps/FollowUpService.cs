@@ -52,10 +52,6 @@ namespace SCMS.Domain.Features.FollowUps
             {
                 return Result<FollowUpResponse>.Failure("Follow-up due date is required.");
             }
-            if (string.IsNullOrWhiteSpace(request.Recommendation))
-            {
-                return Result<FollowUpResponse>.Failure("Recommendation is required.");
-            }
 
             var patient = await _context.TblPatients.FirstOrDefaultAsync(p => p.PatientId == request.PatientId && p.DeleteFlag != true);
             if (patient == null)
@@ -69,7 +65,7 @@ namespace SCMS.Domain.Features.FollowUps
                 AppointmentId = request.AppointmentId,
                 PrescriptionId = request.PrescriptionId,
                 DueAt = request.DueAt,
-                Recommendation = request.Recommendation.Trim(),
+                Recommendation = request.Recommendation?.Trim(),
                 Status = "pending",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
