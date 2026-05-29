@@ -39,8 +39,12 @@ export default function AuthPage({ mode = "login" }) {
         });
       }
 
-      await login({ emailOrMobile: form.email.trim(), password: form.password });
-      navigate(location.state?.from?.pathname || "/app/dashboard", { replace: true });
+      const user = await login({ emailOrMobile: form.email.trim(), password: form.password });
+      if (user?.role === "user") {
+        navigate("/user/dashboard", { replace: true });
+      } else {
+        navigate(location.state?.from?.pathname || "/app/dashboard", { replace: true });
+      }
     } catch (error) {
       await showError(error?.response?.data?.message || error?.message || t.signInFailed, t.signInFailed);
     } finally {
@@ -86,7 +90,7 @@ export default function AuthPage({ mode = "login" }) {
               <span className="mb-2 block text-xs font-extrabold text-scms-text">{t.fullName}</span>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-                <input className="scms-input w-full pl-11" value={form.name} onChange={(event) => update("name", event.target.value)} />
+                <input className="scms-input w-full pl-12" value={form.name} onChange={(event) => update("name", event.target.value)} />
               </div>
             </label>
           )}
@@ -95,7 +99,7 @@ export default function AuthPage({ mode = "login" }) {
             <span className="mb-2 block text-xs font-extrabold text-scms-text">{t.email}</span>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-              <input className="scms-input w-full pl-11" type="email" value={form.email} onChange={(event) => update("email", event.target.value)} />
+              <input className="scms-input w-full pl-12" type="email" value={form.email} onChange={(event) => update("email", event.target.value)} />
             </div>
           </label>
 
@@ -103,7 +107,7 @@ export default function AuthPage({ mode = "login" }) {
             <span className="mb-2 block text-xs font-extrabold text-scms-text">{t.password}</span>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-              <input className="scms-input w-full px-11" type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => update("password", event.target.value)} />
+              <input className="scms-input w-full pl-12 pr-12" type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => update("password", event.target.value)} />
               <button type="button" className="btn btn-ghost btn-sm btn-square absolute right-2 top-1/2 -translate-y-1/2" onClick={() => setShowPassword((prev) => !prev)}>
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>

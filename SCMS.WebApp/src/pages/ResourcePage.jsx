@@ -153,7 +153,7 @@ export default function ResourcePage({ config }) {
       <div className="scms-card p-4">
         <label className="relative block max-w-xl">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-          <input className="scms-input w-full pl-11" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} />
+          <input className="scms-input w-full pl-12" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} />
         </label>
       </div>
 
