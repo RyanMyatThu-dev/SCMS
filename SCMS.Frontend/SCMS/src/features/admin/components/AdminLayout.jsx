@@ -14,6 +14,9 @@ import {
   Languages,
   Activity,
   FolderOpen,
+  BarChart3,
+  Menu,
+  X,
 } from "lucide-react";
 
 const PRIMARY = "#0052CC";
@@ -23,6 +26,7 @@ const CARD = "#FFFFFF";
 const TEXT = "#1D2939";
 const MUTED = "#667085";
 const BORDER = "#E4E7EC";
+const DANGER = "#D92D20";
 
 const labels = {
   en: {
@@ -38,11 +42,13 @@ const labels = {
     notifications: "Notifications",
     diseases: "Diseases",
     documents: "Documents",
+    reports: "Reports",
     settings: "Settings",
     logout: "Logout",
     admin: "Admin User",
     role: "System Administrator",
     language: "မြန်မာ",
+    menu: "Menu",
   },
   mm: {
     brand: "SCMS",
@@ -57,11 +63,13 @@ const labels = {
     notifications: "အသိပေးချက်များ",
     diseases: "ရောဂါများ",
     documents: "စာရွက်စာတမ်းများ",
+    reports: "အစီရင်ခံစာများ",
     settings: "ဆက်တင်",
     logout: "ထွက်မည်",
     admin: "အက်ဒ်မင်",
     role: "စနစ်စီမံသူ",
     language: "English",
+    menu: "မီနူး",
   },
 };
 
@@ -76,19 +84,13 @@ const navItems = [
   { key: "notifications", icon: Bell, to: "/admin/notifications" },
   { key: "diseases", icon: Activity, to: "/admin/diseases" },
   { key: "documents", icon: FolderOpen, to: "/admin/documents" },
+  { key: "reports", icon: BarChart3, to: "/admin/reports" },
 ];
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [lang, setLang] = useState(localStorage.getItem("lang") || "en");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, []);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const t = useMemo(() => labels[lang], [lang]);
 
@@ -100,308 +102,505 @@ export default function AdminLayout() {
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("userRole");
     localStorage.removeItem("user");
     navigate("/login");
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100vw",
-        display: "flex",
-        background: BG,
-        color: TEXT,
-        fontFamily: "Inter, Manrope, sans-serif",
-      }}
-    >
-      <aside
-        style={{
-          width: 268,
-          minWidth: 268,
-          height: "100vh",
-          background: CARD,
-          borderRight: `1px solid ${BORDER}`,
-          padding: "24px 16px",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "0 12px 22px",
-            borderBottom: `1px solid ${BORDER}`,
-          }}
-        >
-          <div
-            style={{
-              color: PRIMARY,
-              fontSize: 24,
-              fontWeight: 800,
-              letterSpacing: "-0.03em",
-            }}
-          >
-            {t.brand}
-          </div>
-          <div style={{ marginTop: 4, color: MUTED, fontSize: 12 }}>
-            {t.subtitle}
-          </div>
-        </div>
+    <>
+      <style>{styles}</style>
 
-        <nav
-          style={{
-            flex: 1,
-            marginTop: 18,
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            overflowY: "auto",
-          }}
-        >
-          {navItems.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <NavLink
-                key={item.key}
-                to={item.to}
-                style={({ isActive }) => ({
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  textDecoration: "none",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: isActive ? PRIMARY : "#475467",
-                  background: isActive ? PRIMARY_LIGHT : "transparent",
-                  transition: "0.18s ease",
-                })}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = PRIMARY_LIGHT;
-                  e.currentTarget.style.transform = "translateX(2px)";
-                }}
-                onMouseLeave={(e) => {
-                  const active = e.currentTarget.getAttribute("aria-current");
-                  e.currentTarget.style.background =
-                    active === "page" ? PRIMARY_LIGHT : "transparent";
-                  e.currentTarget.style.transform = "translateX(0)";
-                }}
-              >
-                <Icon size={18} />
-                <span>{t[item.key]}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
-
-        <div
-          style={{
-            borderTop: `1px solid ${BORDER}`,
-            paddingTop: 14,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
-          <button onClick={toggleLanguage} style={footerButtonStyle}>
-            <Languages size={18} />
-            {t.language}
-          </button>
-
-          <NavLink
-            to="/admin/settings"
-            style={{
-              ...footerButtonStyle,
-              textDecoration: "none",
-              color: "#475467",
-            }}
-          >
-            <Settings size={18} />
-            {t.settings}
-          </NavLink>
-
+      <div className="admin-shell">
+        {sidebarOpen && (
           <button
-            onClick={logout}
-            style={{
-              ...footerButtonStyle,
-              color: "#D92D20",
-            }}
-          >
-            <LogOut size={18} />
-            {t.logout}
-          </button>
-        </div>
-      </aside>
+            className="mobile-backdrop"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          />
+        )}
 
-      <main
-        style={{
-          flex: 1,
-          height: "100vh",
-          overflow: "auto",
-          padding: "28px 32px",
-        }}
-      >
-        <div style={{ maxWidth: 1480, margin: "0 auto" }}>
-          <header
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 24,
-            }}
-          >
+        <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`}>
+          <div className="brand-box">
             <div>
-              <h1
-                style={{
-                  fontSize: 30,
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                }}
-              >
-                {t.admin}
-              </h1>
-              <p style={{ marginTop: 6, color: MUTED, fontSize: 14 }}>
-                {t.role}
-              </p>
+              <div className="brand-title">{t.brand}</div>
+              <div className="brand-subtitle">{t.subtitle}</div>
             </div>
 
-            <div
-              style={{
-                background: CARD,
-                border: `1px solid ${BORDER}`,
-                borderRadius: 16,
-                padding: "10px 14px",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}
+            <button
+              className="mobile-close"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close"
             >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  background: PRIMARY,
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 800,
-                }}
-              >
-                AD
+              <X size={18} />
+            </button>
+          </div>
+
+          <nav className="admin-nav">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <NavLink
+                  key={item.key}
+                  to={item.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    isActive ? "nav-link active" : "nav-link"
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{t[item.key]}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          <div className="sidebar-footer">
+            <button onClick={toggleLanguage} className="footer-btn">
+              <Languages size={18} />
+              <span>{t.language}</span>
+            </button>
+
+            <NavLink
+              to="/admin/settings"
+              onClick={() => setSidebarOpen(false)}
+              className="footer-link"
+            >
+              <Settings size={18} />
+              <span>{t.settings}</span>
+            </NavLink>
+
+            <button onClick={logout} className="footer-btn danger">
+              <LogOut size={18} />
+              <span>{t.logout}</span>
+            </button>
+          </div>
+        </aside>
+
+        <main className="admin-main">
+          <div className="admin-container">
+            <header className="admin-topbar">
+              <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
+                <Menu size={20} />
+                <span>{t.menu}</span>
+              </button>
+
+              <div className="admin-heading">
+                <h1>{t.admin}</h1>
+                <p>{t.role}</p>
               </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{t.admin}</div>
-                <div style={{ fontSize: 12, color: MUTED }}>{t.role}</div>
-              </div>
-            </div>
-          </header>
 
-          <style>{layoutStyles}</style>
-
-          {loading ? (
-            <div style={{ animation: "shimmer-fade 0.5s ease-in-out" }}>
-              {/* Stats Skeleton Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 18 }}>
-                {Array.from({ length: 5 }).map((_, idx) => (
-                  <div key={idx} className="skeleton-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 18, minHeight: 132, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                    <div className="skeleton" style={{ width: 34, height: 34, borderRadius: 12 }} />
-                    <div className="skeleton" style={{ width: "60%", height: 10, margin: "12px 0 6px" }} />
-                    <div className="skeleton" style={{ width: "40%", height: 24 }} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Content Skeleton Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1.65fr 0.8fr", gap: 18 }}>
-                {/* Patient Queue Skeleton Card */}
-                <div className="skeleton-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 20, minHeight: 380, display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ width: "100%" }}>
-                      <div className="skeleton" style={{ width: "30%", height: 18, marginBottom: 8 }} />
-                      <div className="skeleton" style={{ width: "50%", height: 12 }} />
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 0" }}>
-                        <div className="skeleton" style={{ width: 40, height: 12 }} />
-                        <div className="skeleton" style={{ width: 34, height: 34, borderRadius: "50%" }} />
-                        <div className="skeleton" style={{ width: "35%", height: 12 }} />
-                        <div className="skeleton" style={{ width: "20%", height: 12 }} />
-                        <div className="skeleton" style={{ width: 60, height: 24, borderRadius: 12, marginLeft: "auto" }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Summary Skeleton Card */}
-                <div className="skeleton-card" style={{ background: "linear-gradient(150deg, #0052CC 0%, #003D99 100%)", borderRadius: 18, padding: 22, minHeight: 380, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                  <div>
-                    <div className="skeleton-light" style={{ width: "40%", height: 16, marginBottom: 24 }} />
-                    <div className="skeleton-light" style={{ width: "60%", height: 12, marginBottom: 8 }} />
-                    <div className="skeleton-light" style={{ width: "80%", height: 36 }} />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div className="skeleton-light" style={{ width: "100%", height: 36, borderRadius: 8 }} />
-                    <div className="skeleton-light" style={{ width: "100%", height: 36, borderRadius: 8 }} />
-                  </div>
+              <div className="admin-profile">
+                <div className="admin-avatar">AD</div>
+                <div>
+                  <div className="profile-name">{t.admin}</div>
+                  <div className="profile-role">{t.role}</div>
                 </div>
               </div>
+            </header>
+
+            <div className="page-content">
+              <Outlet context={{ lang, t }} />
             </div>
-          ) : (
-            <Outlet context={{ lang, t }} />
-          )}
-        </div>
-      </main>
-    </div>
+          </div>
+        </main>
+      </div>
+    </>
   );
 }
 
-const footerButtonStyle = {
-  width: "100%",
-  border: 0,
-  background: "transparent",
-  padding: "12px 14px",
-  borderRadius: 12,
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  color: "#475467",
-  fontSize: 14,
-  fontWeight: 700,
-  cursor: "pointer",
-  transition: "0.18s ease",
-  textAlign: "left",
-};
+const styles = `
+* {
+  box-sizing: border-box;
+}
 
-const layoutStyles = `
-  @keyframes shimmer {
-    0% { background-position: -468px 0; }
-    100% { background-position: 468px 0; }
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: ${BG};
+  color: ${TEXT};
+  font-family: Inter, Manrope, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+img {
+  max-width: 100%;
+}
+
+.admin-shell {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  background: ${BG};
+  color: ${TEXT};
+  overflow: hidden;
+}
+
+.admin-sidebar {
+  width: 268px;
+  min-width: 268px;
+  height: 100vh;
+  background: ${CARD};
+  border-right: 1px solid ${BORDER};
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  transition: 0.25s ease;
+  z-index: 1001;
+}
+
+.brand-box {
+  padding: 0 12px 22px;
+  border-bottom: 1px solid ${BORDER};
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.brand-title {
+  color: ${PRIMARY};
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.brand-subtitle {
+  margin-top: 4px;
+  color: ${MUTED};
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.mobile-close {
+  display: none;
+  border: 1px solid ${BORDER};
+  background: ${CARD};
+  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: ${TEXT};
+}
+
+.admin-nav {
+  flex: 1;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.admin-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.admin-nav::-webkit-scrollbar-thumb {
+  background: #D0D5DD;
+  border-radius: 999px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: #475467;
+  background: transparent;
+  transition: 0.18s ease;
+}
+
+.nav-link:hover {
+  background: #F2F4F7;
+  color: ${TEXT};
+  transform: translateX(2px);
+}
+
+.nav-link.active {
+  background: ${PRIMARY_LIGHT};
+  color: ${PRIMARY};
+}
+
+.sidebar-footer {
+  border-top: 1px solid ${BORDER};
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer-btn,
+.footer-link {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 12px 14px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #475467;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.18s ease;
+  text-align: left;
+  text-decoration: none;
+}
+
+.footer-btn:hover,
+.footer-link:hover {
+  background: #F2F4F7;
+}
+
+.footer-btn.danger {
+  color: ${DANGER};
+}
+
+.admin-main {
+  flex: 1;
+  height: 100vh;
+  overflow: auto;
+  padding: 28px 32px;
+  min-width: 0;
+}
+
+.admin-container {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.menu-btn {
+  display: none;
+  border: 1px solid ${BORDER};
+  background: ${CARD};
+  color: ${TEXT};
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-heading h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.admin-heading p {
+  margin: 6px 0 0;
+  color: ${MUTED};
+  font-size: 14px;
+}
+
+.admin-profile {
+  background: ${CARD};
+  border: 1px solid ${BORDER};
+  border-radius: 16px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.admin-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: ${PRIMARY};
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.profile-name {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.profile-role {
+  font-size: 12px;
+  color: ${MUTED};
+  margin-top: 2px;
+}
+
+.page-content {
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-backdrop {
+  display: none;
+}
+
+/* Auto responsive helper for child pages */
+.page-content > div {
+  max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .admin-main {
+    padding: 24px 22px;
   }
-  .skeleton {
-    animation: shimmer 1.2s infinite linear;
-    background: linear-gradient(to right, #F2F4F7 8%, #EAECF0 18%, #F2F4F7 33%);
-    background-size: 800px 104px;
-    position: relative;
-    border-radius: 8px;
-    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .admin-shell {
+    display: block;
+    overflow: visible;
   }
-  .skeleton-light {
-    animation: shimmer 1.2s infinite linear;
-    background: linear-gradient(to right, rgba(255,255,255,0.12) 8%, rgba(255,255,255,0.24) 18%, rgba(255,255,255,0.12) 33%);
-    background-size: 800px 104px;
-    position: relative;
-    border-radius: 8px;
-    overflow: hidden;
+
+  .admin-sidebar {
+    position: fixed;
+    left: -290px;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    box-shadow: 0 24px 60px rgba(16, 24, 40, 0.22);
   }
-  @keyframes shimmer-fade {
-    from { opacity: 0.8; }
-    to { opacity: 1; }
+
+  .admin-sidebar.open {
+    left: 0;
   }
+
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1000;
+  }
+
+  .mobile-close {
+    display: inline-flex;
+  }
+
+  .admin-main {
+    height: auto;
+    min-height: 100vh;
+    padding: 16px 14px 28px;
+    overflow: visible;
+  }
+
+  .admin-topbar {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .menu-btn {
+    display: inline-flex;
+  }
+
+  .admin-heading {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .admin-heading h1 {
+    font-size: 24px;
+  }
+
+  .admin-profile {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .page-content h1 {
+    font-size: 24px !important;
+  }
+
+  .page-content h2 {
+    font-size: 20px !important;
+  }
+
+  .page-content section,
+  .page-content article,
+  .page-content aside {
+    max-width: 100%;
+  }
+
+  .page-content input,
+  .page-content select,
+  .page-content textarea,
+  .page-content button {
+    max-width: 100%;
+  }
+
+  .page-content [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .page-content [style*="display: flex"] {
+    flex-wrap: wrap;
+  }
+
+  .page-content [style*="position: sticky"] {
+    position: static !important;
+  }
+
+  .page-content [style*="width: 420px"],
+  .page-content [style*="width: 360px"],
+  .page-content [style*="width: 268px"] {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-main {
+    padding: 14px 10px 24px;
+  }
+
+  .brand-title {
+    font-size: 22px;
+  }
+
+  .nav-link,
+  .footer-btn,
+  .footer-link {
+    padding: 11px 12px;
+  }
+}
 `;

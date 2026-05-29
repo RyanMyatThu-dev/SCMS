@@ -1,0 +1,28 @@
+* {
+  box-sizing: border-box;
+}
+
+img {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  h1 {
+    font-size: 24px !important;
+  }
+
+  h2 {
+    font-size: 20px !important;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+
+  table {
+    min-width: 700px;
+  }
+}
