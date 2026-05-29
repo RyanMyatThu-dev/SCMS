@@ -90,6 +90,16 @@ const styles = `
   border-radius: 18px;
   padding: 18px;
   box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  transition: 0.18s ease;
+}
+
+.stat-card.clickable {
+  cursor: pointer;
+}
+
+.stat-card.clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(16,24,40,0.08);
 }
 
 .stat-label {
@@ -245,12 +255,6 @@ const styles = `
   background: #ECFDF3;
   color: ${SUCCESS};
   border: 1px solid #A9EFC5;
-}
-
-.badge-danger {
-  background: #FFF1F0;
-  color: ${DANGER};
-  border: 1px solid #FECDCA;
 }
 
 .summary-card {
@@ -432,22 +436,11 @@ const apiEndpoints = {
   dashboard: "/Dashboards/dashboard",
   patients: "/Patients",
   appointments: "/Appointments",
-  callNext: "/Appointments/call-next",
   prescriptions: "/Prescriptions",
   followUps: "/FollowUps",
   payments: "/Payments",
   notifications: "/Notifications",
 };
-
-const chartData = [
-  { label: "MON", sch: 8, wlk: 4 },
-  { label: "TUE", sch: 12, wlk: 6 },
-  { label: "WED", sch: 15, wlk: 9 },
-  { label: "THU", sch: 7, wlk: 5 },
-  { label: "FRI", sch: 18, wlk: 11 },
-  { label: "SAT", sch: 10, wlk: 7 },
-  { label: "SUN", sch: 5, wlk: 3 },
-];
 
 const safeArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -467,6 +460,25 @@ const pickNumber = (...values) => {
     }
   }
   return 0;
+};
+
+const calculateGrowth = (current, previous) => {
+  if (!previous || previous <= 0) return "0%";
+  const growth = ((current - previous) / previous) * 100;
+  return `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`;
+};
+
+const isToday = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  const today = new Date();
+
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
 };
 
 const getName = (item) =>
@@ -585,7 +597,6 @@ function MiniBarChart({ data }) {
               }}
             />
           </div>
-
           <span
             style={{
               color: "rgba(255,255,255,0.72)",
@@ -605,7 +616,6 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [calling, setCalling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState("");
 
@@ -653,29 +663,18 @@ export default function AdminDashboard() {
         );
       }
 
-      if (patientsRes.status === "fulfilled") {
+      if (patientsRes.status === "fulfilled")
         setPatients(safeArray(patientsRes.value.data));
-      }
-
-      if (appointmentsRes.status === "fulfilled") {
+      if (appointmentsRes.status === "fulfilled")
         setAppointments(safeArray(appointmentsRes.value.data));
-      }
-
-      if (prescriptionsRes.status === "fulfilled") {
+      if (prescriptionsRes.status === "fulfilled")
         setPrescriptions(safeArray(prescriptionsRes.value.data));
-      }
-
-      if (followUpsRes.status === "fulfilled") {
+      if (followUpsRes.status === "fulfilled")
         setFollowUps(safeArray(followUpsRes.value.data));
-      }
-
-      if (paymentsRes.status === "fulfilled") {
+      if (paymentsRes.status === "fulfilled")
         setPayments(safeArray(paymentsRes.value.data));
-      }
-
-      if (notificationsRes.status === "fulfilled") {
+      if (notificationsRes.status === "fulfilled")
         setNotifications(safeArray(notificationsRes.value.data));
-      }
 
       if (results.some((result) => result.status === "rejected")) {
         setApiError(
@@ -694,40 +693,11 @@ export default function AdminDashboard() {
     loadDashboardData();
   }, []);
 
-  const handleCallNext = async () => {
-    try {
-      setCalling(true);
-      await api.post(apiEndpoints.callNext);
-
-      const res = await api.get(apiEndpoints.appointments);
-      setAppointments(safeArray(res.data));
-    } catch (error) {
-      console.error("Call next error:", error);
-      setApiError("Call Next failed. Please check appointment API.");
-    } finally {
-      setCalling(false);
-    }
-  };
-
   const dateStr = currentTime.toLocaleDateString("en-MY", {
     weekday: "long",
     month: "short",
     day: "numeric",
   });
-
-  const statusLabel = {
-    "in-progress": "In Progress",
-    waiting: "Waiting",
-    critical: "Critical",
-    done: "Done",
-  };
-
-  const statusClass = {
-    "in-progress": "pill-in-progress",
-    waiting: "pill-waiting",
-    critical: "pill-critical",
-    done: "pill-done",
-  };
 
   const queue = useMemo(
     () =>
@@ -795,72 +765,92 @@ export default function AdminDashboard() {
     [followUps],
   );
 
+  const totalPatients = pickNumber(
+    dashboard?.totalPatients,
+    dashboard?.patientCount,
+    patients.length,
+  );
+  const yesterdayPatients = pickNumber(dashboard?.yesterdayPatients, 0);
+
+  const todayAppointments = appointments.filter((item) =>
+    isToday(item?.datetime || item?.dateTime || item?.createdAt),
+  );
+
+  const todayPrescriptions = prescriptions.filter((item) =>
+    isToday(item?.createdAt || item?.prescribedAt || item?.date),
+  );
+
+  const todayPayments = payments.filter((item) =>
+    isToday(item?.createdAt || item?.paidAt || item?.paymentDate),
+  );
+
+  const totalAppointments = pickNumber(
+    dashboard?.todayAppointments,
+    dashboard?.appointmentsToday,
+    dashboard?.appointmentCount,
+    todayAppointments.length,
+  );
+
+  const yesterdayAppointments = pickNumber(dashboard?.yesterdayAppointments, 0);
+
   const stats = useMemo(
     () => [
       {
         label: "Total Patients",
-        value: pickNumber(
-          dashboard?.totalPatients,
-          dashboard?.patientCount,
-          patients.length,
-        ),
-        badge: "+3%",
+        value: totalPatients,
+        badge: calculateGrowth(totalPatients, yesterdayPatients),
         color: PRIMARY,
+        route: "/admin/appointments",
       },
       {
-        label: "Today's Appts",
-        value: pickNumber(
-          dashboard?.todayAppointments,
-          dashboard?.appointmentsToday,
-          dashboard?.appointmentCount,
-          appointments.length,
-        ),
-        badge: "Live",
+        label: "Today's Appointments",
+        value: totalAppointments,
+        badge: calculateGrowth(totalAppointments, yesterdayAppointments),
         color: "#475467",
+        route: "/admin/appointments",
       },
       {
         label: "In Queue",
-        value: pickNumber(
-          dashboard?.queueCount,
-          dashboard?.inQueue,
-          queue.length,
-        ),
+        value: queue.length,
+        badge: `${queue.length} Active`,
         color: "#7A5AF8",
+        route: "/admin/appointments",
       },
       {
         label: "Follow-Ups",
-        value: pickNumber(
-          dashboard?.followUps,
-          dashboard?.followUpCount,
-          followUps.length,
-        ),
+        value: followUps.length,
+        badge: `${followUps.length} Pending`,
         color: "#0E7090",
+        route: "/admin/followups",
       },
       {
         label: "Prescriptions",
-        value: pickNumber(
-          dashboard?.prescriptions,
-          dashboard?.prescriptionCount,
-          prescriptions.length,
-        ),
-        badge: "Today",
+        value: prescriptions.length,
+        badge: `${prescriptions.length} Issued`,
         color: PRIMARY,
+        route: "/admin/prescriptions",
       },
     ],
-    [dashboard, patients, appointments, queue, followUps, prescriptions],
+    [
+      totalPatients,
+      yesterdayPatients,
+      totalAppointments,
+      yesterdayAppointments,
+      queue,
+      followUps,
+      prescriptions,
+    ],
   );
 
   const summary = useMemo(() => {
-    const completedAppointments = appointments.filter(
+    const completedAppointments = todayAppointments.filter(
       (item) =>
         normalizeStatus(item?.status || item?.appointmentStatus) === "done",
     ).length;
 
-    const completedPrescriptions = prescriptions.filter(
-      (item) => normalizeStatus(item?.status) === "done",
-    ).length;
+    const completedPrescriptions = todayPrescriptions.length;
 
-    const totalRevenue = payments.reduce(
+    const totalRevenue = todayPayments.reduce(
       (sum, item) =>
         sum +
         pickNumber(
@@ -876,23 +866,55 @@ export default function AdminDashboard() {
       revenue: pickNumber(
         dashboard?.revenueToday,
         dashboard?.todayRevenue,
-        dashboard?.totalRevenue,
         totalRevenue,
       ),
       consultations: {
-        val: `${completedAppointments}/${appointments.length || 0}`,
-        pct: appointments.length
-          ? Math.round((completedAppointments / appointments.length) * 100)
+        val: `${completedAppointments}/${todayAppointments.length || 0}`,
+        pct: todayAppointments.length
+          ? Math.round((completedAppointments / todayAppointments.length) * 100)
           : 0,
       },
       prescriptions: {
-        val: `${completedPrescriptions}/${prescriptions.length || 0}`,
-        pct: prescriptions.length
-          ? Math.round((completedPrescriptions / prescriptions.length) * 100)
-          : 0,
+        val: `${completedPrescriptions}/${todayPrescriptions.length || 0}`,
+        pct: todayPrescriptions.length ? 100 : 0,
       },
     };
-  }, [dashboard, appointments, prescriptions, payments]);
+  }, [dashboard, todayAppointments, todayPrescriptions, todayPayments]);
+
+  const patientFlowData = useMemo(() => {
+    const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+    return days.map((label, dayIndex) => {
+      const count = appointments.filter((appointment) => {
+        const date = new Date(
+          appointment?.datetime ||
+            appointment?.dateTime ||
+            appointment?.createdAt,
+        );
+        return !Number.isNaN(date.getTime()) && date.getDay() === dayIndex;
+      }).length;
+
+      return {
+        label,
+        sch: count,
+        wlk: 0,
+      };
+    });
+  }, [appointments]);
+
+  const statusLabel = {
+    "in-progress": "In Progress",
+    waiting: "Waiting",
+    critical: "Critical",
+    done: "Done",
+  };
+
+  const statusClass = {
+    "in-progress": "pill-in-progress",
+    waiting: "pill-waiting",
+    critical: "pill-critical",
+    done: "pill-done",
+  };
 
   return (
     <>
@@ -934,7 +956,11 @@ export default function AdminDashboard() {
 
         <section className="stats-grid">
           {stats.map((stat) => (
-            <article key={stat.label} className="stat-card">
+            <article
+              key={stat.label}
+              className="stat-card clickable"
+              onClick={() => navigate(stat.route)}
+            >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <div className="stat-icon" />
                 {stat.badge ? (
@@ -960,12 +986,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <span className="badge badge-success">Live</span>
-                <button className="btn btn-primary" onClick={handleCallNext}>
-                  {calling ? "Calling..." : "Call Next"}
-                </button>
-              </div>
+              <span className="badge badge-success">
+                {queue.length} Patients
+              </span>
             </div>
 
             <div className="table-head">
@@ -1050,7 +1073,7 @@ export default function AdminDashboard() {
               <div className="section-title" style={{ color: "white" }}>
                 Today's Summary
               </div>
-              <span className="summary-badge">Daily</span>
+              <span className="summary-badge">Real Data</span>
             </div>
 
             <div>
@@ -1104,7 +1127,7 @@ export default function AdminDashboard() {
               >
                 Patient Flow
               </div>
-              <MiniBarChart data={chartData} />
+              <MiniBarChart data={patientFlowData} />
             </div>
           </article>
         </section>

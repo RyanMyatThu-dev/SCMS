@@ -164,7 +164,16 @@ const scmsApi = {
   // PAYMENTS
   // =========================
   payments: {
-    list: () => api.get("/Payments").then(unwrap),
+    list: (status) =>
+      api
+        .get(
+          status && status !== "all"
+            ? `/Payments?status=${status}`
+            : "/Payments",
+        )
+        .then(unwrap),
+
+    create: (payload) => api.post("/Payments", payload).then(unwrap),
 
     gatewayCallback: (payload) =>
       api.post("/Payments/gateway-callback", payload).then(unwrap),
@@ -175,11 +184,8 @@ const scmsApi = {
     approve: (id) => api.post(`/Payments/${id}/approve`).then(unwrap),
 
     invoicePdf: (id) =>
-      api.get(`/Payments/${id}/invoice/pdf`, {
-        responseType: "blob",
-      }),
+      api.get(`/Payments/${id}/invoice`, { responseType: "blob" }),
   },
-
   // =========================
   // PRESCRIPTIONS
   // =========================
