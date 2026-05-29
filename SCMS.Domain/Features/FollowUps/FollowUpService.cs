@@ -7,9 +7,9 @@ namespace SCMS.Domain.Features.FollowUps
 {
     public class FollowUpService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
 
-        public FollowUpService(ScmsDbContext context)
+        public FollowUpService(AppDbContext context)
         {
             _context = context;
         }

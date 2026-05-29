@@ -14,10 +14,10 @@ namespace SCMS.Domain.Features.Prescriptions
 {
     public class PrescriptionService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
         private const int LowStockThreshold = 20;
 
-        public PrescriptionService(ScmsDbContext context)
+        public PrescriptionService(AppDbContext context)
         {
             _context = context;
         }
@@ -325,22 +325,6 @@ namespace SCMS.Domain.Features.Prescriptions
                 // Set appointment status to Completed
                 appointment.Status = "completed";
                 appointment.UpdatedAt = DateTime.UtcNow;
-
-                foreach (var testName in SplitLabRequests(request.LabTestRequests))
-                {
-                    _context.TblLabReports.Add(new TblLabReport
-                    {
-                        PatientId = request.PatientId,
-                        AppointmentId = request.AppointmentId,
-                        PrescriptionId = prescription.Id,
-                        TestName = testName,
-                        Status = "requested",
-                        Notes = "Requested from prescription.",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        DeleteFlag = false
-                    });
-                }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();

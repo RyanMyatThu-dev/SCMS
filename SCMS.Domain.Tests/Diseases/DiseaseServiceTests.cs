@@ -11,7 +11,7 @@ namespace SCMS.Domain.Tests.Diseases
     public class DiseaseServiceTests : IDisposable
     {
         private readonly TestDatabase _db;
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
         private readonly DiseaseService _diseaseService;
 
         public DiseaseServiceTests()

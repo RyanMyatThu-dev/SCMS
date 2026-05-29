@@ -35,8 +35,6 @@ public partial class TblPrescription
 
     public virtual ICollection<TblFollowUp> TblFollowUps { get; set; } = new List<TblFollowUp>();
 
-    public virtual ICollection<TblLabReport> TblLabReports { get; set; } = new List<TblLabReport>();
-
     public virtual ICollection<TblPayment> TblPayments { get; set; } = new List<TblPayment>();
 
     public virtual ICollection<TblPrescriptionItem> TblPrescriptionItems { get; set; } = new List<TblPrescriptionItem>();

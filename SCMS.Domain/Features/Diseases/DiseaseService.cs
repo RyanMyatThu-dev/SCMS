@@ -7,9 +7,9 @@ namespace SCMS.Domain.Features.Diseases
 {
     public class DiseaseService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
 
-        public DiseaseService(ScmsDbContext context)
+        public DiseaseService(AppDbContext context)
         {
             _context = context;
         }

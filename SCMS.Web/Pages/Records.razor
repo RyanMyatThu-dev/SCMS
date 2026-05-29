@@ -75,14 +75,7 @@
                     <button type="button" @onclick="() => DownloadPrescription(rx.Id)">Prescription PDF</button>
                 </article>
             }
-            @foreach (var lab in labReports)
-            {
-                <article class="item-card">
-                    <strong>@lab.TestName</strong>
-                    <span>@lab.Status</span>
-                    <button type="button" @onclick="() => DownloadLab(lab.Id)">Lab PDF</button>
-                </article>
-            }
+
         </div>
     </div>
 </section>
@@ -90,7 +83,7 @@
 @code {
     private readonly List<PatientProfileResponse> patients = new();
     private readonly List<PrescriptionResponse> prescriptions = new();
-    private readonly List<LabReportResponse> labReports = new();
+
     private int selectedPatientId;
     private PatientHistoryResponse? history;
     private MedicalSummaryResponse? summary;
@@ -118,11 +111,8 @@
         history = (await Api.PatientHistoryAsync(selectedPatientId)).Data;
         summary = (await Api.MedicalSummaryAsync(selectedPatientId)).Data;
         var rx = await Api.PrescriptionsAsync(selectedPatientId);
-        var labs = await Api.PatientLabReportsAsync(selectedPatientId);
         prescriptions.Clear();
-        labReports.Clear();
         prescriptions.AddRange(rx.Data);
-        labReports.AddRange(labs.Data);
         summaryHtml = null;
     }
 
@@ -150,6 +140,4 @@
     private Task DownloadPrescription(int prescriptionId)
         => DownloadAsync($"api/prescriptions/{prescriptionId}/pdf", $"prescription-{prescriptionId}.pdf");
 
-    private Task DownloadLab(int labReportId)
-        => DownloadAsync($"api/labreports/{labReportId}/pdf", $"lab-report-{labReportId}.pdf");
 }

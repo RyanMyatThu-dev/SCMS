@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SCMS.Database.Models;
 
@@ -16,6 +17,9 @@ public partial class TblFollowUp
 
     public string Recommendation { get; set; } = null!;
 
+    /// <summary>
+    /// pending / completed
+    /// </summary>
     public string Status { get; set; } = null!;
 
     public DateTime? CompletedAt { get; set; }

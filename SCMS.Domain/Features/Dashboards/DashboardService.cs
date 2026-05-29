@@ -15,10 +15,10 @@ namespace SCMS.Domain.Features.Dashboards
 {
     public class DashboardService
     {
-        private readonly ScmsDbContext _context;
+        private readonly AppDbContext _context;
         private const int LowStockThreshold = 20;
 
-        public DashboardService(ScmsDbContext context)
+        public DashboardService(AppDbContext context)
         {
             _context = context;
         }

@@ -8,7 +8,7 @@ using SCMS.Shared.Contracts.Auth;
 using SCMS.Shared.Contracts.Dashboards;
 using SCMS.Shared.Contracts.Diseases;
 using SCMS.Shared.Contracts.FollowUps;
-using SCMS.Shared.Contracts.LabReports;
+
 using SCMS.Shared.Contracts.Medicines;
 using SCMS.Shared.Contracts.Notifications;
 using SCMS.Shared.Contracts.Patients;
@@ -248,17 +248,7 @@ namespace SCMS.Web.Services
         public Task<Result<string>> MedicalSummaryHtmlAsync(int patientId)
             => GetStringAsync($"api/patients/{patientId}/summary/html");
 
-        public Task<PagedResult<LabReportResponse>> PatientLabReportsAsync(int patientId, int pageSize = 100)
-            => GetPagedAsync<LabReportResponse>($"api/patients/{patientId}/lab-reports?pageSize={pageSize}");
 
-        public Task<PagedResult<LabReportResponse>> LabReportsAsync(int? patientId = null)
-            => GetPagedAsync<LabReportResponse>($"api/labreports?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");
-
-        public Task<Result<LabReportResponse>> CreateLabReportAsync(LabReportRequest request)
-            => PostAsync<LabReportRequest, LabReportResponse>("api/labreports", request);
-
-        public Task<Result<LabReportResponse>> AddLabResultAsync(int id, LabReportResultRequest request)
-            => PostAsync<LabReportResultRequest, LabReportResponse>($"api/labreports/{id}/result", request);
 
         public Task<PagedResult<FollowUpResponse>> FollowUpsAsync(int? patientId = null)
             => GetPagedAsync<FollowUpResponse>($"api/followups?{Query(("patientId", patientId?.ToString()), ("pageSize", "100"))}");

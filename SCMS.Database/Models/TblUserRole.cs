@@ -10,7 +10,7 @@ public partial class TblUserRole
     public int UserId { get; set; }
 
     /// <summary>
-    /// admin / doctor / patient / user
+    /// admin / user
     /// </summary>
     public string Role { get; set; } = null!;
 
