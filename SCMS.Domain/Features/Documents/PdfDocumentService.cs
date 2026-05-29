@@ -14,8 +14,8 @@ namespace SCMS.Domain.Features.Documents
     {
         // ── Clinic branding constants ──────────────────────────────────
         private const string ClinicName = "Smart Clinic Management System";
-        private const string ClinicTagline = "Quality Healthcare, Trusted by You";
-        private const string ClinicContact = "Phone: (01) 234-5678  |  Email: info@smartclinic.com";
+        private const string ClinicTagline = "";
+        private const string ClinicContact = "";
         private const string Confidential = "This document is confidential and intended for the named recipient only.";
 
         // ── Page geometry ──────────────────────────────────────────────
@@ -71,7 +71,7 @@ namespace SCMS.Domain.Features.Documents
                 new[] { "Patient Name", rx.PatientName ?? "-" },
                 new[] { "Appointment", rx.AppointmentCode ?? "-" },
                 new[] { "Diagnosis", rx.DiseaseName ?? "General Consultation" },
-                new[] { "Date", rx.CreatedAt.ToString("yyyy-MM-dd HH:mm") }
+                new[] { "Date", rx.CreatedAt.ToString("dd-MM-yyyy HH:mm") }
             };
             y = DrawKeyValueTable(b, y, infoRows);
             y -= 8;
@@ -98,7 +98,7 @@ namespace SCMS.Domain.Features.Documents
 
             // ── Medicines table ────────────────────────────────────────
             y = DrawSectionTitle(b, y, "Prescribed Medicines");
-            var medHeaders = new[] { "#", "Medicine", "Dosage", "Qty", "Days", "Instruction" };
+            var medHeaders = new[] { "No.", "Medicine", "Dosage", "Qty", "Days", "Instruction" };
             var medWidths = new[] { 30f, 150f, 75f, 40f, 40f, ContentW - 335f };
             var medRows = rx.Items.Select((item, idx) => new[]
             {
@@ -163,7 +163,7 @@ namespace SCMS.Domain.Features.Documents
                 new[] { "Appointment", payment.AppointmentCode ?? "-" },
                 new[] { "Payment Method", payment.PaymentMethod ?? "-" },
                 new[] { "Status", payment.PaymentStatus ?? "-" },
-                new[] { "Date", payment.PaidAt?.ToString("yyyy-MM-dd HH:mm") ?? "Unpaid" }
+                new[] { "Date", payment.PaidAt?.ToString("dd-MM-yyyy HH:mm") ?? "Unpaid" }
             };
             y = DrawKeyValueTable(b, y, infoRows);
             y -= 8;
@@ -214,87 +214,146 @@ namespace SCMS.Domain.Features.Documents
             // ── Report title ───────────────────────────────────────────
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
-            b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary statistics (key-value table) ───────────────────
             y = DrawSectionTitle(b, y, "Summary");
-            var summaryRows = new List<string[]>
+            if (report.ReportType != "daily")
             {
-                new[] { "Period", $"{report.PeriodStart:yyyy-MM-dd} to {report.PeriodEnd:yyyy-MM-dd}" },
-                new[] { "Total Appointments", report.TotalAppointments.ToString() },
-                new[] { "Completed", report.CompletedCount.ToString() },
-                new[] { "Confirmed", report.ConfirmedCount.ToString() },
-                new[] { "Pending", report.PendingCount.ToString() },
-                new[] { "Cancelled", report.CancelledCount.ToString() }
+                b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd:dd-MM-yyyy}");
+                y -= 16;
+            }
+            var stats = new List<(string, string, string)>
+            {
+                ("Total", report.TotalAppointments.ToString(), "0.1 0.4 0.8"),
+                ("Completed", report.CompletedCount.ToString(), "0.1 0.7 0.3"),
+                ("Confirmed", report.ConfirmedCount.ToString(), "0.5 0.2 0.7"),
+                ("Pending", report.PendingCount.ToString(), "0.9 0.5 0.1"),
+                ("Cancelled", report.CancelledCount.ToString(), "0.8 0.2 0.2")
             };
-            y = DrawKeyValueTable(b, y, summaryRows);
-            y -= 12;
+            y = DrawStatsRow(b, y, stats);
+            y -= 10;
 
             // ── Appointment list table ──────────────────────────────────
-            y = DrawSectionTitle(b, y, "Appointment Details");
-            var headers = new[] { "#", "Code", "Date", "Time", "Patient Name", "Status", "Token" };
-            var colWidths = new[] { 30f, 90f, 80f, 55f, 140f, 75f, ContentW - 470f };
+            var headers = new[] { "No.", "Code", "Date", "Time", "Patient Name", "Status", "Token" };
+            var colWidths = new[] { 30f, 90f, 75f, 50f, 120f, 70f, ContentW - 435f };
 
-            var dataRows = report.Items.Select((item, idx) => new[]
+            if (report.ReportType == "weekly")
             {
-                (idx + 1).ToString(),
-                item.AppointmentCode,
-                item.Datetime.ToString("yyyy-MM-dd"),
-                item.Datetime.ToString("HH:mm"),
-                item.PatientName,
-                CapitalizeFirst(item.Status),
-                item.TokenNumber > 0 ? item.TokenNumber.ToString() : "-"
-            }).ToList();
+                // Split by day for weekly reports
+                var groupedByDay = report.Items
+                    .GroupBy(i => i.Datetime.Date)
+                    .OrderBy(g => g.Key)
+                    .ToList();
 
-            if (dataRows.Count == 0)
-            {
-                dataRows.Add(new[] { "-", "No appointments", "-", "-", "-", "-", "-" });
-            }
-
-            // Handle multi-page: draw table in chunks
-            int rowIdx = 0;
-            bool firstPage = true;
-            while (rowIdx < dataRows.Count)
-            {
-                if (!firstPage)
+                foreach (var dayGroup in groupedByDay)
                 {
-                    b.AddPage();
-                    y = PageH - MarginTop;
-                    y = DrawClinicHeader(b, y, docType);
-                    b.AddText(MarginL, y, 10, "F2", report.ReportTitle + " (continued)");
-                    y -= 16;
+                    // Check if we need a new page (reserve space for day title + header + at least 1 row)
+                    if (y < 120)
+                    {
+                        b.AddPage();
+                        y = PageH - MarginTop;
+                        y = DrawClinicHeader(b, y, docType);
+                        b.AddText(MarginL, y, 10, "F2", report.ReportTitle + " (continued)");
+                        y -= 16;
+                    }
+
+                    // Day sub-heading
+                    y = DrawSectionTitle(b, y, dayGroup.Key.ToString("dddd, dd-MM-yyyy"));
+
+                    var dayRows = dayGroup.Select((item, idx) => new[]
+                    {
+                        (idx + 1).ToString(),
+                        item.AppointmentCode,
+                        item.Datetime.ToString("dd-MM-yyyy"),
+                        item.Datetime.ToString("HH:mm"),
+                        item.PatientName,
+                        CapitalizeFirst(item.Status),
+                        item.TokenNumber > 0 ? item.TokenNumber.ToString() : "-"
+                    }).ToList();
+
+                    // Handle multi-page for large day groups
+                    int rowIdx = 0;
+                    bool firstChunk = true;
+                    while (rowIdx < dayRows.Count)
+                    {
+                        if (!firstChunk)
+                        {
+                            b.AddPage();
+                            y = PageH - MarginTop;
+                            y = DrawClinicHeader(b, y, docType);
+                            b.AddText(MarginL, y, 10, "F2", report.ReportTitle + " (continued)");
+                            y -= 16;
+                        }
+
+                        float availableH = y - 70;
+                        float headerH = 20f;
+                        float rowH = 18f;
+                        int maxRows = Math.Max(1, (int)((availableH - headerH) / rowH));
+                        int endIdx = Math.Min(rowIdx + maxRows, dayRows.Count);
+
+                        var pageRows = dayRows.GetRange(rowIdx, endIdx - rowIdx);
+                        y = DrawTable(b, y, headers, pageRows, colWidths);
+                        rowIdx = endIdx;
+                        firstChunk = false;
+                    }
+                    y -= 14;
                 }
 
-                // Calculate how many rows fit on this page (reserve 70 for footer)
-                float availableH = y - 70;
-                float headerH = 20f;
-                float rowH = 18f;
-                int maxRows = Math.Max(1, (int)((availableH - headerH) / rowH));
-                int endIdx = Math.Min(rowIdx + maxRows, dataRows.Count);
-
-                var pageRows = dataRows.GetRange(rowIdx, endIdx - rowIdx);
-                y = DrawTable(b, y, headers, pageRows, colWidths);
-                rowIdx = endIdx;
-                firstPage = false;
+                if (groupedByDay.Count == 0)
+                {
+                    y = DrawSectionTitle(b, y, "Appointment Details");
+                    var emptyRows = new List<string[]> { new[] { "-", "No appointments", "-", "-", "-", "-", "-" } };
+                    y = DrawTable(b, y, headers, emptyRows, colWidths);
+                }
             }
+            else
+            {
+                // Daily report: single table
+                y = DrawSectionTitle(b, y, "Appointment Details");
 
-            // ── Totals summary row at bottom ───────────────────────────
-            y -= 8;
-            float totRowH = 20;
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH, fill: true, fillGray: 0.22f);
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH);
-            b.AddText(MarginL + 8, y - 14, 9, "F2",
-                $"Total: {report.TotalAppointments}   |   Completed: {report.CompletedCount}   |   Confirmed: {report.ConfirmedCount}   |   Pending: {report.PendingCount}   |   Cancelled: {report.CancelledCount}",
-                gray: 1f);
-            y -= totRowH;
+                var dataRows = report.Items.Select((item, idx) => new[]
+                {
+                    (idx + 1).ToString(),
+                    item.AppointmentCode,
+                    item.Datetime.ToString("dd-MM-yyyy"),
+                    item.Datetime.ToString("HH:mm"),
+                    item.PatientName,
+                    CapitalizeFirst(item.Status),
+                    item.TokenNumber > 0 ? item.TokenNumber.ToString() : "-"
+                }).ToList();
 
-            // ── Prepared by / Signature ─────────────────────────────────
-            y -= 30;
-            b.AddText(MarginL, y, 9, "F1", "Prepared by: ________________________");
-            b.AddLine(MarginL + 300, y, MarginL + ContentW, y, 0.5f);
-            b.AddText(MarginL + 330, y - 12, 8, "F1", "Authorized Signature");
+                if (dataRows.Count == 0)
+                {
+                    dataRows.Add(new[] { "-", "No appointments", "-", "-", "-", "-", "-" });
+                }
+
+                // Handle multi-page: draw table in chunks
+                int rowIdx = 0;
+                bool firstPage = true;
+                while (rowIdx < dataRows.Count)
+                {
+                    if (!firstPage)
+                    {
+                        b.AddPage();
+                        y = PageH - MarginTop;
+                        y = DrawClinicHeader(b, y, docType);
+                        b.AddText(MarginL, y, 10, "F2", report.ReportTitle + " (continued)");
+                        y -= 16;
+                    }
+
+                    float availableH = y - 70;
+                    float headerH = 20f;
+                    float rowH = 18f;
+                    int maxRows = Math.Max(1, (int)((availableH - headerH) / rowH));
+                    int endIdx = Math.Min(rowIdx + maxRows, dataRows.Count);
+
+                    var pageRows = dataRows.GetRange(rowIdx, endIdx - rowIdx);
+                    y = DrawTable(b, y, headers, pageRows, colWidths);
+                    rowIdx = endIdx;
+                    firstPage = false;
+                }
+            }
 
             DrawFooter(b, y - 30);
             return b.Build();
@@ -318,22 +377,25 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
             y = DrawSectionTitle(b, y, "Revenue Summary");
-            var summaryRows = new List<string[]>
+            if (report.ReportType != "daily")
             {
-                new[] { "Period", $"{report.PeriodStart:yyyy-MM-dd} to {report.PeriodEnd:yyyy-MM-dd}" },
-                new[] { "Total Transactions", report.TotalTransactions.ToString() },
-                new[] { "Total Amount", report.TotalAmount.ToString("N2") },
-                new[] { "Total Tax", report.TotalTax.ToString("N2") },
-                new[] { "Total Charges", report.TotalCharges.ToString("N2") },
-                new[] { "Grand Total", report.GrandTotal.ToString("N2") }
+                b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd:dd-MM-yyyy}");
+                y -= 16;
+            }
+            var stats = new List<(string, string, string)>
+            {
+                ("Transactions", report.TotalTransactions.ToString(), "0.5 0.5 0.5"),
+                ("Amount", report.TotalAmount.ToString("N2"), "0.1 0.4 0.8"),
+                ("Tax", report.TotalTax.ToString("N2"), "0.8 0.2 0.2"),
+                ("Charges", report.TotalCharges.ToString("N2"), "0.9 0.5 0.1"),
+                ("Grand Total", report.GrandTotal.ToString("N2"), "0.1 0.7 0.3")
             };
-            y = DrawKeyValueTable(b, y, summaryRows);
-            y -= 12;
+            y = DrawStatsRow(b, y, stats);
 
             // ── Revenue by Payment Method ──────────────────────────────
             y = DrawSectionTitle(b, y, "Breakdown by Payment Method");
@@ -358,7 +420,7 @@ namespace SCMS.Domain.Features.Documents
 
             // ── Detailed Transactions table ────────────────────────────
             y = DrawSectionTitle(b, y, "Transaction Details");
-            var txHeaders = new[] { "#", "Appointment", "Patient", "Method", "Amount", "Tax", "Total", "Paid At" };
+            var txHeaders = new[] { "No.", "Appointment", "Patient", "Method", "Amount", "Tax", "Total", "Paid At" };
             var txWidths = new[] { 25f, 80f, 110f, 60f, 65f, 55f, 65f, ContentW - 460f };
 
             var txRows = report.Items.Select((item, idx) => new[]
@@ -415,10 +477,7 @@ namespace SCMS.Domain.Features.Documents
             y -= totRowH;
 
             // ── Signature ──────────────────────────────────────────────
-            y -= 30;
-            b.AddText(MarginL, y, 9, "F1", "Prepared by: ________________________");
-            b.AddLine(MarginL + 300, y, MarginL + ContentW, y, 0.5f);
-            b.AddText(MarginL + 330, y - 12, 8, "F1", "Authorized Signature");
+
 
             DrawFooter(b, y - 30);
             return b.Build();
@@ -436,24 +495,23 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
             y = DrawSectionTitle(b, y, "Summary");
-            var summaryRows = new List<string[]>
+            var stats = new List<(string, string, string)>
             {
-                new[] { "Total Patients", report.TotalPatients.ToString() },
-                new[] { "Male", report.MaleCount.ToString() },
-                new[] { "Female", report.FemaleCount.ToString() },
-                new[] { "Other", report.OtherGenderCount.ToString() }
+                ("Total Patients", report.TotalPatients.ToString(), "0.1 0.4 0.8"),
+                ("Male", report.MaleCount.ToString(), "0.1 0.7 0.3"),
+                ("Female", report.FemaleCount.ToString(), "0.8 0.2 0.5"),
+                ("Other", report.OtherGenderCount.ToString(), "0.5 0.5 0.5")
             };
-            y = DrawKeyValueTable(b, y, summaryRows);
-            y -= 12;
+            y = DrawStatsRow(b, y, stats);
 
             // ── Patient list table ─────────────────────────────────────
             y = DrawSectionTitle(b, y, "Patient Details");
-            var headers = new[] { "#", "Name", "Age", "Gender", "Blood Type", "Contact", "Registered" };
+            var headers = new[] { "No.", "Name", "Age", "Gender", "Blood Type", "Contact", "Registered" };
             var colWidths = new[] { 30f, 130f, 40f, 60f, 65f, 120f, ContentW - 445f };
 
             var dataRows = report.Items.Select((item, idx) => new[]
@@ -464,7 +522,7 @@ namespace SCMS.Domain.Features.Documents
                 item.Gender,
                 item.BloodType,
                 item.MobileNo ?? item.Email ?? "-",
-                item.RegisteredAt.ToString("yyyy-MM-dd")
+                item.RegisteredAt.ToString("dd-MM-yyyy")
             }).ToList();
 
             if (dataRows.Count == 0)
@@ -509,10 +567,7 @@ namespace SCMS.Domain.Features.Documents
             y -= totRowH;
 
             // ── Signature ──────────────────────────────────────────────
-            y -= 30;
-            b.AddText(MarginL, y, 9, "F1", "Prepared by: ________________________");
-            b.AddLine(MarginL + 300, y, MarginL + ContentW, y, 0.5f);
-            b.AddText(MarginL + 330, y - 12, 8, "F1", "Authorized Signature");
+
 
             DrawFooter(b, y - 30);
             return b.Build();
@@ -530,24 +585,23 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
             y = DrawSectionTitle(b, y, "Inventory Summary");
-            var summaryRows = new List<string[]>
+            var stats = new List<(string, string, string)>
             {
-                new[] { "Total Medicines", report.TotalMedicines.ToString() },
-                new[] { "Total Batches", report.TotalBatches.ToString() },
-                new[] { "Low Stock Items", report.LowStockCount.ToString() },
-                new[] { "Expired Items", report.ExpiredCount.ToString() }
+                ("Total Medicines", report.TotalMedicines.ToString(), "0.1 0.4 0.8"),
+                ("Total Batches", report.TotalBatches.ToString(), "0.5 0.5 0.5"),
+                ("Low Stock", report.LowStockCount.ToString(), "0.9 0.5 0.1"),
+                ("Expired", report.ExpiredCount.ToString(), "0.8 0.2 0.2")
             };
-            y = DrawKeyValueTable(b, y, summaryRows);
-            y -= 12;
+            y = DrawStatsRow(b, y, stats);
 
             // ── Stock list table ─────────────────────────────────────
             y = DrawSectionTitle(b, y, "Medicine Stock Details");
-            var headers = new[] { "#", "Medicine Name", "Category", "Batch No", "Quantity", "Expiry Date", "Status" };
+            var headers = new[] { "No.", "Medicine Name", "Category", "Batch No", "Quantity", "Expiry Date", "Status" };
             var colWidths = new[] { 30f, 130f, 90f, 70f, 60f, 70f, ContentW - 450f };
 
             var dataRows = new List<string[]>();
@@ -584,7 +638,7 @@ namespace SCMS.Domain.Features.Documents
                         m.Category,
                         batch.BatchNo,
                         batch.Quantity.ToString(),
-                        batch.ExpiryDate.ToString("yyyy-MM-dd"),
+                        batch.ExpiryDate.ToString("dd-MM-yyyy"),
                         status
                     });
                     idx++;
@@ -633,10 +687,7 @@ namespace SCMS.Domain.Features.Documents
             y -= totRowH;
 
             // ── Signature ──────────────────────────────────────────────
-            y -= 30;
-            b.AddText(MarginL, y, 9, "F1", "Prepared by: ________________________");
-            b.AddLine(MarginL + 300, y, MarginL + ContentW, y, 0.5f);
-            b.AddText(MarginL + 330, y - 12, 8, "F1", "Authorized Signature");
+
 
             DrawFooter(b, y - 30);
             return b.Build();
@@ -654,29 +705,26 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
             y = DrawSectionTitle(b, y, "Follow-Up Summary");
-            var summaryRows = new List<string[]>
+            string periodStr = report.PeriodStart == DateTime.MinValue ? "All Time" : $"{report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd?.ToString("dd-MM-yyyy") ?? "present"}";
+            b.AddText(MarginL, y, 9, "F1", $"Period: {periodStr}");
+            y -= 16;
+            var stats = new List<(string, string, string)>
             {
-                new[] { "Period Start", report.PeriodStart == DateTime.MinValue ? "All Time" : report.PeriodStart.ToString("yyyy-MM-dd") },
-                new[] { "Total Follow-Ups", report.TotalFollowUps.ToString() },
-                new[] { "Pending", report.PendingCount.ToString() },
-                new[] { "Completed", report.CompletedCount.ToString() },
-                new[] { "Overdue", report.OverdueCount.ToString() }
+                ("Total", report.TotalFollowUps.ToString(), "0.1 0.4 0.8"),
+                ("Pending", report.PendingCount.ToString(), "0.9 0.5 0.1"),
+                ("Completed", report.CompletedCount.ToString(), "0.1 0.7 0.3"),
+                ("Overdue", report.OverdueCount.ToString(), "0.8 0.2 0.2")
             };
-            if (report.PeriodEnd.HasValue)
-            {
-                summaryRows.Insert(1, new[] { "Period End", report.PeriodEnd.Value.ToString("yyyy-MM-dd") });
-            }
-            y = DrawKeyValueTable(b, y, summaryRows);
-            y -= 12;
+            y = DrawStatsRow(b, y, stats);
 
             // ── Follow-Up list table ───────────────────────────────────
             y = DrawSectionTitle(b, y, "Follow-Up Details");
-            var headers = new[] { "#", "Patient Name", "Contact", "Due Date", "Status", "Recommendation" };
+            var headers = new[] { "No.", "Patient Name", "Contact", "Due Date", "Status", "Recommendation" };
             var colWidths = new[] { 30f, 130f, 90f, 80f, 70f, ContentW - 400f };
 
             var dataRows = report.Items.Select((item, idx) =>
@@ -689,7 +737,7 @@ namespace SCMS.Domain.Features.Documents
                     (idx + 1).ToString(),
                     item.PatientName,
                     item.MobileNo ?? "-",
-                    item.DueAt.ToString("yyyy-MM-dd HH:mm"),
+                    item.DueAt.ToString("dd-MM-yyyy HH:mm"),
                     status,
                     item.Recommendation
                 };
@@ -737,10 +785,7 @@ namespace SCMS.Domain.Features.Documents
             y -= totRowH;
 
             // ── Signature ──────────────────────────────────────────────
-            y -= 30;
-            b.AddText(MarginL, y, 9, "F1", "Prepared by: ________________________");
-            b.AddLine(MarginL + 300, y, MarginL + ContentW, y, 0.5f);
-            b.AddText(MarginL + 330, y - 12, 8, "F1", "Authorized Signature");
+
 
             DrawFooter(b, y - 30);
             return b.Build();
@@ -758,24 +803,24 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
             y = DrawSectionTitle(b, y, "Monthly Metrics");
-            var summaryRows = new List<string[]>
+            b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd:dd-MM-yyyy}");
+            y -= 16;
+            var stats = new List<(string, string, string)>
             {
-                new[] { "Period", $"{report.PeriodStart:yyyy-MM-dd} to {report.PeriodEnd:yyyy-MM-dd}" },
-                new[] { "Total Active Patients", report.TotalPatients.ToString() },
-                new[] { "New Patients (This Month)", report.NewPatients.ToString() },
-                new[] { "Total Appointments", report.TotalAppointments.ToString() },
-                new[] { "Total Prescriptions", report.TotalPrescriptions.ToString() },
-                new[] { "Total Income", report.TotalIncome.ToString("N2") },
-                new[] { "Total Tax", report.TotalTax.ToString("N2") },
-                new[] { "Total Charges", report.TotalCharges.ToString("N2") }
+                ("Patients", report.TotalPatients.ToString(), "0.1 0.4 0.8"),
+                ("New", report.NewPatients.ToString(), "0.1 0.7 0.3"),
+                ("Appointments", report.TotalAppointments.ToString(), "0.5 0.2 0.7"),
+                ("Prescriptions", report.TotalPrescriptions.ToString(), "0.5 0.5 0.5"),
+                ("Income", report.TotalIncome.ToString("N2"), "0.1 0.7 0.3"),
+                ("Tax", report.TotalTax.ToString("N2"), "0.8 0.2 0.2"),
+                ("Charges", report.TotalCharges.ToString("N2"), "0.9 0.5 0.1")
             };
-            y = DrawKeyValueTable(b, y, summaryRows);
-            y -= 12;
+            y = DrawStatsRow(b, y, stats);
 
             // ── Highlights ─────────────────────────────────────────────
             y -= 20;
@@ -788,10 +833,7 @@ namespace SCMS.Domain.Features.Documents
             y -= totRowH;
 
             // ── Signature ──────────────────────────────────────────────
-            y -= 30;
-            b.AddText(MarginL, y, 9, "F1", "Prepared by: ________________________");
-            b.AddLine(MarginL + 300, y, MarginL + ContentW, y, 0.5f);
-            b.AddText(MarginL + 330, y - 12, 8, "F1", "Authorized Signature");
+
 
             DrawFooter(b, y - 30);
             return b.Build();
@@ -810,24 +852,12 @@ namespace SCMS.Domain.Features.Documents
         /// <summary>Draws the standard clinic header and returns new Y position.</summary>
         private static float DrawClinicHeader(PdfBuilder b, float y, string documentType)
         {
-            // Top accent line
-            b.AddLine(MarginL, y, MarginL + ContentW, y, 2f);
             y -= 18;
 
-            // Clinic name (bold, large)
-            b.AddText(MarginL, y, 16, "F2", ClinicName);
-            y -= 14;
-            b.AddText(MarginL, y, 8, "F1", ClinicTagline, gray: 0.45f);
-
-            // Document type label on the right
-            b.AddText(MarginL + ContentW - 120, y + 14, 14, "F2", documentType);
-
-            y -= 12;
-            b.AddText(MarginL, y, 7, "F1", ClinicContact, gray: 0.5f);
-
-            y -= 6;
-            b.AddLine(MarginL, y, MarginL + ContentW, y, 0.8f);
-            y -= 16;
+            // Document type as main heading (bold, large)
+            b.AddText(MarginL, y, 16, "F2", documentType);
+            
+            y -= 30;
             return y;
         }
 
@@ -835,12 +865,11 @@ namespace SCMS.Domain.Features.Documents
         private static float DrawSectionTitle(PdfBuilder b, float y, string title)
         {
             b.AddText(MarginL, y, 11, "F2", title);
-            y -= 3;
-            b.AddLine(MarginL, y, MarginL + ContentW, y, 0.4f);
-            y -= 12;
+            y -= 15;
             return y;
         }
 
+        /// <summary>Draws a 2-column key-value info table with borders.</summary>
         /// <summary>Draws a 2-column key-value info table with borders.</summary>
         private static float DrawKeyValueTable(PdfBuilder b, float y, List<string[]> rows)
         {
@@ -860,6 +889,19 @@ namespace SCMS.Domain.Features.Documents
                 y -= rowH;
             }
             return y;
+        }
+
+        private static float DrawStatsRow(PdfBuilder b, float y, List<(string label, string value, string color)> stats)
+        {
+            foreach (var stat in stats)
+            {
+                // Draw bullet point (small square)
+                b.AddRect(MarginL, y - 6, 3, 3, fill: true, fillGray: 0f);
+                
+                b.AddText(MarginL + 10, y - 8, 9, "F2", $"{stat.label} - {stat.value}");
+                y -= 16;
+            }
+            return y - 6;
         }
 
         /// <summary>Draws a full table with header row, borders on every cell.</summary>
@@ -909,8 +951,6 @@ namespace SCMS.Domain.Features.Documents
             float footerY = 40;
             b.AddLine(MarginL, footerY + 10, MarginL + ContentW, footerY + 10, 0.3f);
             b.AddText(MarginL, footerY, 7, "F1", Confidential, gray: 0.55f);
-            b.AddText(MarginL + ContentW - 140, footerY, 7, "F1",
-                $"Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC", gray: 0.55f);
         }
 
         // ════════════════════════════════════════════════════════════════

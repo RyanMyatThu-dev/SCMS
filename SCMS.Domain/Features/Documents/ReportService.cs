@@ -36,13 +36,13 @@ namespace SCMS.Domain.Features.Documents
                 int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
                 periodStart = baseDate.AddDays(-diff);
                 periodEnd = periodStart.AddDays(7);
-                title = $"Weekly Appointment Report ({periodStart:yyyy-MM-dd} to {periodEnd.AddDays(-1):yyyy-MM-dd})";
+                title = $"Weekly Appointment Report ({periodStart:dd-MM-yyyy} to {periodEnd.AddDays(-1):dd-MM-yyyy})";
             }
             else
             {
                 periodStart = baseDate;
                 periodEnd = baseDate.AddDays(1);
-                title = $"Daily Appointment Report ({baseDate:yyyy-MM-dd})";
+                title = $"Daily Appointment Report ({baseDate:dd-MM-yyyy})";
             }
 
             var appointments = await _context.TblAppointments
@@ -113,7 +113,7 @@ namespace SCMS.Domain.Features.Documents
                     int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
                     periodStart = baseDate.AddDays(-diff);
                     periodEnd = periodStart.AddDays(7);
-                    title = $"Weekly Revenue Report ({periodStart:yyyy-MM-dd} to {periodEnd.AddDays(-1):yyyy-MM-dd})";
+                    title = $"Weekly Revenue Report ({periodStart:dd-MM-yyyy} to {periodEnd.AddDays(-1):dd-MM-yyyy})";
                     break;
                 case "monthly":
                     periodStart = new DateTime(baseDate.Year, baseDate.Month, 1);
@@ -123,7 +123,7 @@ namespace SCMS.Domain.Features.Documents
                 default: // daily
                     periodStart = baseDate;
                     periodEnd = baseDate.AddDays(1);
-                    title = $"Daily Revenue Report ({baseDate:yyyy-MM-dd})";
+                    title = $"Daily Revenue Report ({baseDate:dd-MM-yyyy})";
                     break;
             }
 
@@ -320,13 +320,13 @@ namespace SCMS.Domain.Features.Documents
                 case "daily":
                     periodStart = baseDate;
                     periodEnd = baseDate.AddDays(1);
-                    title = $"Daily Follow-Up Report ({baseDate:yyyy-MM-dd})";
+                    title = $"Daily Follow-Up Report ({baseDate:dd-MM-yyyy})";
                     break;
                 case "weekly":
                     int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
                     periodStart = baseDate.AddDays(-diff);
                     periodEnd = periodStart.AddDays(7);
-                    title = $"Weekly Follow-Up Report ({periodStart:yyyy-MM-dd} to {periodEnd.Value.AddDays(-1):yyyy-MM-dd})";
+                    title = $"Weekly Follow-Up Report ({periodStart:dd-MM-yyyy} to {periodEnd.Value.AddDays(-1):dd-MM-yyyy})";
                     break;
                 case "monthly":
                     periodStart = new DateTime(baseDate.Year, baseDate.Month, 1);
