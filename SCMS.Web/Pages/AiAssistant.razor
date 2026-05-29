@@ -1,0 +1,294 @@
+@page "/ai-assistant"
+@attribute [Authorize(Roles = "admin,doctor")]
+@inject ApiClient Api
+@using SCMS.Shared.Contracts.Mcp
+@using System.Text.Json
+
+<PageTitle>AI Assistant & MCP Explorer</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>🤖 AI Assistant & MCP Explorer</h1>
+        <p>Test the Gemini Flash AI assistant and run raw Model Context Protocol (MCP) tools in real time.</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+        <button class="@(activeTab == "chat" ? "primary" : "secondary")" @onclick='() => SetTab("chat")'>Chat Assistant</button>
+        <button class="@(activeTab == "tools" ? "primary" : "secondary")" @onclick='() => SetTab("tools")'>MCP Tools Explorer</button>
+    </div>
+</section>
+
+@if (activeTab == "chat")
+{
+    <section class="chat-container-surface" style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 18px; padding: 24px; box-shadow: 0 1px 3px rgba(16,24,40,0.05); display: flex; flexDirection: column; gap: 20px; min-height: 520px; max-height: 680px; overflow: hidden;">
+        <!-- Chat History -->
+        <div style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 8px;" id="chat-history-scroll">
+            @if (messages.Count == 0)
+            {
+                <div style="text-align: center; color: #667085; margin: auto; padding: 40px;">
+                    <span style="font-size: 40px; display: block; margin-bottom: 12px;">💬</span>
+                    <h3 style="font-size: 18px; font-weight: 700; color: #1D2939; margin-bottom: 6px;">Start the Conversation</h3>
+                    <p style="font-size: 14px;">Type a query or click a quick suggestion below. Support in English and Myanmar language is enabled.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var msg in messages)
+                {
+                    <div style="align-self: @(msg.Role == "user" ? "flex-end" : "flex-start"); max-width: 80%; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #667085; text-transform: uppercase; align-self: @(msg.Role == "user" ? "flex-end" : "flex-start")">
+                            @(msg.Role == "user" ? "You" : "Gemini Clinic Assistant")
+                        </span>
+                        
+                        <div style="padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5;
+                                    background-color: @(msg.Role == "user" ? "#0052CC" : "#F2F4F7");
+                                    color: @(msg.Role == "user" ? "#FFFFFF" : "#1D2939");
+                                    border-bottom-right-radius: @(msg.Role == "user" ? "4px" : "16px");
+                                    border-bottom-left-radius: @(msg.Role == "user" ? "16px" : "4px");
+                                    white-space: pre-wrap;">@msg.Content</div>
+                    </div>
+                }
+            }
+
+            @if (loadingChat)
+            {
+                <div style="align-self: flex-start; max-width: 80%; display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #667085; text-transform: uppercase;">
+                        Gemini Clinic Assistant
+                    </span>
+                    <div style="padding: 12px 16px; border-radius: 16px; font-size: 14px; background-color: #F2F4F7; color: #667085; border-bottom-left-radius: 4px; display: flex; align-items: center; gap: 8px;">
+                        <div class="loader-spinner" style="width: 14px; height: 14px; border: 2px solid #667085; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                        <span>Gemini is reasoning and calling MCP tools...</span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Suggestion Chips -->
+        @if (messages.Count == 0 && !loadingChat)
+        {
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+                @foreach (var prompt in suggestionPrompts)
+                {
+                    <button style="border: 1px solid #D0D5DD; background: #FFFFFF; color: #344054; border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.15s ease;"
+                            @onclick="() => RunSuggestion(prompt)"
+                            onmouseenter="this.style.background='#F9FAFB'; this.style.borderColor='#B54708'"
+                            onmouseleave="this.style.background='#FFFFFF'; this.style.borderColor='#D0D5DD'">
+                        @prompt
+                    </button>
+                }
+            </div>
+        }
+
+        <!-- Chat Input Bar -->
+        <div style="display: flex; gap: 12px; border-top: 1px solid #F2F4F7; paddingTop: 16px;">
+            <input type="text" @bind="userInput" @onkeyup="HandleKeyUp" placeholder="Type a message or operation details..." disabled="@loadingChat"
+                   style="flex: 1; border: 1px solid #D0D5DD; border-radius: 12px; padding: 12px 16px; font-size: 14px; outline: none; transition: 0.15s ease;" />
+            <button class="primary" @onclick="SendChatMessage" disabled="@(loadingChat || string.IsNullOrWhiteSpace(userInput))"
+                    style="border-radius: 12px; padding: 12px 24px; font-weight: 700;">Send</button>
+        </div>
+    </section>
+}
+else
+{
+    <section class="two-column" style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px;">
+        <!-- Left Column: Tool Select and Params -->
+        <div style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 18px; padding: 24px; box-shadow: 0 1px 3px rgba(16,24,40,0.05);">
+            <h2 style="font-size: 18px; font-weight: 700; color: #1D2939; margin-bottom: 16px;">1. Select MCP Tool</h2>
+            
+            @if (tools == null)
+            {
+                <p style="color: #667085;">Loading available tools list...</p>
+            }
+            else
+            {
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #344054;">
+                        Tool Name
+                        <select @onchange="OnToolSelected" style="width: 100%; border: 1px solid #D0D5DD; border-radius: 10px; padding: 10px 12px; outline: none; font-size: 14px;">
+                            <option value="">Select a tool to test...</option>
+                            @foreach (var t in tools)
+                            {
+                                <option value="@t.Name">@t.Name</option>
+                            }
+                        </select>
+                    </label>
+
+                    @if (selectedTool != null)
+                    {
+                        <div style="background: #F8F9FC; border-radius: 10px; padding: 14px; border: 1px solid #EAECF0;">
+                            <h4 style="font-size: 14px; font-weight: 700; color: #101828; margin-bottom: 4px;">Description</h4>
+                            <p style="font-size: 13px; color: #475467; line-height: 1.4;">@selectedTool.Description</p>
+                            
+                            <h4 style="font-size: 13px; font-weight: 700; color: #101828; margin-top: 12px; margin-bottom: 4px;">Schema Parameters</h4>
+                            <pre style="font-size: 11px; font-family: monospace; background: #EAECF0; padding: 8px; border-radius: 6px; overflow-x: auto; color: #344054;">@JsonSerializer.Serialize(selectedTool.InputSchema, new JsonSerializerOptions { WriteIndented = true })</pre>
+                        </div>
+
+                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #344054;">
+                            Input Arguments (JSON format)
+                            <textarea @bind="toolArgumentsJson" rows="6" style="width: 100%; font-family: monospace; border: 1px solid #D0D5DD; border-radius: 10px; padding: 12px; outline: none; font-size: 13px;" />
+                        </label>
+
+                        <button class="primary" @onclick="ExecuteToolCall" disabled="@loadingTool" style="width: 100%; padding: 12px; font-weight: 700; border-radius: 12px;">
+                            @(loadingTool ? "Executing..." : "Call MCP Tool ▶")
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Right Column: Results -->
+        <div style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 18px; padding: 24px; box-shadow: 0 1px 3px rgba(16,24,40,0.05); display: flex; flex-direction: column;">
+            <h2 style="font-size: 18px; font-weight: 700; color: #1D2939; margin-bottom: 16px;">2. Execution Output</h2>
+
+            <div style="flex: 1; background: #0F172A; border-radius: 12px; padding: 16px; min-height: 400px; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+                <span style="font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;">Raw JSON</span>
+                
+                <pre style="flex: 1; font-family: monospace; font-size: 13px; color: #38BDF8; overflow: auto; margin: 0; white-space: pre-wrap;">@rawResultText</pre>
+            </div>
+        </div>
+    </section>
+}
+
+<style>
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+@code {
+    private string activeTab = "chat";
+    private List<McpToolDefinition>? tools;
+    private McpToolDefinition? selectedTool;
+    private string toolArgumentsJson = "{\n  \n}";
+    private string rawResultText = "// Select an MCP tool and click execute to view outputs.";
+
+    private bool loadingChat = false;
+    private bool loadingTool = false;
+    private string userInput = string.Empty;
+    private readonly List<AiChatMessage> messages = new();
+
+    private readonly string[] suggestionPrompts = new[]
+    {
+        "What is my schedule today?",
+        "ဒီနေ့ ချိန်းဆိုမှု ဘယ်နှစ်ခုရှိလဲ",
+        "Is paracetamol low in stock?",
+        "ဒီနေ့ ဆေးခန်းရဲ့ လူနာ တန်းစီမှု အခြေအနေ ဘယ်လိုရှိလဲ",
+        "Who is my next patient?"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadToolsListAsync();
+    }
+
+    private void SetTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    private async Task LoadToolsListAsync()
+    {
+        var result = await Api.GetMcpToolsAsync();
+        if (result.IsSuccess)
+        {
+            tools = result.Data;
+        }
+    }
+
+    private void OnToolSelected(ChangeEventArgs e)
+    {
+        var toolName = e.Value?.ToString();
+        selectedTool = tools?.FirstOrDefault(t => t.Name == toolName);
+        toolArgumentsJson = "{\n  \n}";
+        rawResultText = "// Ready to call " + (toolName ?? "tool") + ". Enter arguments and execute.";
+    }
+
+    private async Task ExecuteToolCall()
+    {
+        if (selectedTool == null) return;
+
+        try
+        {
+            loadingTool = true;
+            rawResultText = "Executing call on tool '" + selectedTool.Name + "'...";
+
+            var args = string.IsNullOrWhiteSpace(toolArgumentsJson) 
+                ? new Dictionary<string, object>() 
+                : JsonSerializer.Deserialize<Dictionary<string, object>>(toolArgumentsJson);
+
+            var req = new McpToolCallRequest
+            {
+                Name = selectedTool.Name,
+                Arguments = args
+            };
+
+            var res = await Api.CallMcpToolAsync(req);
+            if (res.IsSuccess && res.Data != null)
+            {
+                rawResultText = JsonSerializer.Serialize(res.Data, new JsonSerializerOptions { WriteIndented = true });
+            }
+            else
+            {
+                rawResultText = "Error: " + res.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            rawResultText = "Argument parsing error:\n" + ex.Message;
+        }
+        finally
+        {
+            loadingTool = false;
+        }
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !loadingChat && !string.IsNullOrWhiteSpace(userInput))
+        {
+            await SendChatMessage();
+        }
+    }
+
+    private async Task RunSuggestion(string suggestion)
+    {
+        userInput = suggestion;
+        await SendChatMessage();
+    }
+
+    private async Task SendChatMessage()
+    {
+        if (string.IsNullOrWhiteSpace(userInput) || loadingChat) return;
+
+        var userText = userInput;
+        userInput = string.Empty;
+
+        // Append user turn
+        messages.Add(new AiChatMessage { Role = "user", Content = userText });
+        loadingChat = true;
+
+        try
+        {
+            var req = new AiChatRequest { Messages = messages };
+            var res = await Api.McpChatAsync(req);
+
+            if (res.IsSuccess && res.Data != null)
+            {
+                messages.Add(new AiChatMessage { Role = "model", Content = res.Data.Reply });
+            }
+            else
+            {
+                messages.Add(new AiChatMessage { Role = "model", Content = "Error: " + res.Message });
+            }
+        }
+        catch (Exception ex)
+        {
+            messages.Add(new AiChatMessage { Role = "model", Content = "Request failure: " + ex.Message });
+        }
+        finally
+        {
+            loadingChat = false;
+        }
+    }
+}

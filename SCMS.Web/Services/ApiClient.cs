@@ -14,6 +14,7 @@ using SCMS.Shared.Contracts.Notifications;
 using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared.Contracts.Prescriptions;
+using SCMS.Shared.Contracts.Mcp;
 
 namespace SCMS.Web.Services
 {
@@ -296,6 +297,16 @@ namespace SCMS.Web.Services
 
         public Task<Result> MarkNotificationAsReadAsync(int id)
             => PostPlainAsync($"api/notifications/{id}/read", new { });
+
+        // ── MCP & AI Features ──
+        public Task<Result<List<McpToolDefinition>>> GetMcpToolsAsync()
+            => GetAsync<List<McpToolDefinition>>("api/mcp/tools");
+
+        public Task<Result<McpToolCallResponse>> CallMcpToolAsync(McpToolCallRequest request)
+            => PostAsync<McpToolCallRequest, McpToolCallResponse>("api/mcp/tools/call", request);
+
+        public Task<Result<AiChatResponse>> McpChatAsync(AiChatRequest request)
+            => PostAsync<AiChatRequest, AiChatResponse>("api/mcp/chat", request);
 
         public string DownloadUrl(string relativePath)
             => $"{ApiBaseAddress}/{relativePath.TrimStart('/')}";

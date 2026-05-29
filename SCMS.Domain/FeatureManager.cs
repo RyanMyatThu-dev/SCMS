@@ -19,6 +19,7 @@ using SCMS.Domain.Security;
 using Microsoft.AspNetCore.Builder;
 using CloudinaryDotNet;
 using SCMS.Domain.Features.Photo;
+using SCMS.Domain.Features.Mcp;
 
 namespace SCMS.Domain
 {
@@ -52,6 +53,7 @@ namespace SCMS.Domain
             services.AddScoped<ReportService>();
             services.AddScoped<PrescriptionService>();
             services.AddScoped<PhotoService>();
+            services.AddScoped<McpService>();
             services.AddHostedService<InventoryMonitorService>();
 
              // Cloudinary configuration
