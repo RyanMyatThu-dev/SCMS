@@ -237,6 +237,7 @@
 - **Patient Summary:** Answers queries about the next patient, latest visits, and recent prescription history.
 - **Inventory Stock Lookup:** Looks up medicine stock levels, batch expiry dates, and alerts for low/expiring stocks.
 - **Write Actions (Follow-ups):** Can trigger follow-up reminder creation through a write-capable MCP tool when explicitly requested.
+- **Prescription Template Actions:** Fetch existing templates or create new custom templates using secure, specialized MCP tools (`get_prescription_templates` and `create_prescription_template`) directly through natural language.
 - **Safety Boundaries:** 
   - Never diagnoses a patient or recommends prescription changes independently.
   - Operates on a low token usage strategy by summarizing context and retrieving structured JSON.
@@ -256,4 +257,29 @@
 - **Review and Approval:** The letter is clearly labeled as a "Draft" and must be reviewed, edited, and approved by the doctor.
 - **PDF Generation:** Once approved, the document is saved and can be printed or downloaded as a PDF referral letter.
 - **Safety Rule:** Missing data is explicitly marked as "not recorded" instead of fabricating facts.
+
+
+## 19. Custom Prescription Templates Management
+
+> As a doctor, I want to create, view, and manage custom prescription templates directly for each disease (independent of a live patient consultation) so that I can pre-define standard treatment packages.
+
+**Acceptance Criteria**
+
+- Doctor can click "Templates" next to any disease on the Disease Management page to view its associated templates.
+- Display templates with their medicine items, dosage, duration (days), quantities, and instructions.
+- Create new custom templates by inputting a template name and adding multiple medicines dynamically.
+- Select medicines from a searchable inventory list and customize details before saving.
+- All created custom templates are immediately available for use on the EMR Consultation page.
+
+## 20. Frequently Prescribed Medications Summary
+
+> As a doctor, I want to see a ranked summary of a patient's frequently prescribed medications in their records and during active consultation so that I can make quick, evidence-based, and personalized prescribing decisions.
+
+**Acceptance Criteria**
+
+- Automatically compute and display a patient's top prescribed medications based on historical invoices and prescriptions.
+- Group by medicine name and sort in descending order of prescribing count (e.g. "Amoxicillin - Prescribed 4 times").
+- Display this frequently prescribed medications list clearly on the **Medical Records (`Records.razor`)** page.
+- Display this frequently prescribed medications list as a clinical context helper panel on the **EMR Consultation (`Consultation.razor`)** page when selecting a patient appointment.
+
 

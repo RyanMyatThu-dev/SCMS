@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.Mcp;
+using SCMS.Shared.Contracts.Prescriptions;
 
 namespace SCMS.Domain.Features.Mcp
 {
@@ -208,6 +209,53 @@ namespace SCMS.Domain.Features.Mcp
                         },
                         required = new[] { "targetStartTime" }
                     }
+                },
+                new()
+                {
+                    Name = "get_prescription_templates",
+                    Description = "Retrieve saved prescription templates. Supports optional filtering by diseaseId or diseaseName.",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            diseaseId = new { type = "integer", description = "Optional disease ID filter." },
+                            diseaseName = new { type = "string", description = "Optional disease name filter (partial match)." }
+                        }
+                    }
+                },
+                new()
+                {
+                    Name = "create_prescription_template",
+                    Description = "Create a new prescription template with medicines, dosage, and days for a specific disease.",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            name = new { type = "string", description = "The name of the template." },
+                            diseaseId = new { type = "integer", description = "The unique ID of the disease." },
+                            items = new
+                            {
+                                type = "array",
+                                description = "List of template items (medicines).",
+                                items = new
+                                {
+                                    type = "object",
+                                    properties = new
+                                    {
+                                        medicineId = new { type = "integer", description = "The unique ID of the medicine." },
+                                        dosage = new { type = "string", description = "Dosage details (e.g. '500 mg')." },
+                                        days = new { type = "integer", description = "Duration in days." },
+                                        quantity = new { type = "integer", description = "Total quantity." },
+                                        instruction = new { type = "string", description = "Usage instruction." }
+                                    },
+                                    required = new[] { "medicineId", "days", "quantity" }
+                                }
+                            }
+                        },
+                        required = new[] { "name", "diseaseId", "items" }
+                    }
                 }
             };
         }
@@ -234,6 +282,8 @@ namespace SCMS.Domain.Features.Mcp
                     "reschedule_appointments_in_range" => await RescheduleAppointmentsInRangeAsync(request.Arguments),
                     "update_appointment_status_by_patient_name" => await UpdateAppointmentStatusByPatientNameAsync(request.Arguments),
                     "reschedule_today_appointments" => await RescheduleTodayAppointmentsAsync(request.Arguments),
+                    "get_prescription_templates" => await GetPrescriptionTemplatesAsync(request.Arguments),
+                    "create_prescription_template" => await CreatePrescriptionTemplateAsync(request.Arguments),
                     _ => null
                 };
 
@@ -1114,6 +1164,136 @@ namespace SCMS.Domain.Features.Mcp
             }
 
             return notes.Trim();
+        }
+
+        private async Task<object> GetPrescriptionTemplatesAsync(Dictionary<string, object>? arguments)
+        {
+            var query = _context.TblPrescriptionTemplates
+                .Include(t => t.Disease)
+                .Include(t => t.TblPrescriptionTemplateItems)
+                    .ThenInclude(i => i.Medicine)
+                .Where(t => t.DeleteFlag != true);
+
+            if (arguments != null)
+            {
+                if (arguments.TryGetValue("diseaseId", out var diseaseIdObj) && int.TryParse(diseaseIdObj.ToString(), out var diseaseId))
+                {
+                    query = query.Where(t => t.DiseaseId == diseaseId);
+                }
+                else if (arguments.TryGetValue("diseaseName", out var diseaseNameObj) && !string.IsNullOrWhiteSpace(diseaseNameObj.ToString()))
+                {
+                    var nameQuery = diseaseNameObj.ToString()!.ToLower().Trim();
+                    query = query.Where(t => t.Disease.Name.ToLower().Contains(nameQuery));
+                }
+            }
+
+            var templates = await query.OrderBy(t => t.Name).ToListAsync();
+            return templates.Select(t => new
+            {
+                templateId = t.Id,
+                name = t.Name,
+                diseaseId = t.DiseaseId,
+                diseaseName = t.Disease?.Name ?? "Unknown Disease",
+                items = t.TblPrescriptionTemplateItems
+                    .Where(i => i.DeleteFlag != true)
+                    .Select(i => new
+                    {
+                        medicineId = i.MedicineId,
+                        medicineName = i.Medicine?.Name ?? "Unknown Medicine",
+                        dosage = i.Dosage,
+                        days = i.Days,
+                        quantity = i.Quantity,
+                        instruction = i.Instruction
+                    }).ToList()
+            }).ToList();
+        }
+
+        private async Task<object> CreatePrescriptionTemplateAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null ||
+                !arguments.TryGetValue("name", out var nameObj) || string.IsNullOrWhiteSpace(nameObj.ToString()) ||
+                !arguments.TryGetValue("diseaseId", out var diseaseIdObj) || !int.TryParse(diseaseIdObj.ToString(), out var diseaseId) ||
+                !arguments.TryGetValue("items", out var itemsObj) || itemsObj == null)
+            {
+                return new { error = "Invalid or missing arguments. Required: name (string), diseaseId (int), items (array)." };
+            }
+
+            var diseaseExists = await _context.TblDiseases.AnyAsync(d => d.Id == diseaseId && d.DeleteFlag != true);
+            if (!diseaseExists)
+            {
+                return new { error = $"Disease with ID {diseaseId} not found." };
+            }
+
+            // Parse items list
+            var itemsList = new List<TblPrescriptionTemplateItem>();
+            try
+            {
+                var jsonStr = JsonSerializer.Serialize(itemsObj);
+                var items = JsonSerializer.Deserialize<List<TemplateItemDto>>(jsonStr);
+                if (items == null || items.Count == 0)
+                {
+                    return new { error = "At least one template item is required." };
+                }
+
+                foreach (var item in items)
+                {
+                    if (item.MedicineId <= 0)
+                    {
+                        return new { error = "medicineId is required for every template item." };
+                    }
+                    if (item.Quantity <= 0)
+                    {
+                        return new { error = "quantity must be greater than zero." };
+                    }
+                    if (item.Days <= 0)
+                    {
+                        return new { error = "days must be greater than zero." };
+                    }
+
+                    var medicineExists = await _context.TblMedicines.AnyAsync(m => m.MedicineId == item.MedicineId && m.DeleteFlag != true);
+                    if (!medicineExists)
+                    {
+                        return new { error = $"Medicine ID {item.MedicineId} not found." };
+                    }
+
+                    itemsList.Add(new TblPrescriptionTemplateItem
+                    {
+                        MedicineId = item.MedicineId,
+                        Dosage = item.Dosage ?? "",
+                        Days = item.Days,
+                        Quantity = item.Quantity,
+                        Instruction = item.Instruction ?? "",
+                        CreatedAt = DateTime.UtcNow,
+                        DeleteFlag = false
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return new { error = $"Error parsing items array: {ex.Message}" };
+            }
+
+            var newTemplate = new TblPrescriptionTemplate
+            {
+                Name = nameObj.ToString()!.Trim(),
+                DiseaseId = diseaseId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false,
+                TblPrescriptionTemplateItems = itemsList
+            };
+
+            _context.TblPrescriptionTemplates.Add(newTemplate);
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully created prescription template '{newTemplate.Name}'.",
+                templateId = newTemplate.Id,
+                diseaseId = newTemplate.DiseaseId,
+                itemsCount = newTemplate.TblPrescriptionTemplateItems.Count
+            };
         }
     }
 }

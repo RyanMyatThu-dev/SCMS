@@ -107,7 +107,8 @@ namespace SCMS.Domain.Features.Mcp
                                    "- Never diagnose patients or recommend prescription changes independently. Remind the user that clinical judgment belongs to the doctor.\n" +
                                    "- For simple bulk rescheduling of today's active appointments (e.g., 'reschedule all appointments to start from 8:30 AM', or 'arrive clinic at 9 AM, reschedule today's appointments to start from 9:30 AM'), use the simple `reschedule_today_appointments` tool with the target start time. It will automatically shift all today's active slots relatively.\n" +
                                    "- For fine-grained range-based rescheduling of specific time slots, use `reschedule_appointments_in_range`.\n" +
-                                   "- For status updates (confirm, cancel, complete) by Patient Name, use `update_appointment_status_by_patient_name` directly to search and apply changes."
+                                   "- For status updates (confirm, cancel, complete) by Patient Name, use `update_appointment_status_by_patient_name` directly to search and apply changes.\n" +
+                                   "- For managing, showing, or recommending medication templates for specific diseases (e.g., 'what are the standard templates/pills for Asthma?', or 'save a template for Hypertension'), use `get_prescription_templates` and `create_prescription_template` tools."
                         }
                     }
                 };
