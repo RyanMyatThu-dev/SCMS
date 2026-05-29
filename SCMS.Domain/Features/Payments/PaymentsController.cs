@@ -22,7 +22,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpPost("gateway-callback")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> ProcessGatewayCallback([FromBody] ProcessPaymentCallbackRequest request)
         {
             var result = await _paymentService.ProcessGatewayCallbackAsync(request);
@@ -45,7 +45,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpPost("{id}/approve")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> ApprovePayment(int id)
         {
             var result = await _paymentService.ApprovePaymentAsync(id);
@@ -57,7 +57,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpGet]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> GetPayments([FromQuery] string? status, [FromQuery] PaginationRequest paginationRequest)
         {
             paginationRequest ??= new PaginationRequest();

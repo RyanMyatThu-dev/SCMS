@@ -1,6 +1,13 @@
 @inherits LayoutComponentBase
 @inject ApiClient Api
 @inject NavigationManager Navigation
+@inject RealtimeClient Realtime
+@inject AuthenticationStateProvider AuthStateProvider
+@inject AntDesign.NotificationService Notice
+@implements IDisposable
+@using SCMS.Web.Services
+@using SCMS.Shared.Contracts.Notifications
+@using Microsoft.AspNetCore.Components.Authorization
 
 <Layout Style="min-height: 100vh;">
     <Sider Collapsible>
@@ -24,10 +31,98 @@
     </Layout>
 </Layout>
 
+<AntContainer />
+
 @code {
+    protected override void OnInitialized()
+    {
+        AuthStateProvider.AuthenticationStateChanged += OnAuthStateChanged;
+        Realtime.OnNotificationReceived += HandleNotificationReceived;
+        _ = SetupSignalRConnectionsAsync();
+    }
+
+    private void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        _ = SetupSignalRConnectionsAsync();
+    }
+
+    private async Task SetupSignalRConnectionsAsync()
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (state.User.Identity?.IsAuthenticated == true)
+            {
+                var apiBase = Api.ApiBaseAddress;
+                await Realtime.StartQueueAsync(apiBase);
+                await Realtime.StartNotificationsAsync(apiBase);
+            }
+            else
+            {
+                await Realtime.StopNotificationsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error managing SignalR connection: {ex.Message}");
+        }
+    }
+
+    private void HandleNotificationReceived(NotificationResponse n)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            RenderFragment? btn = null;
+            if (!string.IsNullOrEmpty(n.ActionRoute))
+            {
+                btn = (builder) =>
+                {
+                    builder.OpenComponent<Button>(0);
+                    builder.AddAttribute(1, "Type", ButtonType.Primary);
+                    builder.AddAttribute(2, "Size", ButtonSize.Small);
+                    builder.AddAttribute(3, "OnClick", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(this, () => Navigation.NavigateTo(n.ActionRoute)));
+                    builder.AddAttribute(4, "ChildContent", (RenderFragment)(childBuilder => childBuilder.AddContent(0, "View Details")));
+                    builder.CloseComponent();
+                };
+            }
+
+            var type = NotificationType.Info;
+            if (n.Title.Contains("Successful", StringComparison.OrdinalIgnoreCase) || 
+                n.Title.Contains("Verified", StringComparison.OrdinalIgnoreCase) || 
+                n.Title.Contains("Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                type = NotificationType.Success;
+            }
+            else if (n.Title.Contains("Alert", StringComparison.OrdinalIgnoreCase) || 
+                     n.Title.Contains("Warning", StringComparison.OrdinalIgnoreCase) || 
+                     n.Title.Contains("Low Stock", StringComparison.OrdinalIgnoreCase))
+            {
+                type = NotificationType.Warning;
+            }
+
+            await Notice.Open(new NotificationConfig
+            {
+                Message = n.Title,
+                Description = n.Description,
+                NotificationType = type,
+                Btn = btn,
+                Duration = 8.0
+            });
+
+            StateHasChanged();
+        });
+    }
+
     private async Task Logout()
     {
+        await Realtime.StopNotificationsAsync();
         await Api.LogoutAsync();
         Navigation.NavigateTo("/login", true);
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthStateChanged;
+        Realtime.OnNotificationReceived -= HandleNotificationReceived;
     }
 }

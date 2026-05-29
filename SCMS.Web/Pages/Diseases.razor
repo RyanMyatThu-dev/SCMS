@@ -10,7 +10,7 @@
         <span>Filter:</span>
         <AntDesign.Input @bind-Value="searchQuery" Placeholder="Search diseases..." Style="width: 200px;" />
     </div>
-    <AuthorizeView Roles="admin,doctor">
+    <AuthorizeView Roles="owner">
         <Authorized>
             <Button Type="@ButtonType.Primary" OnClick="ShowCreateModal">Add Disease</Button>
         </Authorized>
@@ -38,7 +38,7 @@ else
             @(context.Description ?? "-")
         </Column>
         <Column TData="string" Title="Actions">
-            <AuthorizeView Roles="admin,doctor" Context="authContext">
+            <AuthorizeView Roles="owner" Context="authContext">
                 <Authorized>
                     <Space>
                         <SpaceItem>

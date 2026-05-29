@@ -12,6 +12,6 @@ namespace SCMS.Domain.Security
         }
 
         public static bool IsStaff(this ClaimsPrincipal user)
-            => user.IsInRole("admin") || user.IsInRole("doctor");
+            => user.IsInRole("owner");
     }
 }

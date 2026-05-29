@@ -27,9 +27,9 @@ public class AuthServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.False(string.IsNullOrWhiteSpace(result.Data!.AccessToken));
-        Assert.Contains("patient", result.Data.User.Roles);
+        Assert.Contains("user", result.Data.User.Roles);
         Assert.Equal(1, await db.Context.TblUserTokens.CountAsync());
-        Assert.True(await db.Context.TblUserRoles.AnyAsync(r => r.UserId == result.Data.User.UserId && r.Role == "patient"));
+        Assert.True(await db.Context.TblUserRoles.AnyAsync(r => r.UserId == result.Data.User.UserId && r.Role == "user"));
     }
 
     [Fact]
@@ -50,7 +50,6 @@ public class AuthServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Contains("user", result.Data!.User.Roles);
-        Assert.Contains("patient", result.Data.User.Roles);
     }
 
     [Fact]
@@ -58,7 +57,7 @@ public class AuthServiceTests
     {
         using var db = new TestDatabase();
         var passwords = new PasswordHashingService();
-        var user = TestData.AddUser(db, role: "patient");
+        var user = TestData.AddUser(db, role: "user");
         user.PasswordHash = passwords.HashPassword("StrongPass123");
         await db.Context.SaveChangesAsync();
         var service = CreateService(db, passwords);
@@ -78,7 +77,7 @@ public class AuthServiceTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
             new Claim(ClaimTypes.NameIdentifier, "42"),
-            new Claim(ClaimTypes.Role, "doctor")
+            new Claim(ClaimTypes.Role, "owner")
         }, "test"));
 
         Assert.Equal(42, principal.GetUserId());

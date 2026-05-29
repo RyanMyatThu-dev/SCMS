@@ -1,5 +1,5 @@
 @page "/ai-assistant"
-@attribute [Authorize(Roles = "admin,doctor")]
+@attribute [Authorize(Roles = "owner")]
 @inject ApiClient Api
 @using SCMS.Shared.Contracts.Mcp
 @using System.Text.Json

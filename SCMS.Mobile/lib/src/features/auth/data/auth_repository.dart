@@ -24,15 +24,22 @@ class AuthRepository {
 
   Future<AuthSession?> restoreSession() async {
     final token = await _tokenStore.readToken();
+    final refreshToken = await _tokenStore.readRefreshToken();
+    final role = await _tokenStore.readRole();
+    final name = await _tokenStore.readName();
+    final userIdStr = await _tokenStore.readUserId();
 
-    if (token == null || token.isEmpty) {
+    if (token == null || token.isEmpty || role == null) {
       return null;
     }
 
     return AuthSession(
       accessToken: token,
-      email: 'restored@scms.local',
-      role: 'user',
+      refreshToken: refreshToken ?? '',
+      email: '', // Not strictly needed for restored sessions
+      name: name ?? '',
+      userId: int.tryParse(userIdStr ?? '') ?? 0,
+      role: role,
     );
   }
 
@@ -40,15 +47,47 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Replace this placeholder with the real SCMS.Api auth endpoint contract.
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    final token = 'dev-token-for-$email';
-    await _tokenStore.saveToken(token);
+    final response = await _apiClient.post('/Auth/login', data: {
+      'emailOrMobile': email,
+      'password': password,
+    });
+
+    final body = response.data as Map<String, dynamic>?;
+    if (body == null) {
+      throw const AppException('Empty response from server');
+    }
+
+    final isSuccess = body['isSuccess'] as bool? ?? false;
+    if (!isSuccess) {
+      throw AppException(body['message'] as String? ?? 'Login failed');
+    }
+
+    final data = body['data'] as Map<String, dynamic>?;
+    if (data == null) {
+      throw const AppException('No data returned from login');
+    }
+
+    final accessToken = data['accessToken'] as String? ?? '';
+    final refreshToken = data['refreshToken'] as String? ?? '';
+    final user = data['user'] as Map<String, dynamic>? ?? {};
+    final userId = user['userId'] as int? ?? 0;
+    final name = user['name'] as String? ?? '';
+    final roles = user['roles'] as List<dynamic>? ?? [];
+    final role = roles.isNotEmpty ? roles[0].toString().toLowerCase() : 'user';
+
+    await _tokenStore.saveToken(accessToken);
+    await _tokenStore.saveRefreshToken(refreshToken);
+    await _tokenStore.saveRole(role);
+    await _tokenStore.saveName(name);
+    await _tokenStore.saveUserId(userId.toString());
 
     return AuthSession(
-      accessToken: token,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
       email: email,
-      role: email.contains('admin') ? 'admin' : 'user',
+      name: name,
+      userId: userId,
+      role: role,
     );
   }
 

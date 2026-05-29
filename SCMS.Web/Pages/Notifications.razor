@@ -2,6 +2,8 @@
 @attribute [Authorize]
 @inject ApiClient Api
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject RealtimeClient Realtime
+@implements IDisposable
 
 <PageTitle>Notifications</PageTitle>
 
@@ -61,7 +63,7 @@
         </div>
     </div>
 
-    <AuthorizeView Roles="admin">
+    <AuthorizeView Roles="owner">
         <Authorized Context="notificationAuth">
             <div>
                 <h2>Create notice</h2>
@@ -94,8 +96,30 @@
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        isStaff = authState.User.IsInRole("admin") || authState.User.IsInRole("doctor");
+        isStaff = authState.User.IsInRole("owner");
+        
+        Realtime.NotificationsChanged += RefreshInbox;
+        Realtime.OnNotificationReceived += HandleNotificationReceived;
+        
         await Load();
+    }
+
+    private void RefreshInbox()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Load();
+            StateHasChanged();
+        });
+    }
+
+    private void HandleNotificationReceived(NotificationResponse n)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Load();
+            StateHasChanged();
+        });
     }
 
     private async Task Load()
@@ -139,5 +163,11 @@
     private void ClearMessage()
     {
         message = null;
+    }
+
+    public void Dispose()
+    {
+        Realtime.NotificationsChanged -= RefreshInbox;
+        Realtime.OnNotificationReceived -= HandleNotificationReceived;
     }
 }

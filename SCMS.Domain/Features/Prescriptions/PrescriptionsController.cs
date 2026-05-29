@@ -22,7 +22,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpPost]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> CreatePrescription([FromBody] CreatePrescriptionRequest request)
         {
             var result = await _prescriptionService.CreatePrescriptionAsync(request);
@@ -60,7 +60,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpPost("templates")]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> SaveTemplate([FromBody] SaveTemplateRequest request)
         {
             var result = await _prescriptionService.SaveTemplateAsync(request);
@@ -72,7 +72,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpGet("templates")]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> GetTemplates([FromQuery] int? diseaseId, [FromQuery] PaginationRequest paginationRequest)
         {
             paginationRequest ??= new PaginationRequest();
@@ -88,7 +88,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpDelete("templates/{id}")]
-        [Authorize(Roles = "admin,doctor")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> DeleteTemplate(int id)
         {
             var result = await _prescriptionService.DeleteTemplateAsync(id);

@@ -8,6 +8,7 @@ using SCMS.Database.Models;
 using SCMS.Shared.Contracts.Medicines;
 using SCMS.Shared;
 using SCMS.Domain.Features.Photo;
+using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.Medicines
 {
@@ -15,11 +16,13 @@ namespace SCMS.Domain.Features.Medicines
     {
         private readonly AppDbContext _context;
         private readonly PhotoService? _photoService;
+        private readonly NotificationService? _notificationService;
         private const int LowStockThreshold = 20;
 
-        public MedicineService(AppDbContext context, PhotoService? photoService = null)
+        public MedicineService(AppDbContext context, NotificationService? notificationService = null, PhotoService? photoService = null)
         {
             _context = context;
+            _notificationService = notificationService;
             _photoService = photoService;
         }
 
@@ -202,18 +205,24 @@ namespace SCMS.Domain.Features.Medicines
                     continue;
                 }
 
-                _context.TblNotifications.Add(new TblNotification
+                if (_notificationService != null)
                 {
-                    UserId = null,
-                    Title = title,
-                    Description = alert.Message,
-                    ActionRoute = "/inventory",
-                    CreatedAt = DateTime.UtcNow,
-                    DeleteFlag = false
-                });
+                    await _notificationService.CreateNotificationAsync(null, title, alert.Message, "/inventory");
+                }
+                else
+                {
+                    _context.TblNotifications.Add(new TblNotification
+                    {
+                        UserId = null,
+                        Title = title,
+                        Description = alert.Message,
+                        ActionRoute = "/inventory",
+                        CreatedAt = DateTime.UtcNow,
+                        DeleteFlag = false
+                    });
+                    await _context.SaveChangesAsync();
+                }
             }
-
-            await _context.SaveChangesAsync();
         }
 
         // ────────────────────────────────────────────────────────────────

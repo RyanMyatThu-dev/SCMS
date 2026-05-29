@@ -1,6 +1,6 @@
 @page "/consultation"
 @page "/consultation/{AppointmentId:int}"
-@attribute [Authorize(Roles = "admin,doctor")]
+@attribute [Authorize(Roles = "owner")]
 @inject ApiClient Api
 
 <PageTitle>Consultation</PageTitle>
