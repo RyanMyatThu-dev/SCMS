@@ -6,8 +6,6 @@ import {
   RefreshCcw,
   LayoutGrid,
   List,
-  ChevronLeft,
-  ChevronRight,
   FolderOpen,
   Edit,
   Trash2,
@@ -17,9 +15,11 @@ import {
   Pill
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import PaginationControls from "../components/PaginationControls";
 import { diseasesApi, prescriptionsApi, medicinesApi } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { calculateQuantity, commonDosageValues, dosageOptions } from "../utils/clinical";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -64,7 +64,7 @@ export default function DiseasesPage() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [templateItems, setTemplateItems] = useState([]);
   const [selectedMedicineId, setSelectedMedicineId] = useState("");
-  const [dosage, setDosage] = useState("Twice Daily (Morning & Night)");
+  const [dosage, setDosage] = useState("Twice daily");
   const [days, setDays] = useState(5);
   const [quantity, setQuantity] = useState(10);
   const [instruction, setInstruction] = useState("After meal");
@@ -439,30 +439,14 @@ export default function DiseasesPage() {
         </div>
       )}
 
-      {/* Pagination Footer */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 pt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            <ChevronLeft size={16} />
-            Prev
-          </button>
-          <span className="text-xs font-extrabold text-scms-muted px-2">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            Next
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        label="diseases"
+        loading={loading}
+        onPageChange={setPage}
+      />
 
       {/* --- ADD / EDIT DISEASE MODAL --- */}
       {modalOpen && (
@@ -622,33 +606,22 @@ export default function DiseasesPage() {
                     </label>
 
                     <label className="block">
-                      <span className="mb-1 block font-bold text-slate-500">Dosage *</span>
+                      <span className="mb-1 block font-bold text-slate-500">How often?</span>
                       <select
                         className="select select-bordered h-9 rounded-lg text-xs w-full bg-white border-slate-300 font-semibold"
-                        value={
-                          ["Once Daily (Morning)", "Once Daily (Night)", "Twice Daily (Morning & Night)", "Three Times Daily", "Four Times Daily", "As Needed (PRN)"].includes(dosage)
-                            ? dosage
-                            : "custom"
-                        }
+                        value={commonDosageValues.includes(dosage) ? dosage : "Custom"}
                         onChange={(e) => {
                           const val = e.target.value;
-                          if (val === "custom") {
-                            setDosage("1 tab daily");
-                          } else {
-                            setDosage(val);
-                          }
+                          setDosage(val === "Custom" ? "Every 8 hours" : val);
+                          setQuantity(calculateQuantity(val, days));
                         }}
                       >
-                        <option value="Once Daily (Morning)">Once Daily (Morning)</option>
-                        <option value="Once Daily (Night)">Once Daily (Night)</option>
-                        <option value="Twice Daily (Morning & Night)">Twice Daily (Morning & Night)</option>
-                        <option value="Three Times Daily">Three Times Daily</option>
-                        <option value="Four Times Daily">Four Times Daily</option>
-                        <option value="As Needed (PRN)">As Needed (PRN)</option>
-                        <option value="custom">Custom...</option>
+                        {dosageOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                       </select>
 
-                      {!["Once Daily (Morning)", "Once Daily (Night)", "Twice Daily (Morning & Night)", "Three Times Daily", "Four Times Daily", "As Needed (PRN)"].includes(dosage) && (
+                      {!commonDosageValues.includes(dosage) && (
                         <input
                           type="text"
                           className="input input-bordered h-8 rounded-lg mt-1 text-xs w-full text-center"
@@ -667,7 +640,10 @@ export default function DiseasesPage() {
                         placeholder="5"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={days}
-                        onChange={(e) => setDays(e.target.value)}
+                        onChange={(e) => {
+                          setDays(e.target.value);
+                          setQuantity(calculateQuantity(dosage, e.target.value));
+                        }}
                       />
                     </label>
 

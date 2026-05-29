@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { appointmentsApi, prescriptionsApi, paymentsApi, downloadBlob } from "../../services/scmsApi";
 import { showAlert, showError } from "../../services/dialogs";
+import { formatTemperatureF } from "../../utils/clinical";
 
 const PRIMARY = "#4F46E5"; // Patient theme indigo-600
 const PRIMARY_LIGHT = "#EEF2FF"; // indigo-50
@@ -339,7 +340,7 @@ export default function UserDashboard() {
                       {rx.temperatureC > 0 && (
                         <div>
                           <div className="text-[10px] font-bold text-slate-400 uppercase">Temp</div>
-                          <strong className="text-slate-700">{rx.temperatureC}°C</strong>
+                          <strong className="text-slate-700">{formatTemperatureF(rx.temperatureC)}</strong>
                         </div>
                       )}
                     </div>

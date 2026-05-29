@@ -20,6 +20,7 @@ import {
   Truck
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
 import { medicinesApi } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
@@ -511,30 +512,14 @@ export default function BatchesPage() {
         </div>
       )}
 
-      {/* Pagination Footer */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 pt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            <ChevronLeft size={16} />
-            Prev
-          </button>
-          <span className="text-xs font-extrabold text-scms-muted px-2">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            Next
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        label="batches"
+        loading={loading}
+        onPageChange={setPage}
+      />
 
       {/* --- ADD / EDIT BATCH FORM MODAL --- */}
       {modalOpen && (

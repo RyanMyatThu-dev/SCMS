@@ -8,15 +8,16 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
   Pill,
   RotateCcw,
-  Settings,
   Sparkles,
   Stethoscope,
+  Sun,
   Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -35,15 +36,25 @@ const navItems = [
 ];
 
 export default function AppShell() {
-  const { t, language, toggleLanguage } = useLanguage();
-  const { user, logout } = useAuth();
+  const { t, toggleLanguage } = useLanguage();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem("scms_theme") || "light");
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("scms_theme", theme);
+  }, [theme]);
 
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
   };
+
+  const toggleTheme = () => setTheme((current) => (current === "dark" ? "light" : "dark"));
+  const themeLabel = theme === "dark" ? "Light Mode" : "Dark Mode";
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
 
   return (
     <div className="min-h-screen bg-scms-bg text-scms-text">
@@ -94,6 +105,10 @@ export default function AppShell() {
           <button className="scms-btn-outline w-full justify-start" onClick={toggleLanguage}>
             {t.language}
           </button>
+          <button className="scms-btn-outline w-full justify-start" onClick={toggleTheme}>
+            <ThemeIcon size={18} />
+            {themeLabel}
+          </button>
           <button className="btn min-h-11 w-full justify-start rounded-xl border-[#FECDCA] bg-[#FFF1F0] text-scms-danger hover:border-[#FECDCA] hover:bg-[#FFF1F0]" onClick={handleLogout}>
             <LogOut size={18} />
             {t.logout}
@@ -108,18 +123,17 @@ export default function AppShell() {
               <Menu size={20} />
             </button>
             <div>
-              <div className="text-sm font-black text-scms-text">{t.adminUser}</div>
-              <div className="text-xs font-semibold text-scms-muted">{t.role}</div>
+              <div className="text-sm font-black text-scms-text">Admin User</div>
+              <div className="text-xs font-semibold text-scms-muted">System Administrator</div>
             </div>
             <div className="ml-auto flex items-center gap-3">
               <button className="scms-btn-outline hidden md:inline-flex" onClick={toggleLanguage}>
                 {t.language}
               </button>
-              <div className="avatar placeholder">
-                <div className="w-10 rounded-xl bg-scms-primary text-white">
-                  <span className="text-sm font-black">{user?.name?.slice(0, 2)?.toUpperCase() || "AD"}</span>
-                </div>
-              </div>
+              <button className="scms-btn-outline hidden md:inline-flex" onClick={toggleTheme}>
+                <ThemeIcon size={18} />
+                {themeLabel}
+              </button>
             </div>
           </header>
 

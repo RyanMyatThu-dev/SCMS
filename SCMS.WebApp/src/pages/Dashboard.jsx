@@ -1,9 +1,10 @@
-import { CalendarDays, CreditCard, Pill, Users, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarDays, CreditCard, Pill, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
+import PaginationControls from "../components/PaginationControls";
 import { useLanguage } from "../context/LanguageContext";
 import { appointmentsApi, dashboardsApi, medicinesApi } from "../services/scmsApi";
 
@@ -23,7 +24,7 @@ const getLocalDateStr = (dateObj) => {
 };
 
 export default function Dashboard() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -116,35 +117,49 @@ export default function Dashboard() {
     return `${day}-${month}-${year}`;
   };
 
+  const statLabels = language === "mm"
+    ? {
+        todayPatients: "ယနေ့လူနာစာရင်း",
+        todayAppointments: "ယနေ့ချိန်းဆိုမှုစာရင်း",
+        totalMedicines: "စုစုပေါင်းဆေးအရေအတွက်",
+        totalRevenue: "ယနေ့စုစုပေါင်းဝင်ငွေ",
+      }
+    : {
+        todayPatients: "Total Patient Today",
+        todayAppointments: "Total Appointments Today",
+        totalMedicines: "Total Medicines in Inventory",
+        totalRevenue: "Total Income",
+      };
+
   return (
     <div className="space-y-6">
-      <PageHeader title={t.dashboard} subtitle={t.protectedWorkflows} />
+      <PageHeader title={t.dashboard} />
 
       {/* Clickable Telemetry Metric Cards */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total Patient Today"
+          label={statLabels.todayPatients}
           value={stats.todayPatients}
           icon={Users}
           tone="primary"
           onClick={() => navigate("/app/patients")}
         />
         <StatCard
-          label="Total Appointments Today"
+          label={statLabels.todayAppointments}
           value={stats.todayAppointments}
           icon={CalendarDays}
           tone="primary"
           onClick={() => navigate("/app/appointments")}
         />
         <StatCard
-          label="Total Medicines in Inventory"
+          label={statLabels.totalMedicines}
           value={stats.totalMedicines}
           icon={Pill}
           tone="success"
           onClick={() => navigate("/app/medicines")}
         />
         <StatCard
-          label="Total Revenue"
+          label={statLabels.totalRevenue}
           value={`MMK ${Number(stats.totalRevenue || 0).toLocaleString()}`}
           icon={CreditCard}
           tone="warning"
@@ -205,28 +220,14 @@ export default function Dashboard() {
             ]}
           />
 
-          {/* Table Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                disabled={page <= 1 || loading}
-                onClick={() => setPage((p) => p - 1)}
-                className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-xs font-extrabold text-scms-muted px-2">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage((p) => p + 1)}
-                className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          )}
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            label="appointments"
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
 
         <div>

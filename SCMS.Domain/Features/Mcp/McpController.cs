@@ -16,7 +16,7 @@ namespace SCMS.Domain.Features.Mcp
 {
     [ApiController]
     [Route("api/mcp")]
-    [Authorize(Roles = "owner")]
+    [Authorize(Roles = "owner,admin,doctor")]
     public class McpController : ControllerBase
     {
         private readonly McpService _mcpService;

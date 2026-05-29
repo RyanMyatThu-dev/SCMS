@@ -5,8 +5,6 @@ import {
   RefreshCcw,
   LayoutGrid,
   List,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Info,
   Activity,
@@ -19,9 +17,11 @@ import {
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
+import PaginationControls from "../components/PaginationControls";
 import { prescriptionsApi, patientsApi, diseasesApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { formatTemperatureF } from "../utils/clinical";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -387,30 +387,14 @@ export default function PrescriptionsPage() {
         </div>
       )}
 
-      {/* Pagination Footer */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 pt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            <ChevronLeft size={16} />
-            Prev
-          </button>
-          <span className="text-xs font-extrabold text-scms-muted px-2">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            Next
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        label="prescriptions"
+        loading={loading}
+        onPageChange={setPage}
+      />
 
       {/* --- DETAILED PRESCRIPTION REVIEW MODAL --- */}
       {detailOpen && selectedRx && (
@@ -453,7 +437,7 @@ export default function PrescriptionsPage() {
                     <div>BP Systolic: <strong className="text-scms-text">{selectedRx.bloodPressureSystolic ? `${selectedRx.bloodPressureSystolic} mmHg` : "-"}</strong></div>
                     <div>BP Diastolic: <strong className="text-scms-text">{selectedRx.bloodPressureDiastolic ? `${selectedRx.bloodPressureDiastolic} mmHg` : "-"}</strong></div>
                     <div>Pulse Rate: <strong className="text-scms-text">{selectedRx.pulseBpm ? `${selectedRx.pulseBpm} bpm` : "-"}</strong></div>
-                    <div>Temp (°C): <strong className="text-scms-text">{selectedRx.temperatureC ? `${selectedRx.temperatureC} °C` : "-"}</strong></div>
+                    <div>Temp (°F): <strong className="text-scms-text">{formatTemperatureF(selectedRx.temperatureC)}</strong></div>
                     <div>SpO2: <strong className="text-scms-text">{selectedRx.spo2Percent ? `${selectedRx.spo2Percent} %` : "-"}</strong></div>
                     <div>BMI Score: <strong className="text-indigo-600 font-extrabold">{selectedRx.bmi || "-"}</strong></div>
                   </div>

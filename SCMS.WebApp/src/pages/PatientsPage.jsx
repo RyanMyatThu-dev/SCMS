@@ -17,6 +17,7 @@ import {
   HeartHandshake
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import PaginationControls from "../components/PaginationControls";
 import { patientsApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -363,30 +364,14 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Pagination Controls */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 pt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            <ChevronLeft size={16} />
-            Prev
-          </button>
-          <span className="text-xs font-extrabold text-scms-muted px-2">
-            Page {page} of {totalPages} ({totalCount} patients)
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            Next
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        label="patients"
+        loading={loading}
+        onPageChange={setPage}
+      />
 
       {/* --- CREATE PATIENT PROFILE MODAL --- */}
       {modalOpen && (

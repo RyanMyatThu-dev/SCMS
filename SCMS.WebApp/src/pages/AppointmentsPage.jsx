@@ -6,8 +6,6 @@ import {
   RefreshCcw,
   LayoutGrid,
   List,
-  ChevronLeft,
-  ChevronRight,
   Info,
   Check,
   Stethoscope,
@@ -25,6 +23,7 @@ import {
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
+import PaginationControls from "../components/PaginationControls";
 import {
   appointmentsApi,
   patientsApi,
@@ -35,6 +34,7 @@ import {
 } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { calculateQuantity, commonDosageValues, dosageOptions, fahrenheitToCelsius } from "../utils/clinical";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -73,7 +73,7 @@ export default function AppointmentsPage() {
     heightCm: "",
     bloodPressureSystolic: "",
     bloodPressureDiastolic: "",
-    temperatureC: "",
+    temperatureF: "",
     pulseBpm: "",
     spo2Percent: "",
     notes: "",
@@ -248,7 +248,7 @@ export default function AppointmentsPage() {
       {
         medicineId: med.medicineId,
         medicineName: med.name,
-        dosage: "Twice Daily (Morning & Night)",
+        dosage: "Twice daily",
         days: 5,
         quantity: 10,
         instruction: "After meal",
@@ -273,15 +273,11 @@ export default function AppointmentsPage() {
       prev.map(item => {
         if (item.medicineId === medId) {
           const updated = { ...item, [field]: val };
-          // Auto calculate total quantity from dosage & days
+          // Auto calculate total quantity from frequency and days.
           if (field === "days" || field === "dosage") {
             const days = field === "days" ? Number(val) : item.days;
             const dosage = field === "dosage" ? String(val) : item.dosage;
-            let dailyCount = 1;
-            if (dosage.includes("-")) {
-              dailyCount = dosage.split("-").map(Number).reduce((sum, n) => sum + (isNaN(n) ? 0 : n), 0);
-            }
-            updated.quantity = (dailyCount || 1) * days;
+            updated.quantity = calculateQuantity(dosage, days);
           }
           return updated;
         }
@@ -308,7 +304,7 @@ export default function AppointmentsPage() {
       heightCm: "",
       bloodPressureSystolic: "",
       bloodPressureDiastolic: "",
-      temperatureC: "",
+      temperatureF: "",
       pulseBpm: "",
       spo2Percent: "",
       notes: "",
@@ -337,8 +333,7 @@ export default function AppointmentsPage() {
     try {
       setSavingConsult(true);
       
-      const tempF = vitals.temperatureC ? Number(vitals.temperatureC) : null;
-      const tempC = tempF ? Math.round(((tempF - 32) * 5 / 9) * 10) / 10 : null;
+      const tempC = vitals.temperatureF ? fahrenheitToCelsius(vitals.temperatureF) : null;
 
       const payload = {
         appointmentId: Number(activeAppt.appointmentId || activeAppt.id),
@@ -414,7 +409,7 @@ export default function AppointmentsPage() {
       return {
         medicineId: item.medicineId,
         medicineName: item.medicineName,
-        dosage: item.dosage || "Twice Daily (Morning & Night)",
+        dosage: item.dosage || "Twice daily",
         days: item.days || 5,
         quantity: item.quantity || 10,
         instruction: item.instruction || "After meal",
@@ -669,30 +664,14 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Pagination Footer */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 pt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            <ChevronLeft size={16} />
-            Prev
-          </button>
-          <span className="text-xs font-extrabold text-scms-muted px-2">
-            Page {page} of {totalPages} ({totalCount} slots)
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-            className="btn btn-sm btn-outline border-scms-border h-9 rounded-lg"
-          >
-            Next
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        label="slots"
+        loading={loading}
+        onPageChange={setPage}
+      />
 
       {/* --- APPOINTMENT DETAILS MODAL --- */}
       {detailOpen && selectedAppt && (
@@ -839,8 +818,8 @@ export default function AppointmentsPage() {
                         step="0.1"
                         placeholder="e.g. 98.6"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
-                        value={vitals.temperatureC}
-                        onChange={(e) => setVitals(p => ({ ...p, temperatureC: e.target.value }))}
+                        value={vitals.temperatureF}
+                        onChange={(e) => setVitals(p => ({ ...p, temperatureF: e.target.value }))}
                       />
                     </label>
 
@@ -1016,33 +995,21 @@ export default function AppointmentsPage() {
 
                           <div className="grid gap-2 grid-cols-4 text-[11px]">
                             <label className="block col-span-1">
-                              <span className="block text-slate-400 font-bold mb-0.5">Dosage</span>
+                              <span className="block text-slate-400 font-bold mb-0.5">How often?</span>
                               <select
                                 className="select select-bordered select-xs h-7 rounded w-full font-semibold"
-                                value={
-                                  ["Once Daily (Morning)", "Once Daily (Night)", "Twice Daily (Morning & Night)", "Three Times Daily", "Four Times Daily", "As Needed (PRN)"].includes(item.dosage)
-                                    ? item.dosage
-                                    : "custom"
-                                }
+                                value={commonDosageValues.includes(item.dosage) ? item.dosage : "Custom"}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  if (val === "custom") {
-                                    updateItemField(item.medicineId, "dosage", "1 tab daily");
-                                  } else {
-                                    updateItemField(item.medicineId, "dosage", val);
-                                  }
+                                  updateItemField(item.medicineId, "dosage", val === "Custom" ? "Every 8 hours" : val);
                                 }}
                               >
-                                <option value="Once Daily (Morning)">Once Daily (Morning)</option>
-                                <option value="Once Daily (Night)">Once Daily (Night)</option>
-                                <option value="Twice Daily (Morning & Night)">Twice Daily (Morning & Night)</option>
-                                <option value="Three Times Daily">Three Times Daily</option>
-                                <option value="Four Times Daily">Four Times Daily</option>
-                                <option value="As Needed (PRN)">As Needed (PRN)</option>
-                                <option value="custom">Custom...</option>
+                                {dosageOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
                               </select>
                               
-                              {!["Once Daily (Morning)", "Once Daily (Night)", "Twice Daily (Morning & Night)", "Three Times Daily", "Four Times Daily", "As Needed (PRN)"].includes(item.dosage) && (
+                              {!commonDosageValues.includes(item.dosage) && (
                                 <input
                                   type="text"
                                   className="input input-bordered input-xs h-6 rounded mt-1 text-center w-full text-[10px]"
