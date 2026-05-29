@@ -18,6 +18,8 @@ import Notification from "./features/noti/Notification";
 import Medicines from "./features/medicines/Medicines";
 import Disease from "./features/disease/Disease";
 import Documents from "./features/document/Documents";
+import Setting from "./features/sestting/Setting";
+import Reports from "./features/reports/Reports";
 
 const SplashScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
@@ -137,6 +139,8 @@ function App() {
         <Route path="medicines" element={<Medicines />} />
         <Route path="diseases" element={<Disease />} />
         <Route path="documents" element={<Documents />} />
+        <Route path="/admin/settings" element={<Setting />} />
+        <Route path="/admin/reports" element={<Reports />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

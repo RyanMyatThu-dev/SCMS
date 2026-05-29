@@ -19,7 +19,6 @@ const emptyForm = {
   patientId: "",
   datetime: "",
   notes: "",
-  status: "pending",
 };
 
 const emptyPrescription = {
@@ -27,6 +26,11 @@ const emptyPrescription = {
   weightKg: "",
   bloodPressureSystolic: "",
   bloodPressureDiastolic: "",
+  temperatureC: "",
+  pulseBpm: "",
+  spo2Percent: "",
+  heightCm: "",
+  labTestRequests: "",
   notes: "",
   followUpNote: "",
 };
@@ -35,15 +39,17 @@ const defaultMedicineRow = {
   medicineId: "",
   quantity: 1,
   days: 3,
-  dose: "",
-  timing: "after_meal",
+  dosage: "",
+  instruction: "after_meal",
 };
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.items)) return data.data.items;
   if (Array.isArray(data?.items)) return data.items;
   if (Array.isArray(data?.result)) return data.result;
+  if (Array.isArray(data?.result?.items)) return data.result.items;
   if (Array.isArray(data?.value)) return data.value;
   return [];
 };
@@ -55,7 +61,26 @@ const getPatientName = (p) =>
 
 const getMedicineId = (m) => m?.medicineId || m?.medicine_id || m?.id;
 
-const getDiseaseId = (d) => d?.diseaseId || d?.disease_id || d?.id;
+const getDiseaseId = (d) => d?.id || d?.diseaseId || d?.disease_id;
+
+const apiDate = (value) => {
+  if (!value) return "";
+  return value.length === 16 ? `${value}:00` : value;
+};
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleString("en-MY", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function Appointments() {
   const outlet = useOutletContext();
@@ -71,6 +96,8 @@ export default function Appointments() {
 
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -88,16 +115,13 @@ export default function Appointments() {
     title: lang === "mm" ? "ချိန်းဆိုမှုများ" : "Appointments",
     subtitle:
       lang === "mm"
-        ? "လူနာချိန်းဆိုမှုများ၊ queue နှင့် EMR မှတ်တမ်းများကို စီမံပါ"
-        : "Manage appointments, queue, and EMR records",
+        ? "လူနာချိန်းဆိုမှု၊ Queue နှင့် EMR မှတ်တမ်းများကို စီမံပါ"
+        : "Manage appointments, queue and EMR records",
     newAppointment: lang === "mm" ? "ချိန်းဆိုမှုအသစ်" : "New Appointment",
     patient: lang === "mm" ? "လူနာ" : "Patient",
-    schedule: lang === "mm" ? "အချိန်ဇယား" : "Schedule",
-    review: lang === "mm" ? "ပြန်စစ်ရန်" : "Review",
     selectPatient: lang === "mm" ? "လူနာရွေးပါ" : "Select patient",
     dateTime: lang === "mm" ? "နေ့ရက်နှင့်အချိန်" : "Date & Time",
     notes: lang === "mm" ? "မှတ်ချက်" : "Notes",
-    status: lang === "mm" ? "အခြေအနေ" : "Status",
     back: lang === "mm" ? "နောက်သို့" : "Back",
     next: lang === "mm" ? "ရှေ့သို့" : "Next",
     create: lang === "mm" ? "ချိန်းဆိုမှုလုပ်မည်" : "Create Appointment",
@@ -105,9 +129,9 @@ export default function Appointments() {
     callNext: lang === "mm" ? "နောက်လူနာခေါ်မည် / EMR" : "Call Next / EMR",
     search: lang === "mm" ? "လူနာအမည်ဖြင့်ရှာပါ..." : "Search appointments...",
     emr: lang === "mm" ? "EMR စနစ်" : "Consultation EMR",
-    prescription: lang === "mm" ? "ဆေးစာမှတ်တမ်း" : "Prescription Record",
     savePrescription: lang === "mm" ? "ဆေးစာသိမ်းမည်" : "Submit Prescription",
     noMedicine: lang === "mm" ? "ဆေးပေးစရာမရှိပါ" : "No Medicine Required",
+    cancelled: lang === "mm" ? "ဖျက်သိမ်းပြီး" : "Cancelled",
   };
 
   const loadData = async () => {
@@ -156,18 +180,29 @@ export default function Appointments() {
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter((a) => {
-      const name =
-        a.patientName || a.patient?.name || a.patient?.fullName || a.name || "";
+      const name = String(
+        a.patientName || a.patient?.name || a.patient?.fullName || a.name || "",
+      ).toLowerCase();
 
-      return name.toLowerCase().includes(search.toLowerCase());
+      const status = String(
+        a.status || a.appointmentStatus || "pending",
+      ).toLowerCase();
+
+      const matchSearch = name.includes(search.toLowerCase());
+
+      const matchStatus =
+        statusFilter === "active"
+          ? status !== "completed" && status !== "cancelled"
+          : statusFilter === "all"
+            ? true
+            : status === statusFilter;
+
+      return matchSearch && matchStatus;
     });
-  }, [appointments, search]);
+  }, [appointments, search, statusFilter]);
 
   const handleChange = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handlePrescriptionChange = (e) => {
@@ -193,24 +228,25 @@ export default function Appointments() {
     try {
       setSaving(true);
 
-      const appointmentCode = `APT-${Date.now()}`;
-
       const payload = {
-        appointmentCode,
         patientId: Number(form.patientId),
-        datetime:
-          form.datetime.length === 16 ? `${form.datetime}:00` : form.datetime,
-        status: form.status || "pending",
+        datetime: apiDate(form.datetime),
         notes: form.notes || "",
       };
+      console.log("CREATE APPOINTMENT PAYLOAD:", payload);
 
-      await scmsApi.appointments.create(payload);
+      const res = await scmsApi.appointments.create(payload);
+      console.log("CREATE APPOINTMENT RESPONSE:", res);
 
       closeWizard();
       await loadData();
     } catch (error) {
       console.error("Create appointment error:", error);
-      alert("Create appointment failed. Please check backend request body.");
+      alert(
+        error?.response?.data?.message ||
+          error?.response?.data?.title ||
+          "Create appointment failed. Patient must belong to current login user.",
+      );
     } finally {
       setSaving(false);
     }
@@ -241,12 +277,28 @@ export default function Appointments() {
   const updateStatus = async (appointment, status) => {
     try {
       const id = appointment.id || appointment.appointmentId;
-      await scmsApi.appointments.updateStatus(id, { status });
+
+      await scmsApi.appointments.updateStatus(id, {
+        status,
+        notes: appointment.notes || "",
+      });
+
       await loadData();
     } catch (error) {
       console.error("Status update error:", error);
-      alert("Status update failed.");
+      alert(error?.response?.data?.message || "Status update failed.");
     }
+  };
+
+  const cancelAppointment = async (appointment) => {
+    const ok = confirm(
+      lang === "mm"
+        ? "ဒီ appointment ကို cancel လုပ်မှာ သေချာလား?"
+        : "Are you sure you want to cancel this appointment?",
+    );
+
+    if (!ok) return;
+    await updateStatus(appointment, "cancelled");
   };
 
   const resetEmrForm = () => {
@@ -274,15 +326,18 @@ export default function Appointments() {
       const result = await scmsApi.appointments.callNext();
       await loadData();
 
+      const freshAppointments = appointments.filter((a) =>
+        ["pending", "confirmed"].includes(
+          String(a.status || a.appointmentStatus || "").toLowerCase(),
+        ),
+      );
+
       const nextAppointment =
         result?.appointment ||
         result?.data ||
+        result?.result ||
         toArray(result)[0] ||
-        appointments.find((a) =>
-          ["pending", "confirmed"].includes(
-            String(a.status || a.appointmentStatus || "").toLowerCase(),
-          ),
-        ) ||
+        freshAppointments[0] ||
         null;
 
       if (!nextAppointment) {
@@ -297,7 +352,7 @@ export default function Appointments() {
       openEmr(nextAppointment);
     } catch (error) {
       console.error("Call next error:", error);
-      alert("Call next failed.");
+      alert(error?.response?.data?.message || "Call next failed.");
     }
   };
 
@@ -308,30 +363,21 @@ export default function Appointments() {
 
     const matched = diseases.find(
       (d) =>
-        String(d.name || d.diseaseName).toLowerCase() ===
+        String(d.name || d.diseaseName || "").toLowerCase() ===
         trimmedName.toLowerCase(),
     );
 
     if (matched) return getDiseaseId(matched);
 
-    try {
-      const created = await scmsApi.diseases.create({
-        name: trimmedName,
-        description: prescriptionForm.notes || "",
-      });
+    const created = await scmsApi.diseases.create({
+      name: trimmedName,
+      description: prescriptionForm.notes || "",
+    });
 
-      const createdDisease = created?.data || created?.result || created;
+    const createdDisease = created?.data || created?.result || created;
+    await loadData();
 
-      await loadData();
-
-      return getDiseaseId(createdDisease) || createdDisease?.id || null;
-    } catch (error) {
-      console.error("Create diagnosis error:", error);
-      alert(
-        "New diagnosis create failed. Existing diagnosis will be used if selected.",
-      );
-      return prescriptionForm.diseaseId || null;
-    }
+    return getDiseaseId(createdDisease) || createdDisease?.id || null;
   };
 
   const savePrescription = async () => {
@@ -341,33 +387,41 @@ export default function Appointments() {
       setSavingPrescription(true);
 
       const appointmentId = emrAppointment.id || emrAppointment.appointmentId;
+
       const patientId =
         emrAppointment.patientId ||
         emrAppointment.patient_id ||
         emrAppointment.patient?.patientId ||
         emrAppointment.patient?.id;
 
+      if (!appointmentId || !patientId) {
+        alert("Appointment ID or Patient ID missing.");
+        return;
+      }
+
+      if (noMedicine) {
+        await updateStatus(emrAppointment, "completed");
+        closeEmr();
+        alert(
+          lang === "mm"
+            ? "ကုသမှုပြီးဆုံးပါပြီ"
+            : "Consultation completed without medicine.",
+        );
+        return;
+      }
+
+      const validMedicineRows = medicineRows.filter((row) => row.medicineId);
+
+      if (validMedicineRows.length === 0) {
+        alert(
+          lang === "mm"
+            ? "ဆေးတစ်မျိုးရွေးပါ။ ဆေးမပေးရင် X ကိုနှိပ်ပါ။"
+            : "Please select at least one medicine. If no medicine is required, click X.",
+        );
+        return;
+      }
+
       const diseaseId = await createNewDiagnosisIfNeeded();
-
-      const validMedicineRows = noMedicine
-        ? []
-        : medicineRows.filter((row) => row.medicineId);
-
-      const medicineNotes = noMedicine
-        ? t.noMedicine
-        : validMedicineRows
-            .map((row, index) => {
-              const med = medicines.find(
-                (m) => String(getMedicineId(m)) === String(row.medicineId),
-              );
-              const medName =
-                med?.name || med?.medicineName || `Medicine ${index + 1}`;
-
-              return `${medName} | Qty: ${row.quantity || "-"} | Days: ${
-                row.days || "-"
-              } | Dose: ${row.dose || "-"} | Timing: ${row.timing || "-"}`;
-            })
-            .join("\n");
 
       const payload = {
         appointmentId: Number(appointmentId),
@@ -382,18 +436,33 @@ export default function Appointments() {
         bloodPressureDiastolic: prescriptionForm.bloodPressureDiastolic
           ? Number(prescriptionForm.bloodPressureDiastolic)
           : null,
-        notes: [
-          prescriptionForm.notes || "",
-          medicineNotes,
-          prescriptionForm.followUpNote
-            ? `Follow-up: ${prescriptionForm.followUpNote}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n\n"),
+        notes: prescriptionForm.notes || "",
+        temperatureC: prescriptionForm.temperatureC
+          ? Number(prescriptionForm.temperatureC)
+          : null,
+        pulseBpm: prescriptionForm.pulseBpm
+          ? Number(prescriptionForm.pulseBpm)
+          : null,
+        spo2Percent: prescriptionForm.spo2Percent
+          ? Number(prescriptionForm.spo2Percent)
+          : null,
+        heightCm: prescriptionForm.heightCm
+          ? Number(prescriptionForm.heightCm)
+          : null,
+        labTestRequests: prescriptionForm.labTestRequests || "",
+        items: validMedicineRows.map((row) => ({
+          medicineId: Number(row.medicineId),
+          dosage: row.dosage || "-",
+          days: Number(row.days || 1),
+          quantity: Number(row.quantity || 1),
+          instruction: row.instruction || "",
+        })),
       };
 
+      console.log("PRESCRIPTION PAYLOAD:", payload);
+
       await scmsApi.prescriptions.create(payload);
+
       await updateStatus(emrAppointment, "completed");
 
       closeEmr();
@@ -401,7 +470,11 @@ export default function Appointments() {
       alert(lang === "mm" ? "ဆေးစာသိမ်းပြီးပါပြီ" : "Prescription saved.");
     } catch (error) {
       console.error("Save prescription error:", error);
-      alert("Prescription save failed. Please check backend DTO fields.");
+      alert(
+        error?.response?.data?.message ||
+          error?.response?.data?.title ||
+          "Prescription save failed. Please check backend DTO fields.",
+      );
     } finally {
       setSavingPrescription(false);
     }
@@ -433,9 +506,9 @@ export default function Appointments() {
           <p style={subtitleStyle}>{t.subtitle}</p>
         </div>
 
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={actionWrap}>
           <button onClick={callNext} style={outlineBtn}>
-            {t.callNext} ▶
+            {t.callNext}
           </button>
 
           <button onClick={openWizard} style={primaryBtn}>
@@ -444,14 +517,29 @@ export default function Appointments() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t.search}
-            style={inputStyle}
-          />
+          <div style={filterRow}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t.search}
+              style={inputStyle}
+            />
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ ...inputStyle, maxWidth: 230 }}
+            >
+              <option value="active">Active</option>
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">{t.cancelled}</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
         </div>
 
         <section style={cardStyle}>
@@ -463,7 +551,7 @@ export default function Appointments() {
           </div>
 
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table style={tableStyle}>
               <thead>
                 <tr style={{ background: "#F9FAFB" }}>
                   {["Code", "Patient", "Date & Time", "Status", "Actions"].map(
@@ -496,6 +584,7 @@ export default function Appointments() {
                       appointment.appointmentStatus ||
                       "pending";
                     const style = getStatusStyle(status);
+                    const normalizedStatus = String(status).toLowerCase();
 
                     return (
                       <tr
@@ -540,26 +629,53 @@ export default function Appointments() {
                         </td>
 
                         <td style={tdStyle}>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button
-                              style={miniBtn}
-                              onClick={() =>
-                                updateStatus(appointment, "confirmed")
-                              }
-                            >
-                              Confirm
-                            </button>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {normalizedStatus !== "confirmed" &&
+                              normalizedStatus !== "cancelled" &&
+                              normalizedStatus !== "completed" && (
+                                <button
+                                  style={miniBtn}
+                                  onClick={() =>
+                                    updateStatus(appointment, "confirmed")
+                                  }
+                                >
+                                  Confirm
+                                </button>
+                              )}
 
-                            <button
-                              style={{
-                                ...miniBtn,
-                                color: SUCCESS,
-                                background: "#ECFDF3",
-                              }}
-                              onClick={() => openEmr(appointment)}
-                            >
-                              EMR
-                            </button>
+                            {normalizedStatus !== "cancelled" &&
+                              normalizedStatus !== "completed" && (
+                                <button
+                                  style={{
+                                    ...miniBtn,
+                                    color: SUCCESS,
+                                    background: "#ECFDF3",
+                                  }}
+                                  onClick={() => openEmr(appointment)}
+                                >
+                                  EMR
+                                </button>
+                              )}
+
+                            {normalizedStatus !== "cancelled" &&
+                              normalizedStatus !== "completed" && (
+                                <button
+                                  style={{
+                                    ...miniBtn,
+                                    color: DANGER,
+                                    background: "#FFF1F0",
+                                  }}
+                                  onClick={() => cancelAppointment(appointment)}
+                                >
+                                  Cancel
+                                </button>
+                              )}
                           </div>
                         </td>
                       </tr>
@@ -576,7 +692,7 @@ export default function Appointments() {
         <Modal onClose={closeWizard} width={720}>
           <h2 style={sectionTitle}>{t.newAppointment}</h2>
 
-          <div style={{ display: "flex", gap: 8, margin: "18px 0" }}>
+          <div style={stepBar}>
             {steps.map((step, index) => (
               <div
                 key={step}
@@ -591,7 +707,7 @@ export default function Appointments() {
           </div>
 
           {activeStep === 0 && (
-            <div style={{ display: "grid", gap: 12 }}>
+            <div style={formGrid}>
               <label style={labelStyle}>
                 {t.selectPatient}
                 <select
@@ -627,7 +743,7 @@ export default function Appointments() {
           )}
 
           {activeStep === 1 && (
-            <div style={{ display: "grid", gap: 12 }}>
+            <div style={formGrid}>
               <label style={labelStyle}>
                 {t.dateTime}
                 <input
@@ -637,21 +753,6 @@ export default function Appointments() {
                   onChange={handleChange}
                   style={inputStyle}
                 />
-              </label>
-
-              <label style={labelStyle}>
-                {t.status}
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  style={inputStyle}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="completed">Completed</option>
-                </select>
               </label>
 
               <label style={labelStyle}>
@@ -668,18 +769,17 @@ export default function Appointments() {
           )}
 
           {activeStep === 2 && (
-            <div style={{ display: "grid", gap: 12 }}>
+            <div style={formGrid}>
               <ReviewItem
                 label={t.patient}
                 value={getPatientName(selectedPatient)}
               />
               <ReviewItem label={t.dateTime} value={form.datetime || "-"} />
-              <ReviewItem label={t.status} value={form.status} />
               <ReviewItem label={t.notes} value={form.notes || "-"} />
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <div style={modalActions}>
             {activeStep > 0 && (
               <button onClick={prevStep} style={outlineBtn}>
                 {t.back}
@@ -713,23 +813,9 @@ export default function Appointments() {
             Patient history, vitals, diagnosis, prescription and follow-up.
           </p>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.6fr 0.9fr",
-              gap: 18,
-              marginTop: 22,
-            }}
-          >
+          <div style={emrGrid}>
             <section style={cardStyle}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
-                  gap: 12,
-                  marginBottom: 24,
-                }}
-              >
+              <div style={emrTabs}>
                 {[
                   "Vitals & History",
                   "Diagnosis & Notes",
@@ -781,14 +867,7 @@ export default function Appointments() {
                 <>
                   <h3 style={sectionTitle}>Vitals & History</h3>
 
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3, 1fr)",
-                      gap: 18,
-                      marginTop: 12,
-                    }}
-                  >
+                  <div style={vitalsGrid}>
                     <label style={labelStyle}>
                       Weight (kg)
                       <input
@@ -829,7 +908,7 @@ export default function Appointments() {
                 <>
                   <h3 style={sectionTitle}>Diagnosis & Notes</h3>
 
-                  <div style={{ display: "grid", gap: 14, marginTop: 12 }}>
+                  <div style={formGrid}>
                     <label style={labelStyle}>
                       Diagnosis
                       <select
@@ -880,22 +959,13 @@ export default function Appointments() {
                     <div style={{ ...previewBox, marginTop: 12 }}>
                       <strong style={{ color: DANGER }}>{t.noMedicine}</strong>
                       <span>
-                        This consultation will be saved without medicine items.
+                        This consultation will be completed without
+                        prescription.
                       </span>
                     </div>
                   ) : (
                     medicineRows.map((row, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns:
-                            "1.4fr 0.45fr 0.45fr 0.8fr 1fr 44px",
-                          gap: 14,
-                          marginTop: 12,
-                          alignItems: "end",
-                        }}
-                      >
+                      <div key={index} style={medicineGrid}>
                         <label style={labelStyle}>
                           Medicine
                           <select
@@ -960,14 +1030,14 @@ export default function Appointments() {
                         </label>
 
                         <label style={labelStyle}>
-                          Dose
+                          Dosage
                           <input
-                            value={row.dose}
+                            value={row.dosage}
                             onChange={(e) =>
                               setMedicineRows((prev) =>
                                 prev.map((item, i) =>
                                   i === index
-                                    ? { ...item, dose: e.target.value }
+                                    ? { ...item, dosage: e.target.value }
                                     : item,
                                 ),
                               )
@@ -978,14 +1048,14 @@ export default function Appointments() {
                         </label>
 
                         <label style={labelStyle}>
-                          Timing
+                          Instruction
                           <select
-                            value={row.timing}
+                            value={row.instruction}
                             onChange={(e) =>
                               setMedicineRows((prev) =>
                                 prev.map((item, i) =>
                                   i === index
-                                    ? { ...item, timing: e.target.value }
+                                    ? { ...item, instruction: e.target.value }
                                     : item,
                                 ),
                               )
@@ -994,8 +1064,8 @@ export default function Appointments() {
                           >
                             <option value="after_meal">after_meal</option>
                             <option value="before_meal">before_meal</option>
-                            <option value="morning">morning</option>
-                            <option value="night">night</option>
+                            <option value="with_meal">with_meal</option>
+                            <option value="anytime">anytime</option>
                           </select>
                         </label>
 
@@ -1012,7 +1082,7 @@ export default function Appointments() {
                           }}
                           title="No Medicine Required"
                         >
-                          ✕
+                          X
                         </button>
                       </div>
                     ))
@@ -1048,14 +1118,7 @@ export default function Appointments() {
                 </>
               )}
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  justifyContent: "flex-end",
-                  marginTop: 24,
-                }}
-              >
+              <div style={modalActions}>
                 {emrStep > 0 && (
                   <button
                     type="button"
@@ -1123,35 +1186,14 @@ export default function Appointments() {
 
 function Modal({ children, onClose, width = 700 }) {
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15,23,42,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-        padding: 20,
-      }}
-    >
+    <div onClick={onClose} style={modalOverlay}>
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxWidth: width,
-          maxHeight: "90vh",
-          overflowY: "auto",
-          background: CARD,
-          borderRadius: 22,
-          padding: 24,
-          boxShadow: "0 24px 60px rgba(16,24,40,0.25)",
-        }}
+        style={{ ...modalBox, maxWidth: width }}
       >
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button onClick={onClose} style={closeBtn}>
-            ✕
+            X
           </button>
         </div>
 
@@ -1172,28 +1214,13 @@ function ReviewItem({ label, value }) {
   );
 }
 
-function formatDate(value) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleString("en-MY", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 const pageHeader = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
   marginBottom: 22,
   gap: 16,
+  flexWrap: "wrap",
 };
 
 const titleStyle = {
@@ -1207,6 +1234,18 @@ const subtitleStyle = {
   color: MUTED,
   marginTop: 6,
   fontSize: 14,
+};
+
+const actionWrap = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const filterRow = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
 };
 
 const cardStyle = {
@@ -1246,6 +1285,12 @@ const inputStyle = {
   outline: "none",
   fontSize: 14,
   background: CARD,
+};
+
+const tableStyle = {
+  width: "100%",
+  minWidth: 860,
+  borderCollapse: "collapse",
 };
 
 const primaryBtn = {
@@ -1318,4 +1363,73 @@ const emptyCell = {
   padding: 24,
   textAlign: "center",
   color: MUTED,
+};
+
+const stepBar = {
+  display: "flex",
+  gap: 8,
+  margin: "18px 0",
+};
+
+const formGrid = {
+  display: "grid",
+  gap: 12,
+};
+
+const modalActions = {
+  display: "flex",
+  gap: 10,
+  justifyContent: "flex-end",
+  marginTop: 24,
+  flexWrap: "wrap",
+};
+
+const modalOverlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(15,23,42,0.45)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999,
+  padding: 20,
+};
+
+const modalBox = {
+  width: "100%",
+  maxHeight: "90vh",
+  overflowY: "auto",
+  background: CARD,
+  borderRadius: 22,
+  padding: 24,
+  boxShadow: "0 24px 60px rgba(16,24,40,0.25)",
+};
+
+const emrGrid = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 0.9fr)",
+  gap: 18,
+  marginTop: 22,
+};
+
+const emrTabs = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 12,
+  marginBottom: 24,
+};
+
+const vitalsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 18,
+  marginTop: 12,
+};
+
+const medicineGrid = {
+  display: "grid",
+  gridTemplateColumns: "1.4fr 0.45fr 0.45fr 0.8fr 1fr 44px",
+  gap: 14,
+  marginTop: 12,
+  alignItems: "end",
 };

@@ -790,6 +790,12 @@ const navItems = [
     icon: "notif",
     route: "/admin/notifications",
   },
+  {
+    key: "reports",
+    label: "Reports",
+    icon: "reports",
+    route: "/admin/reports",
+  },
 ];
 
 const apiEndpoints = {
@@ -1362,249 +1368,239 @@ export default function AdminDashboard() {
             alignItems: "center",
             marginBottom: 24,
             gap: 16,
-            flexWrap: "wrap"
+            flexWrap: "wrap",
           }}
         >
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: MUTED }}>
               Clinic A • {dateStr}
             </h2>
-            {apiError ? <div className="alert" style={{ marginTop: 8 }}>{apiError}</div> : null}
+            {apiError ? (
+              <div className="alert" style={{ marginTop: 8 }}>
+                {apiError}
+              </div>
+            ) : null}
           </div>
 
           <div className="top-actions" style={{ display: "flex", gap: 12 }}>
             <button className="btn btn-outline" onClick={loadDashboardData}>
               {loading ? "Loading..." : "Refresh"}
             </button>
-
-            <button className="btn btn-primary">
-              <span>+</span>
-              <span className="hide-mobile">New Prescription</span>
-            </button>
           </div>
         </header>
 
-            <section className="stats-grid">
-              {stats.map((stat, index) => (
-                <article key={index} className="stat-card">
-                  <div className="stat-top">
-                    <div className="stat-icon">{stat.icon}</div>
+        <section className="stats-grid">
+          {stats.map((stat, index) => (
+            <article key={index} className="stat-card">
+              <div className="stat-top">
+                <div className="stat-icon">{stat.icon}</div>
 
-                    {stat.badge ? (
-                      <span
-                        className={`badge ${
-                          stat.badgeType === "danger"
-                            ? "badge-danger"
-                            : "badge-success"
-                        }`}
-                      >
-                        {stat.badge}
-                      </span>
-                    ) : null}
-                  </div>
+                {stat.badge ? (
+                  <span
+                    className={`badge ${
+                      stat.badgeType === "danger"
+                        ? "badge-danger"
+                        : "badge-success"
+                    }`}
+                  >
+                    {stat.badge}
+                  </span>
+                ) : null}
+              </div>
 
-                  <div className="stat-label">{stat.label}</div>
+              <div className="stat-label">{stat.label}</div>
 
-                  <div className="stat-value" style={{ color: stat.color }}>
-                    {loading ? "..." : stat.value}
-                  </div>
-                </article>
+              <div className="stat-value" style={{ color: stat.color }}>
+                {loading ? "..." : stat.value}
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="content-grid">
+          <article className="card">
+            <div className="card-header">
+              <div>
+                <div className="section-title">Patient Queue</div>
+                <div className="section-subtitle">
+                  Today's appointments and walk-ins
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <span className="badge badge-success">● Live</span>
+
+                <button className="btn btn-primary" onClick={handleCallNext}>
+                  {calling ? "Calling..." : "Call Next ▶"}
+                </button>
+              </div>
+            </div>
+
+            <div className="table-head">
+              {["Token", "Patient", "Reason", "Wait", "Status"].map((head) => (
+                <div key={head}>{head}</div>
               ))}
-            </section>
+            </div>
 
-            <section className="content-grid">
-              <article className="card">
-                <div className="card-header">
-                  <div>
-                    <div className="section-title">Patient Queue</div>
-                    <div className="section-subtitle">
-                      Today's appointments and walk-ins
-                    </div>
-                  </div>
+            {queue.length === 0 ? (
+              <div className="empty">No appointments found.</div>
+            ) : (
+              queue.map((patient) => (
+                <div key={patient.id} className="table-row">
+                  <div className="token">{patient.token}</div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "center",
-                    }}
-                  >
-                    <span className="badge badge-success">● Live</span>
-
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleCallNext}
+                  <div className="patient-cell">
+                    <div
+                      className="avatar"
+                      style={{ background: patient.avatar }}
                     >
-                      {calling ? "Calling..." : "Call Next ▶"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="table-head">
-                  {["Token", "Patient", "Reason", "Wait", "Status"].map(
-                    (head) => (
-                      <div key={head}>{head}</div>
-                    ),
-                  )}
-                </div>
-
-                {queue.length === 0 ? (
-                  <div className="empty">No appointments found.</div>
-                ) : (
-                  queue.map((patient) => (
-                    <div key={patient.id} className="table-row">
-                      <div className="token">{patient.token}</div>
-
-                      <div className="patient-cell">
-                        <div
-                          className="avatar"
-                          style={{ background: patient.avatar }}
-                        >
-                          {getInitials(patient.name)}
-                        </div>
-
-                        <div style={{ minWidth: 0 }}>
-                          <div className="patient-name">{patient.name}</div>
-                          <div className="patient-meta">Age {patient.age}</div>
-                        </div>
-                      </div>
-
-                      <div className="cell-text">{patient.reason}</div>
-
-                      <div className="cell-text">{patient.wait}</div>
-
-                      <div>
-                        <span className={`pill ${statusClass[patient.status]}`}>
-                          {statusLabel[patient.status]}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </article>
-
-              <article className="card summary-card">
-                <div className="summary-top">
-                  <div className="section-title" style={{ color: "white" }}>
-                    Today's Summary
-                  </div>
-
-                  <span className="summary-badge">Daily</span>
-                </div>
-
-                <div>
-                  <div className="revenue-label">Revenue Collected</div>
-                  <div className="revenue">
-                    RM {summary.revenue.toLocaleString()}
-                  </div>
-                </div>
-
-                {[
-                  {
-                    label: "Consultations",
-                    pct: summary.consultations.pct,
-                    val: summary.consultations.val,
-                  },
-
-                  {
-                    label: "Prescriptions",
-                    pct: summary.prescriptions.pct,
-                    val: summary.prescriptions.val,
-                  },
-                ].map((metric) => (
-                  <div key={metric.label} className="metric">
-                    <div className="metric-row">
-                      <span>{metric.label}</span>
-                      <span>{metric.val}</span>
+                      {getInitials(patient.name)}
                     </div>
 
-                    <div className="progress">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${metric.pct}%` }}
-                      />
+                    <div style={{ minWidth: 0 }}>
+                      <div className="patient-name">{patient.name}</div>
+                      <div className="patient-meta">Age {patient.age}</div>
                     </div>
                   </div>
-                ))}
 
-                <div className="patient-flow">
-                  <div
-                    style={{
-                      textAlign: "center",
-                      fontWeight: 800,
-                      marginBottom: 14,
-                    }}
-                  >
-                    Patient Flow
-                  </div>
+                  <div className="cell-text">{patient.reason}</div>
 
-                  <MiniBarChart data={chartData} />
+                  <div className="cell-text">{patient.wait}</div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 16,
-                      marginTop: 14,
-                      fontSize: 12,
-                      color: "rgba(255,255,255,0.78)",
-                    }}
-                  >
-                    <span>■ Scheduled</span>
-                    <span>■ Walk-in</span>
-                  </div>
-                </div>
-              </article>
-            </section>
-
-            <section className="bottom-grid">
-              <article className="card">
-                <div className="card-header">
                   <div>
-                    <div className="section-title">Upcoming Follow-Ups</div>
-                    <div className="section-subtitle">
-                      Patients who need review
+                    <span className={`pill ${statusClass[patient.status]}`}>
+                      {statusLabel[patient.status]}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </article>
+
+          <article className="card summary-card">
+            <div className="summary-top">
+              <div className="section-title" style={{ color: "white" }}>
+                Today's Summary
+              </div>
+
+              <span className="summary-badge">Daily</span>
+            </div>
+
+            <div>
+              <div className="revenue-label">Revenue Collected</div>
+              <div className="revenue">
+                MMK {summary.revenue.toLocaleString()}
+              </div>
+            </div>
+
+            {[
+              {
+                label: "Consultations",
+                pct: summary.consultations.pct,
+                val: summary.consultations.val,
+              },
+
+              {
+                label: "Prescriptions",
+                pct: summary.prescriptions.pct,
+                val: summary.prescriptions.val,
+              },
+            ].map((metric) => (
+              <div key={metric.label} className="metric">
+                <div className="metric-row">
+                  <span>{metric.label}</span>
+                  <span>{metric.val}</span>
+                </div>
+
+                <div className="progress">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${metric.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            <div className="patient-flow">
+              <div
+                style={{
+                  textAlign: "center",
+                  fontWeight: 800,
+                  marginBottom: 14,
+                }}
+              >
+                Patient Flow
+              </div>
+
+              <MiniBarChart data={chartData} />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 16,
+                  marginTop: 14,
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.78)",
+                }}
+              >
+                <span>■ Scheduled</span>
+                <span>■ Walk-in</span>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section className="bottom-grid">
+          <article className="card">
+            <div className="card-header">
+              <div>
+                <div className="section-title">Upcoming Follow-Ups</div>
+                <div className="section-subtitle">Patients who need review</div>
+              </div>
+
+              <button className="btn btn-outline">View All</button>
+            </div>
+
+            <div className="list">
+              {recentFollowUps.length === 0 ? (
+                <div className="empty">No follow-ups found.</div>
+              ) : (
+                recentFollowUps.map((followUp, index) => (
+                  <div key={followUp.id || index} className="list-item">
+                    <div
+                      className="list-icon"
+                      style={{
+                        background: followUp.urgent ? "#FFF1F0" : PRIMARY_LIGHT,
+                        color: followUp.urgent ? DANGER : PRIMARY,
+                      }}
+                    >
+                      <NavIcon type="followups" />
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                      <div className="list-title">{followUp.name}</div>
+                      <div className="list-sub">{followUp.reason}</div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      {followUp.urgent ? (
+                        <span className="badge badge-danger">Urgent</span>
+                      ) : null}
+
+                      <div className="list-sub">{followUp.date}</div>
                     </div>
                   </div>
-
-                  <button className="btn btn-outline">View All</button>
-                </div>
-
-                <div className="list">
-                  {recentFollowUps.length === 0 ? (
-                    <div className="empty">No follow-ups found.</div>
-                  ) : (
-                    recentFollowUps.map((followUp, index) => (
-                      <div key={followUp.id || index} className="list-item">
-                        <div
-                          className="list-icon"
-                          style={{
-                            background: followUp.urgent
-                              ? "#FFF1F0"
-                              : PRIMARY_LIGHT,
-                            color: followUp.urgent ? DANGER : PRIMARY,
-                          }}
-                        >
-                          <NavIcon type="followups" />
-                        </div>
-
-                        <div style={{ flex: 1 }}>
-                          <div className="list-title">{followUp.name}</div>
-                          <div className="list-sub">{followUp.reason}</div>
-                        </div>
-
-                        <div style={{ textAlign: "right" }}>
-                          {followUp.urgent ? (
-                            <span className="badge badge-danger">Urgent</span>
-                          ) : null}
-
-                          <div className="list-sub">{followUp.date}</div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </article>
-            </section>
+                ))
+              )}
+            </div>
+          </article>
+        </section>
       </div>
     </>
   );
