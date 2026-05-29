@@ -1,19 +1,39 @@
 import api from "./api";
 
 /**
- * Mobile Number နှင့် Password ကို အသုံးပြု၍ Login ဝင်ရန်
- @param {Object} credentials - { mobileNo, password }
+ * Login API
  */
 export const loginAPI = async (credentials) => {
-  const response = await api.post("/auth/login", credentials);
-  return response.data; // Backend က { token, role, user } စတာတွေ ပြန်ပေးရပါမည်
+  const formattedCredentials = {
+    emailOrMobile: credentials.email, // 🔥 IMPORTANT
+    password: credentials.password,
+  };
+
+  const response = await api.post("/Auth/login", formattedCredentials, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  return response.data;
 };
 
 /**
- * အကောင့်အသစ် ဖွင့်ရန် (Patient/User အတွက်)
- * @param {Object} userData - { name, mobileNo, password, role }
+ * Register API
  */
 export const registerAPI = async (userData) => {
-  const response = await api.post("/auth/register", userData);
+  const formattedData = {
+    fullName: userData.name,
+    email: userData.email,
+    password: userData.password,
+    role: userData.role || "User",
+  };
+
+  const response = await api.post("/Auth/register", formattedData, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
   return response.data;
 };
