@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
 import NotFound from "./pages/NotFound";
+import PatientPortal from "./pages/PatientPortal";
 
 import AdminLayout from "./features/admin/components/AdminLayout";
 import AdminDashboard from "./features/admin/components/AdminDashboard";
@@ -49,6 +50,66 @@ function App() {
   }
 
   return (
+    <BrowserRouter>
+      <Routes>
+        {/* ====================================================
+            ၄။ ROOT ROUTE (/) စစ်ဆေးသည့်နေရာ
+           ==================================================== */}
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? (
+              userRole === "admin" ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <Navigate to="/register" replace />
+            )
+          }
+        />
+
+        {/* Auth Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Patient Portal (mobile-first UI) */}
+        <Route path="/patient-portal" element={<PatientPortal />} />
+
+        {/* ====================================================
+            ၅။ ADMIN SIDE ROUTES (Layout မပါဘဲ တိုက်ရိုက်ပတ်ထားသည်)
+           ==================================================== */}
+        <Route path="/admin">
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="appointments" element={<AdminAppointments />} />
+          <Route path="diseases" element={<AdminDiseases />} />
+          <Route path="documents" element={<AdminDocuments />} />
+          <Route path="follow-ups" element={<AdminFollowUps />} />
+          <Route path="lab-reports" element={<AdminLabReports />} />
+          <Route path="medicines" element={<AdminMedicines />} />
+          <Route
+            path="notifications"
+            element={<div className="p-6 font-bold">Admin Notifications</div>}
+          />
+        </Route>
+
+        {/* ====================================================
+            ၆။ USER/PATIENT SIDE ROUTES (Layout မပါဘဲ တိုက်ရိုက်ပတ်ထားသည်)
+           ==================================================== */}
+        <Route path="/">
+          <Route path="dashboard" element={<UserDashboard />} />
+          <Route path="book-appointment" element={<UserNewAppointment />} />
+          <Route path="my-documents" element={<UserMyDocuments />} />
+          <Route path="my-prescriptions" element={<UserMyPrescriptions />} />
+          <Route path="my-payments" element={<UserMyPayments />} />
+        </Route>
+
+        {/* 404 Route */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
     <Routes>
       <Route
         path="/"
