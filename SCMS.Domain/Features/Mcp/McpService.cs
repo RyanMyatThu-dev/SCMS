@@ -150,14 +150,14 @@ namespace SCMS.Domain.Features.Mcp
                 new()
                 {
                     Name = "cancel_appointments_in_range",
-                    Description = "Cancel all appointments scheduled within a specific date/time range (ISO 8601 format).",
+                    Description = "Cancel all appointments scheduled within a specific date/time range. Supports relative dates like 'today' or 'tomorrow' and simple times.",
                     InputSchema = new
                     {
                         type = "object",
                         properties = new
                         {
-                            startTime = new { type = "string", description = "The start of the time range, e.g. '2026-05-29T10:00:00'." },
-                            endTime = new { type = "string", description = "The end of the time range, e.g. '2026-05-29T12:00:00'." },
+                            startTime = new { type = "string", description = "Start of the time range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 12:00'), or full ISO dates." },
+                            endTime = new { type = "string", description = "End of the time range. Supports simple times (e.g. '12:00'), relative dates ('today at 12:00', 'tomorrow at 14:00'), or full ISO dates." },
                             reason = new { type = "string", description = "Optional reason for cancelling these appointments." }
                         },
                         required = new[] { "startTime", "endTime" }
@@ -166,15 +166,15 @@ namespace SCMS.Domain.Features.Mcp
                 new()
                 {
                     Name = "reschedule_appointments_in_range",
-                    Description = "Reschedule all appointments scheduled within a source time range by shifting them to a new target start time (ISO 8601 format).",
+                    Description = "Reschedule all appointments scheduled within a source time range by shifting them to a new target start time. Supports relative dates and simple times.",
                     InputSchema = new
                     {
                         type = "object",
                         properties = new
                         {
-                            sourceStartTime = new { type = "string", description = "Start of the source time range to reschedule from, e.g. '2026-05-29T10:00:00'." },
-                            sourceEndTime = new { type = "string", description = "End of the source time range to reschedule from, e.g. '2026-05-29T11:00:00'." },
-                            targetStartTime = new { type = "string", description = "New start time to begin shifting appointments to, e.g. '2026-05-29T14:00:00'." }
+                            sourceStartTime = new { type = "string", description = "Start of source range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 10:00'), or full ISO dates." },
+                            sourceEndTime = new { type = "string", description = "End of source range. Supports simple times (e.g. '11:00'), relative dates ('today at 11:00', 'tomorrow at 11:00'), or full ISO dates." },
+                            targetStartTime = new { type = "string", description = "New start time to begin shifting appointments to. Supports simple times (e.g. '14:00'), relative dates ('today at 14:00', 'tomorrow at 08:30'), or full ISO dates." }
                         },
                         required = new[] { "sourceStartTime", "sourceEndTime", "targetStartTime" }
                     }
@@ -198,13 +198,13 @@ namespace SCMS.Domain.Features.Mcp
                 new()
                 {
                     Name = "reschedule_today_appointments",
-                    Description = "Reschedule all today's active appointments to start from a new target start time (shifting them all relatively to preserve their relative spacing and sequence).",
+                    Description = "Reschedule today's active appointments to start from a new target start time. Supports simple times (e.g. '08:30' or '8:30 AM') and relative dates ('today at 08:30').",
                     InputSchema = new
                     {
                         type = "object",
                         properties = new
                         {
-                            targetStartTime = new { type = "string", description = "The new start time for the first appointment of the day, e.g. '2026-05-29T09:30:00'." }
+                            targetStartTime = new { type = "string", description = "The new start time for the first appointment. Supports simple times (e.g. '08:30'), relative ('today at 08:30'), or full ISO dates." }
                         },
                         required = new[] { "targetStartTime" }
                     }
@@ -822,10 +822,78 @@ namespace SCMS.Domain.Features.Mcp
 
         private static DateTime ParseDateTimeUtc(string input)
         {
-            if (DateTime.TryParse(input, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            var trimmed = input.Trim().ToLowerInvariant();
+            
+            var todayStr = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            var tomorrowStr = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd");
+
+            if (trimmed.Contains("today"))
             {
-                return dt.Kind == DateTimeKind.Local ? dt.ToUniversalTime() : dt;
+                trimmed = trimmed.Replace("today", todayStr).Trim();
             }
+            else if (trimmed.Contains("tomorrow"))
+            {
+                trimmed = trimmed.Replace("tomorrow", tomorrowStr).Trim();
+            }
+
+            // Clean up common joining words
+            trimmed = trimmed.Replace(" at ", " ");
+
+            // Check if it has a date separator or month name to see if it specifies a full date
+            bool hasDateSeparator = trimmed.Contains('-') || trimmed.Contains('/') || trimmed.Contains('.');
+            bool hasMonthName = trimmed.Contains("jan") ||
+                                trimmed.Contains("feb") ||
+                                trimmed.Contains("mar") ||
+                                trimmed.Contains("apr") ||
+                                trimmed.Contains("may") ||
+                                trimmed.Contains("jun") ||
+                                trimmed.Contains("jul") ||
+                                trimmed.Contains("aug") ||
+                                trimmed.Contains("sep") ||
+                                trimmed.Contains("oct") ||
+                                trimmed.Contains("nov") ||
+                                trimmed.Contains("dec");
+
+            if (!hasDateSeparator && !hasMonthName)
+            {
+                // Time-only string (e.g. "08:30", "8:30 AM", "14:00", "2:00 PM")
+                // Parse it as a time to extract hours, minutes, and seconds
+                if (DateTime.TryParse(trimmed, out var parsedTime))
+                {
+                    // Construct a UTC DateTime with today's date and the parsed time
+                    var today = DateTime.UtcNow.Date;
+                    return new DateTime(
+                        today.Year, 
+                        today.Month, 
+                        today.Day, 
+                        parsedTime.Hour, 
+                        parsedTime.Minute, 
+                        parsedTime.Second, 
+                        DateTimeKind.Utc
+                    );
+                }
+            }
+
+            // Otherwise, it's a full date string, parse it using standard TryParse
+            if (DateTime.TryParse(trimmed, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            {
+                if (dt.Kind == DateTimeKind.Local)
+                {
+                    return dt.ToUniversalTime();
+                }
+                else if (dt.Kind == DateTimeKind.Unspecified)
+                {
+                    return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                }
+                return dt;
+            }
+
+            // Fallback: try general parsing style
+            if (DateTime.TryParse(trimmed, null, System.Globalization.DateTimeStyles.None, out var dtFallback))
+            {
+                return dtFallback.Kind == DateTimeKind.Local ? dtFallback.ToUniversalTime() : dtFallback;
+            }
+
             throw new FormatException($"Invalid date/time format: {input}");
         }
 
