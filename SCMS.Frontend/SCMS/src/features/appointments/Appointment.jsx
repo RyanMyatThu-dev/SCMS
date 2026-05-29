@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import scmsApi from "../../services/scmsApi";
+import { showConfirm } from "../../utils/dialogs";
 
 const PRIMARY = "#0052CC";
 const PRIMARY_LIGHT = "#EBF2FF";
@@ -291,7 +292,7 @@ export default function Appointments() {
   };
 
   const cancelAppointment = async (appointment) => {
-    const ok = confirm(
+    const ok = await showConfirm(
       lang === "mm"
         ? "ဒီ appointment ကို cancel လုပ်မှာ သေချာလား?"
         : "Are you sure you want to cancel this appointment?",
