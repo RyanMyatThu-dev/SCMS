@@ -6,12 +6,17 @@ using SCMS.Domain;
 using SCMS.Domain.Realtime;
 using SCMS.Shared;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
+
 
 
 builder.Services.AddScmsFeatureControllers();
 builder.Services.AddScmsFeatureServices(builder.Configuration);
+
 builder.Services.AddSignalR();
+
 
 
 builder.Services.AddCors(options =>
@@ -19,44 +24,73 @@ builder.Services.AddCors(options =>
     options.AddPolicy("ScmsWeb", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5270")
-            .WithOrigins("https://localhost:7111")
+            .WithOrigins(
+                "http://localhost:5173",
+                "https://localhost:5173",
+                "http://localhost:5270",
+                "https://localhost:7111"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials(); 
+            .AllowCredentials();
     });
 });
+
 
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        
-        var issuer = builder.Configuration["Jwt:Issuer"] ?? "SCMS.Api";
-        var audience = builder.Configuration["Jwt:Audience"] ?? "SCMS.Web";
-        var signingKey = builder.Configuration["Jwt:SigningKey"] ?? "SCMS development signing key - 32 characters long!";
+        var issuer =
+            builder.Configuration["Jwt:Issuer"]
+            ?? "SCMS.Api";
 
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = issuer,
-            ValidateAudience = true,
-            ValidAudience = audience,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1)
-        };
-        
-        
+        var audience =
+            builder.Configuration["Jwt:Audience"]
+            ?? "SCMS.Web";
+
+        var signingKey =
+            builder.Configuration["Jwt:SigningKey"]
+            ?? "SCMS development signing key - 32 characters long!";
+
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = issuer,
+
+                ValidateAudience = true,
+                ValidAudience = audience,
+
+                ValidateIssuerSigningKey = true,
+
+                IssuerSigningKey =
+                    new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(signingKey)
+                    ),
+
+                ValidateLifetime = true,
+
+                ClockSkew = TimeSpan.FromMinutes(1)
+            };
+
+       
+
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                var accessToken =
+                    context.Request.Query["access_token"];
+
+                var path =
+                    context.HttpContext.Request.Path;
+
+                if (
+                    !string.IsNullOrEmpty(accessToken)
+                    && path.StartsWithSegments("/hubs")
+                )
                 {
                     context.Token = accessToken;
                 }
@@ -67,8 +101,12 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen();
+
+
 
 var app = builder.Build();
 
@@ -76,20 +114,38 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapSwagger("/openapi/{documentName}.json");
+
     app.MapScalarApiReference();
 }
+
+
 
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(Result.Failure("An unexpected server error occurred. Check the API logs and database connection."));
+        context.Response.StatusCode =
+            StatusCodes.Status500InternalServerError;
+
+        context.Response.ContentType =
+            "application/json";
+
+        await context.Response.WriteAsJsonAsync(
+            Result.Failure(
+                "An unexpected server error occurred. Check the API logs and database connection."
+            )
+        );
     });
 });
 
-await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
+
+
+await app.Services.EnsureScmsDatabaseCreatedAsync(
+    app.Configuration,
+    app.Logger
+);
+
+
 
 app.UseHttpsRedirection();
 
@@ -97,12 +153,19 @@ app.UseHttpsRedirection();
 app.UseCors("ScmsWeb");
 
 app.UseAuthentication();
+
 app.UseAuthorization();
+
+
 
 app.MapControllers();
 
 
+
 app.MapHub<QueueHub>("/hubs/queue");
+
 app.MapHub<NotificationsHub>("/hubs/notifications");
+
+
 
 app.Run();
