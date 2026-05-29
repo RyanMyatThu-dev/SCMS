@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8080/api",
+  // baseURL: "http://localhost:8080/api",
+  baseURL: 'http://localhost:5140/api',
   headers: {
     "Content-Type": "application/json",
   },
@@ -27,8 +28,10 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.clear();
-
-      window.location.href = "/login";
+      const path = window.location.pathname;
+      window.location.href = path.startsWith("/patient-portal")
+        ? "/patient-portal"
+        : "/login";
     }
     return Promise.reject(error);
   },

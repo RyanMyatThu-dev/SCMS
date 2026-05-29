@@ -9,6 +9,7 @@ import UserDashboard from "./features/user/components/UserDashboard";
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
 import NotFound from "./pages/NotFound";
+import PatientPortal from "./pages/PatientPortal";
 
 // ကျန်ရှိသော Admin Features များ (အစ်ကို့ရဲ့ လက်ရှိ ဖိုင်လမ်းကြောင်းများအတိုင်း)
 import AdminAppointments from "./features/appointments/Appointment";
@@ -94,6 +95,9 @@ function App() {
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* Patient Portal (mobile-first UI) */}
+        <Route path="/patient-portal" element={<PatientPortal />} />
 
         {/* ====================================================
             ၅။ ADMIN SIDE ROUTES (Layout မပါဘဲ တိုက်ရိုက်ပတ်ထားသည်)

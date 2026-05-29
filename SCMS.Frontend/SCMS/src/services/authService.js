@@ -1,19 +1,66 @@
 import api from "./api";
 
 /**
- * Mobile Number နှင့် Password ကို အသုံးပြု၍ Login ဝင်ရန်
- @param {Object} credentials - { mobileNo, password }
+ * Unwrap SCMS Result<T> envelope from API responses.
  */
-export const loginAPI = async (credentials) => {
-  const response = await api.post("/auth/login", credentials);
-  return response.data; // Backend က { token, role, user } စတာတွေ ပြန်ပေးရပါမည်
+const unwrapResult = (result) => {
+  if (!result?.isSuccess) {
+    const error = new Error(result?.message || "Request failed");
+    error.response = { data: result };
+    throw error;
+  }
+  return result.data;
+};
+
+const persistSession = (auth) => {
+  const role = auth.user?.roles?.[0]?.toLowerCase() ?? "patient";
+  localStorage.setItem("token", auth.accessToken);
+  localStorage.setItem("refreshToken", auth.refreshToken);
+  localStorage.setItem("userRole", role);
+  localStorage.setItem("userName", auth.user?.name ?? "");
+  localStorage.setItem("userId", String(auth.user?.userId ?? ""));
+  return { token: auth.accessToken, refreshToken: auth.refreshToken, role, user: auth.user };
 };
 
 /**
- * အကောင့်အသစ် ဖွင့်ရန် (Patient/User အတွက်)
- * @param {Object} userData - { name, mobileNo, password, role }
+ * Mobile or email + password login.
+ * @param {{ mobileNo?: string, emailOrMobile?: string, password: string }} credentials
+ */
+export const loginAPI = async (credentials) => {
+  const response = await api.post("/Auth/login", {
+    emailOrMobile: credentials.emailOrMobile ?? credentials.mobileNo,
+    password: credentials.password,
+  });
+  const auth = unwrapResult(response.data);
+  return persistSession(auth);
+};
+
+/**
+ * Patient account registration.
+ * @param {{ name: string, mobileNo?: string, email?: string, password: string }} userData
  */
 export const registerAPI = async (userData) => {
-  const response = await api.post("/auth/register", userData);
-  return response.data;
+  const mobile = userData.mobileNo?.trim();
+  const email =
+    userData.email?.trim() ||
+    (mobile ? `${mobile.replace(/\D/g, "")}@patient.scms` : "");
+
+  const response = await api.post("/Auth/register", {
+    name: userData.name,
+    mobileNo: mobile,
+    email,
+    password: userData.password,
+  });
+  const auth = unwrapResult(response.data);
+  return persistSession(auth);
 };
+
+export const logoutAPI = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("userName");
+  localStorage.removeItem("userId");
+};
+
+export const isAuthenticated = () => Boolean(localStorage.getItem("token"));
