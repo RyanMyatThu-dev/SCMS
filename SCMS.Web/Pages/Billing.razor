@@ -29,7 +29,7 @@
                     <option value="0">Select appointment</option>
                     @foreach (var appointment in appointments)
                     {
-                        <option value="@appointment.Id">@appointment.AppointmentCode - @appointment.PatientName - @appointment.Datetime.ToString("MMM dd HH:mm")</option>
+                        <option value="@appointment.Id">@appointment.AppointmentCode - @appointment.PatientName - @appointment.Datetime.ToString("MMM dd hh:mm tt")</option>
                     }
                 </select>
                 <label>Payment method</label>

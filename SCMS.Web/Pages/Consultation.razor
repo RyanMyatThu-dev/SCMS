@@ -30,7 +30,7 @@
                                 DataSource="appointments" ValueName="@nameof(AppointmentDetailsResponse.Id)" 
                                 OnSelectedItemChanged="SelectAppointmentHandler" Style="width: 100%; margin-top: 8px;" Placeholder="Select appointment">
                             <ItemTemplate Context="appt">
-                                @appt.TokenNumber - @appt.PatientName - @appt.Datetime.ToString("MMM dd HH:mm")
+                                @appt.TokenNumber - @appt.PatientName - @appt.Datetime.ToString("MMM dd hh:mm tt")
                             </ItemTemplate>
                         </Select>
                     </div>

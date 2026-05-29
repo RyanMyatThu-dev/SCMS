@@ -46,7 +46,7 @@ else
                 {
                     <article class="item-card">
                         <strong>Token @appt.TokenNumber - @appt.PatientName</strong>
-                        <span>@appt.Datetime.ToString("MMM dd, HH:mm") - @appt.Status</span>
+                        <span>@appt.Datetime.ToString("MMM dd, hh:mm tt") - @appt.Status</span>
                         <QueueStatus AppointmentId="appt.Id" />
                     </article>
                 }

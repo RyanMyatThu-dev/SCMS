@@ -130,6 +130,84 @@ namespace SCMS.Domain.Features.Mcp
                     Name = "get_unread_notifications",
                     Description = "Retrieve unread system alerts, expiring batches, and inventory notifications.",
                     InputSchema = new { type = "object", properties = new { } }
+                },
+                new()
+                {
+                    Name = "update_appointment_status",
+                    Description = "Update the status of a specific appointment (e.g. 'pending', 'confirmed', 'cancelled', 'completed').",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            appointmentId = new { type = "integer", description = "The unique ID of the appointment." },
+                            status = new { type = "string", description = "The new status: 'pending', 'confirmed', 'cancelled', or 'completed'." },
+                            notes = new { type = "string", description = "Optional update notes explaining the status change." }
+                        },
+                        required = new[] { "appointmentId", "status" }
+                    }
+                },
+                new()
+                {
+                    Name = "cancel_appointments_in_range",
+                    Description = "Cancel all appointments scheduled within a specific date/time range (ISO 8601 format).",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            startTime = new { type = "string", description = "The start of the time range, e.g. '2026-05-29T10:00:00'." },
+                            endTime = new { type = "string", description = "The end of the time range, e.g. '2026-05-29T12:00:00'." },
+                            reason = new { type = "string", description = "Optional reason for cancelling these appointments." }
+                        },
+                        required = new[] { "startTime", "endTime" }
+                    }
+                },
+                new()
+                {
+                    Name = "reschedule_appointments_in_range",
+                    Description = "Reschedule all appointments scheduled within a source time range by shifting them to a new target start time (ISO 8601 format).",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            sourceStartTime = new { type = "string", description = "Start of the source time range to reschedule from, e.g. '2026-05-29T10:00:00'." },
+                            sourceEndTime = new { type = "string", description = "End of the source time range to reschedule from, e.g. '2026-05-29T11:00:00'." },
+                            targetStartTime = new { type = "string", description = "New start time to begin shifting appointments to, e.g. '2026-05-29T14:00:00'." }
+                        },
+                        required = new[] { "sourceStartTime", "sourceEndTime", "targetStartTime" }
+                    }
+                },
+                new()
+                {
+                    Name = "update_appointment_status_by_patient_name",
+                    Description = "Update the status of an appointment (e.g. 'confirmed', 'cancelled') for a patient by searching for their name (partial or full matches).",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            patientName = new { type = "string", description = "The full or partial name of the patient." },
+                            status = new { type = "string", description = "The new status: 'pending', 'confirmed', 'cancelled', or 'completed'." },
+                            notes = new { type = "string", description = "Optional physician or administrative notes." }
+                        },
+                        required = new[] { "patientName", "status" }
+                    }
+                },
+                new()
+                {
+                    Name = "reschedule_today_appointments",
+                    Description = "Reschedule all today's active appointments to start from a new target start time (shifting them all relatively to preserve their relative spacing and sequence).",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            targetStartTime = new { type = "string", description = "The new start time for the first appointment of the day, e.g. '2026-05-29T09:30:00'." }
+                        },
+                        required = new[] { "targetStartTime" }
+                    }
                 }
             };
         }
@@ -151,6 +229,11 @@ namespace SCMS.Domain.Features.Mcp
                     "get_expiring_batches" => await GetExpiringBatchesAsync(),
                     "create_follow_up_reminder" => await CreateFollowUpReminderAsync(request.Arguments),
                     "get_unread_notifications" => await GetUnreadNotificationsAsync(),
+                    "update_appointment_status" => await UpdateAppointmentStatusAsync(request.Arguments),
+                    "cancel_appointments_in_range" => await CancelAppointmentsInRangeAsync(request.Arguments),
+                    "reschedule_appointments_in_range" => await RescheduleAppointmentsInRangeAsync(request.Arguments),
+                    "update_appointment_status_by_patient_name" => await UpdateAppointmentStatusByPatientNameAsync(request.Arguments),
+                    "reschedule_today_appointments" => await RescheduleTodayAppointmentsAsync(request.Arguments),
                     _ => null
                 };
 
@@ -539,6 +622,194 @@ namespace SCMS.Domain.Features.Mcp
             }).ToList();
         }
 
+        private async Task<object> UpdateAppointmentStatusAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null ||
+                !arguments.TryGetValue("appointmentId", out var apptIdObj) || !int.TryParse(apptIdObj.ToString(), out var appointmentId) ||
+                !arguments.TryGetValue("status", out var statusObj) || string.IsNullOrWhiteSpace(statusObj.ToString()))
+            {
+                return new { error = "Invalid or missing arguments. Required: appointmentId (int), status (string)." };
+            }
+
+            var status = statusObj.ToString()!.ToLower().Trim();
+            var validStatuses = new[] { "pending", "confirmed", "cancelled", "completed" };
+            if (!validStatuses.Contains(status))
+            {
+                return new { error = $"Invalid status '{status}'. Valid statuses are: pending, confirmed, cancelled, completed." };
+            }
+
+            var appointment = await _context.TblAppointments
+                .Include(a => a.Patient)
+                .FirstOrDefaultAsync(a => a.Id == appointmentId);
+
+            if (appointment == null)
+            {
+                return new { error = $"Appointment with ID {appointmentId} not found." };
+            }
+
+            var oldStatus = appointment.Status;
+            appointment.Status = status;
+            appointment.UpdatedAt = DateTime.UtcNow;
+
+            if (arguments.TryGetValue("notes", out var notesObj) && notesObj != null && !string.IsNullOrWhiteSpace(notesObj.ToString()))
+            {
+                appointment.Notes = notesObj.ToString();
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Appointment status updated from '{oldStatus}' to '{status}' successfully.",
+                appointmentId = appointment.Id,
+                patientName = appointment.Patient?.Name ?? "Unknown",
+                time = appointment.Datetime.ToString("yyyy-MM-dd hh:mm tt"),
+                newStatus = appointment.Status,
+                notes = appointment.Notes
+            };
+        }
+
+        private async Task<object> CancelAppointmentsInRangeAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null ||
+                !arguments.TryGetValue("startTime", out var startObj) ||
+                !arguments.TryGetValue("endTime", out var endObj))
+            {
+                return new { error = "Invalid or missing arguments. Required: startTime (string), endTime (string)." };
+            }
+
+            DateTime startTime, endTime;
+            try
+            {
+                startTime = ParseDateTimeUtc(startObj.ToString()!);
+                endTime = ParseDateTimeUtc(endObj.ToString()!);
+            }
+            catch (Exception ex)
+            {
+                return new { error = ex.Message };
+            }
+
+            if (startTime >= endTime)
+            {
+                return new { error = "startTime must be earlier than endTime." };
+            }
+
+            var appointments = await _context.TblAppointments
+                .Include(a => a.Patient)
+                .Where(a => a.Datetime >= startTime && a.Datetime <= endTime && a.Status != "cancelled")
+                .ToListAsync();
+
+            if (appointments.Count == 0)
+            {
+                return new { success = true, message = "No active appointments found in the specified time range.", count = 0 };
+            }
+
+            string reason = "Bulk cancelled via AI Assistant";
+            if (arguments.TryGetValue("reason", out var reasonObj) && reasonObj != null && !string.IsNullOrWhiteSpace(reasonObj.ToString()))
+            {
+                reason = reasonObj.ToString()!;
+            }
+
+            foreach (var appt in appointments)
+            {
+                appt.Status = "cancelled";
+                appt.Notes = string.IsNullOrWhiteSpace(appt.Notes) ? reason : $"{appt.Notes} | Cancelled: {reason}";
+                appt.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully cancelled {appointments.Count} appointment(s) in the range {startTime:yyyy-MM-dd hh:mm tt} to {endTime:yyyy-MM-dd hh:mm tt}.",
+                count = appointments.Count,
+                cancelledAppointments = appointments.Select(a => new
+                {
+                    appointmentId = a.Id,
+                    patientName = a.Patient?.Name ?? "Unknown",
+                    time = a.Datetime.ToString("hh:mm tt"),
+                    notes = a.Notes
+                }).ToList()
+            };
+        }
+
+        private async Task<object> RescheduleAppointmentsInRangeAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null ||
+                !arguments.TryGetValue("sourceStartTime", out var sStartObj) ||
+                !arguments.TryGetValue("sourceEndTime", out var sEndObj) ||
+                !arguments.TryGetValue("targetStartTime", out var tStartObj))
+            {
+                return new { error = "Invalid or missing arguments. Required: sourceStartTime (string), sourceEndTime (string), targetStartTime (string)." };
+            }
+
+            DateTime sourceStartTime, sourceEndTime, targetStartTime;
+            try
+            {
+                sourceStartTime = ParseDateTimeUtc(sStartObj.ToString()!);
+                sourceEndTime = ParseDateTimeUtc(sEndObj.ToString()!);
+                targetStartTime = ParseDateTimeUtc(tStartObj.ToString()!);
+            }
+            catch (Exception ex)
+            {
+                return new { error = ex.Message };
+            }
+
+            if (sourceStartTime >= sourceEndTime)
+            {
+                return new { error = "sourceStartTime must be earlier than sourceEndTime." };
+            }
+
+            var appointments = await _context.TblAppointments
+                .Include(a => a.Patient)
+                .Where(a => a.Datetime >= sourceStartTime && a.Datetime <= sourceEndTime && a.Status != "cancelled")
+                .OrderBy(a => a.Datetime)
+                .ToListAsync();
+
+            if (appointments.Count == 0)
+            {
+                return new { success = true, message = "No active appointments found in the source time range to reschedule.", count = 0 };
+            }
+
+            // Calculate the exact offset shift (difference between targetStartTime and sourceStartTime)
+            var offset = targetStartTime - sourceStartTime;
+
+            var rescheduledDetails = new List<object>();
+
+            foreach (var appt in appointments)
+            {
+                var oldTime = appt.Datetime;
+                var newTime = oldTime.Add(offset);
+                appt.Datetime = newTime;
+                appt.UpdatedAt = DateTime.UtcNow;
+                
+                var originalNotes = CleanRescheduledNotes(appt.Notes);
+                appt.Notes = string.IsNullOrWhiteSpace(originalNotes) 
+                    ? $"Rescheduled from {oldTime:hh:mm tt}" 
+                    : $"{originalNotes} | Rescheduled from {oldTime:hh:mm tt}";
+
+                rescheduledDetails.Add(new
+                {
+                    appointmentId = appt.Id,
+                    patientName = appt.Patient?.Name ?? "Unknown",
+                    oldTime = oldTime.ToString("yyyy-MM-dd hh:mm tt"),
+                    newTime = newTime.ToString("yyyy-MM-dd hh:mm tt")
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully rescheduled {appointments.Count} appointment(s). Shifted by {offset.TotalMinutes} minutes (+{offset.TotalHours:F1} hours).",
+                count = appointments.Count,
+                rescheduledAppointments = rescheduledDetails
+            };
+        }
+
         private static int GetAge(DateOnly? dateOfBirth)
         {
             if (dateOfBirth == null) return 0;
@@ -547,6 +818,234 @@ namespace SCMS.Domain.Features.Mcp
             var age = today.Year - dob.Year;
             if (dob > today.AddYears(-age)) age--;
             return age;
+        }
+
+        private static DateTime ParseDateTimeUtc(string input)
+        {
+            if (DateTime.TryParse(input, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            {
+                return dt.Kind == DateTimeKind.Local ? dt.ToUniversalTime() : dt;
+            }
+            throw new FormatException($"Invalid date/time format: {input}");
+        }
+
+        private async Task<object> UpdateAppointmentStatusByPatientNameAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null ||
+                !arguments.TryGetValue("patientName", out var nameObj) || string.IsNullOrWhiteSpace(nameObj.ToString()) ||
+                !arguments.TryGetValue("status", out var statusObj) || string.IsNullOrWhiteSpace(statusObj.ToString()))
+            {
+                return new { error = "Invalid or missing arguments. Required: patientName (string), status (string)." };
+            }
+
+            var patientName = nameObj.ToString()!.ToLower().Trim();
+            var status = statusObj.ToString()!.ToLower().Trim();
+            var validStatuses = new[] { "pending", "confirmed", "cancelled", "completed" };
+            if (!validStatuses.Contains(status))
+            {
+                return new { error = $"Invalid status '{status}'. Valid statuses are: pending, confirmed, cancelled, completed." };
+            }
+
+            // Find matching patients
+            var patients = await _context.TblPatients
+                .Where(p => p.Name.ToLower().Contains(patientName) && p.DeleteFlag != true)
+                .ToListAsync();
+
+            if (patients.Count == 0)
+            {
+                return new { error = $"No patients found matching the name '{nameObj}'." };
+            }
+
+            var patientIds = patients.Select(p => p.PatientId).ToList();
+            var today = DateTime.UtcNow.Date;
+            var tomorrow = today.AddDays(1);
+
+            // Fetch active appointments
+            var appointments = await _context.TblAppointments
+                .Include(a => a.Patient)
+                .Where(a => patientIds.Contains(a.PatientId))
+                .OrderBy(a => a.Datetime)
+                .ToListAsync();
+
+            if (appointments.Count == 0)
+            {
+                return new { error = $"No appointments found for patient(s) matching '{nameObj}'." };
+            }
+
+            // Filter for today's active/pending appointments first
+            var todayAppts = appointments
+                .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Status != "cancelled" && a.Status != "completed")
+                .ToList();
+
+            TblAppointment targetAppointment;
+
+            if (todayAppts.Count == 1)
+            {
+                targetAppointment = todayAppts[0];
+            }
+            else if (todayAppts.Count > 1)
+            {
+                // Ambiguity today - return the options
+                return new
+                {
+                    ambiguity = true,
+                    message = $"Multiple appointments found for today matching patient '{nameObj}'. Please specify the exact appointment ID.",
+                    appointments = todayAppts.Select(a => new
+                    {
+                        appointmentId = a.Id,
+                        patientName = a.Patient?.Name ?? "Unknown",
+                        time = a.Datetime.ToString("hh:mm tt"),
+                        status = a.Status
+                    }).ToList()
+                };
+            }
+            else
+            {
+                // No appointments today, look at recent/future pending or confirmed appointments
+                var pendingFutureAppts = appointments
+                    .Where(a => a.Status == "pending" || a.Status == "confirmed")
+                    .OrderBy(a => Math.Abs((a.Datetime - DateTime.UtcNow).Ticks))
+                    .ToList();
+
+                if (pendingFutureAppts.Count == 1)
+                {
+                    targetAppointment = pendingFutureAppts[0];
+                }
+                else if (pendingFutureAppts.Count > 1)
+                {
+                    return new
+                    {
+                        ambiguity = true,
+                        message = $"Multiple active appointments found for patient '{nameObj}'. Please specify the exact appointment ID.",
+                        appointments = pendingFutureAppts.Select(a => new
+                        {
+                            appointmentId = a.Id,
+                            patientName = a.Patient?.Name ?? "Unknown",
+                            time = a.Datetime.ToString("yyyy-MM-dd hh:mm tt"),
+                            status = a.Status
+                        }).ToList()
+                    };
+                }
+                else
+                {
+                    // Fallback to the absolute latest appointment
+                    targetAppointment = appointments.OrderByDescending(a => a.Datetime).First();
+                }
+            }
+
+            // Perform the status update
+            var oldStatus = targetAppointment.Status;
+            targetAppointment.Status = status;
+            targetAppointment.UpdatedAt = DateTime.UtcNow;
+
+            if (arguments.TryGetValue("notes", out var notesObj) && notesObj != null && !string.IsNullOrWhiteSpace(notesObj.ToString()))
+            {
+                targetAppointment.Notes = notesObj.ToString();
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully updated appointment status for patient '{targetAppointment.Patient?.Name}' from '{oldStatus}' to '{status}'.",
+                appointmentId = targetAppointment.Id,
+                patientName = targetAppointment.Patient?.Name ?? "Unknown",
+                time = targetAppointment.Datetime.ToString("yyyy-MM-dd hh:mm tt"),
+                newStatus = targetAppointment.Status,
+                notes = targetAppointment.Notes
+            };
+        }
+
+        private async Task<object> RescheduleTodayAppointmentsAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null ||
+                !arguments.TryGetValue("targetStartTime", out var tStartObj) || string.IsNullOrWhiteSpace(tStartObj.ToString()))
+            {
+                return new { error = "Invalid or missing arguments. Required: targetStartTime (string)." };
+            }
+
+            DateTime targetStartTime;
+            try
+            {
+                targetStartTime = ParseDateTimeUtc(tStartObj.ToString()!);
+            }
+            catch (Exception ex)
+            {
+                return new { error = ex.Message };
+            }
+
+            var today = targetStartTime.Date;
+            var tomorrow = today.AddDays(1);
+
+            // Get all today's active appointments ordered by time
+            var appointments = await _context.TblAppointments
+                .Include(a => a.Patient)
+                .Where(a => a.Datetime >= today && a.Datetime < tomorrow && a.Status != "cancelled" && a.Status != "completed")
+                .OrderBy(a => a.Datetime)
+                .ToListAsync();
+
+            if (appointments.Count == 0)
+            {
+                return new { success = true, message = "No active pending/confirmed appointments found today to reschedule.", count = 0 };
+            }
+
+            var earliestAppt = appointments[0];
+            var earliestTime = earliestAppt.Datetime;
+
+            // Calculate the exact offset shift (difference between targetStartTime and earliestTime)
+            var offset = targetStartTime - earliestTime;
+
+            var rescheduledDetails = new List<object>();
+
+            foreach (var appt in appointments)
+            {
+                var oldTime = appt.Datetime;
+                var newTime = oldTime.Add(offset);
+                appt.Datetime = newTime;
+                appt.UpdatedAt = DateTime.UtcNow;
+                
+                var originalNotes = CleanRescheduledNotes(appt.Notes);
+                appt.Notes = string.IsNullOrWhiteSpace(originalNotes) 
+                    ? $"Rescheduled from {oldTime:hh:mm tt}" 
+                    : $"{originalNotes} | Rescheduled from {oldTime:hh:mm tt}";
+
+                rescheduledDetails.Add(new
+                {
+                    appointmentId = appt.Id,
+                    patientName = appt.Patient?.Name ?? "Unknown",
+                    oldTime = oldTime.ToString("yyyy-MM-dd hh:mm tt"),
+                    newTime = newTime.ToString("yyyy-MM-dd hh:mm tt")
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully rescheduled {appointments.Count} appointment(s) today. Shifted by {offset.TotalMinutes} minutes (+{offset.TotalHours:F1} hours) to start at {targetStartTime:hh:mm tt}.",
+                count = appointments.Count,
+                rescheduledAppointments = rescheduledDetails
+            };
+        }
+
+        private static string CleanRescheduledNotes(string? notes)
+        {
+            if (string.IsNullOrWhiteSpace(notes)) return string.Empty;
+
+            int index = notes.IndexOf(" | Rescheduled from", StringComparison.OrdinalIgnoreCase);
+            if (index >= 0)
+            {
+                return notes.Substring(0, index).Trim();
+            }
+
+            if (notes.StartsWith("Rescheduled from", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            return notes.Trim();
         }
     }
 }

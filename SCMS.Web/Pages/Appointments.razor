@@ -33,7 +33,7 @@
 <Table TItem="AppointmentDetailsResponse" DataSource="appointments">
     <Column TData="string" Title="Token">@context.TokenNumber</Column>
     <Column TData="string" Title="Patient">@context.PatientName</Column>
-    <Column TData="string" Title="Time">@context.Datetime.ToString("MMM dd, HH:mm")</Column>
+    <Column TData="string" Title="Time">@context.Datetime.ToString("MMM dd, hh:mm tt")</Column>
     <Column TData="string" Title="Status">
         <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
     </Column>

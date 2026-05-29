@@ -9,7 +9,7 @@
 <Card>
     <Steps Current="currentStep">
         <Step Title="Patient" />
-        <Step Title="Date & Time" />
+        <Step Title="Date" />
         <Step Title="Confirm" />
         <Step Title="Result" />
     </Steps>
@@ -33,10 +33,6 @@
                 <div style="margin-bottom: 16px;">
                     <Text Strong>Date</Text>
                     <DatePicker @bind-Value="appointmentDate" Style="width: 100%; margin-top: 8px;" />
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <Text Strong>Time (HH:mm)</Text>
-                    <Input @bind-Value="appointmentTime" Style="width: 100%; margin-top: 8px;" />
                 </div>
                 <div style="margin-top: 24px; text-align: right;">
                     <Space>
@@ -131,10 +127,9 @@
         message = null;
         try
         {
-            var parts = appointmentTime.Split(':');
-            var hour = int.Parse(parts[0]);
-            var minute = int.Parse(parts[1]);
-            request.Datetime = appointmentDate.Date.AddHours(hour).AddMinutes(minute);
+            // Date is passed to backend, which automatically schedules the time
+            // based on the token sequence of the day.
+            request.Datetime = appointmentDate.Date;
             var result = await Api.BookAppointmentAsync(request);
             if (result.IsSuccess)
             {
@@ -148,7 +143,7 @@
         }
         catch (Exception ex)
         {
-            message = "Invalid time format. Please use HH:mm.";
+            message = $"Booking failed: {ex.Message}";
         }
         finally
         {
