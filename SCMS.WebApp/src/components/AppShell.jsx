@@ -30,10 +30,8 @@ const navItems = [
   { to: "/app/prescriptions", key: "prescriptions", icon: FileText },
   { to: "/app/payments", key: "payments", icon: CreditCard },
   { to: "/app/follow-ups", key: "followUps", icon: RotateCcw },
-  { to: "/app/notifications", key: "notifications", icon: Bell },
   { to: "/app/reports", key: "reports", icon: BarChart3 },
   { to: "/app/ai-assistant", key: "aiAssistant", icon: Sparkles },
-  { to: "/app/settings", key: "settings", icon: Settings },
 ];
 
 export default function AppShell() {

@@ -49,6 +49,10 @@ textarea {
   @apply input input-bordered h-12 rounded-xl border-scms-border bg-white text-sm text-scms-text placeholder:text-scms-muted focus:border-scms-primary focus:outline-none;
 }
 
+.scms-input-icon {
+  padding-left: 3rem !important;
+}
+
 .scms-select {
   @apply select select-bordered h-12 rounded-xl border-scms-border bg-white text-sm text-scms-text focus:border-scms-primary focus:outline-none;
 }

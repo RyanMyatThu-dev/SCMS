@@ -4,19 +4,22 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import {
-  AppointmentsPage,
-  DiseasesPage,
   FollowUpsPage,
-  MedicinesPage,
   NotificationsPage,
-  PatientsPage,
-  PaymentsPage,
-  PrescriptionsPage,
 } from "./pages/FeaturePages";
+import PatientsPage from "./pages/PatientsPage";
+import AppointmentsPage from "./pages/AppointmentsPage";
+import MedicinesPage from "./pages/MedicinesPage";
+import BatchesPage from "./pages/BatchesPage";
+import DiseasesPage from "./pages/DiseasesPage";
+import PrescriptionsPage from "./pages/PrescriptionsPage";
+import PaymentsPage from "./pages/PaymentsPage";
 import NotFound from "./pages/NotFound";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import AiAssistant from "./pages/AiAssistant";
+import UserLayout from "./pages/user/UserLayout";
+import UserDashboard from "./pages/user/UserDashboard";
 
 export default function App() {
   return (
@@ -38,6 +41,7 @@ export default function App() {
         <Route path="patients" element={<PatientsPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="medicines" element={<MedicinesPage />} />
+        <Route path="medicines/batches" element={<BatchesPage />} />
         <Route path="diseases" element={<DiseasesPage />} />
         <Route path="prescriptions" element={<PrescriptionsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
@@ -46,6 +50,18 @@ export default function App() {
         <Route path="reports" element={<Reports />} />
         <Route path="ai-assistant" element={<AiAssistant />} />
         <Route path="settings" element={<Settings />} />
+      </Route>
+
+      <Route
+        path="/user"
+        element={
+          <ProtectedRoute>
+            <UserLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/user/dashboard" replace />} />
+        <Route path="dashboard" element={<UserDashboard />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

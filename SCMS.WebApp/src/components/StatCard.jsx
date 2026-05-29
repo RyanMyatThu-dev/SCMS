@@ -1,4 +1,4 @@
-export default function StatCard({ label, value, icon: Icon, tone = "primary" }) {
+export default function StatCard({ label, value, icon: Icon, tone = "primary", onClick }) {
   const tones = {
     primary: "bg-scms-primaryLight text-scms-primary",
     success: "bg-[#ECFDF3] text-scms-success",
@@ -7,7 +7,7 @@ export default function StatCard({ label, value, icon: Icon, tone = "primary" })
   };
 
   return (
-    <article className="scms-card p-5">
+    <article onClick={onClick} className={`scms-card p-5 ${onClick ? "cursor-pointer hover:shadow-md transition hover:border-scms-primary/45" : ""}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-scms-muted">{label}</p>

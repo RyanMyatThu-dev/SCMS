@@ -45,8 +45,8 @@ export const prescriptionsApi = {
 
 export const medicinesApi = {
   list: (params) => api.get("/Medicines", { params: toQuery(params) }).then(unwrap),
-  create: (payload) => api.post("/Medicines", payload).then(unwrap),
-  update: (id, payload) => api.put(`/Medicines/${id}`, payload).then(unwrap),
+  create: (payload) => api.post("/Medicines", payload, { headers: { "Content-Type": "multipart/form-data" } }).then(unwrap),
+  update: (id, payload) => api.put(`/Medicines/${id}`, payload, { headers: { "Content-Type": "multipart/form-data" } }).then(unwrap),
   remove: (id) => api.delete(`/Medicines/${id}`).then(unwrap),
   categories: () => api.get("/Medicines/categories").then(unwrap),
   quarantineExpired: () => api.post("/Medicines/quarantine-expired").then(unwrap),

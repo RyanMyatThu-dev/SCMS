@@ -258,6 +258,175 @@ namespace SCMS.Domain
             }
 
             await RefreshMovingDemoDatesAsync(context, today, now);
+            await GenerateHistoricalDataAsync(context);
+        }
+
+        private static async Task GenerateHistoricalDataAsync(AppDbContext context)
+        {
+            if (await context.TblAppointments.AnyAsync(a => a.Id >= 20001))
+            {
+                return; // Already generated historical data
+            }
+
+            var random = new Random(42); // Seeded random for deterministic but realistic-looking data
+            var patientIds = new[] { 10001, 10002, 10003, 10004, 10005, 10006 };
+            var diseaseIds = new[] { 10001, 10002, 10003, 10004, 10005, 10006, 10007 };
+            var statuses = new[] { "completed", "completed", "completed", "completed", "cancelled", "confirmed" };
+            var paymentMethods = new[] { "cash", "kbzpay", "wavepay", "card" };
+
+            var appointments = new List<TblAppointment>();
+            var prescriptions = new List<TblPrescription>();
+            var rxItems = new List<TblPrescriptionItem>();
+            var payments = new List<TblPayment>();
+
+            var startDate = new DateTime(2026, 1, 1);
+            var endDate = new DateTime(2026, 6, 1);
+            
+            int appointmentId = 20001;
+            int prescriptionId = 20001;
+            int rxItemId = 20001;
+            int paymentId = 20001;
+
+            for (var date = startDate; date <= endDate; date = date.AddDays(1))
+            {
+                // Skip Sundays or have fewer appointments on weekends for realism
+                int numAppointments = date.DayOfWeek == DayOfWeek.Sunday ? random.Next(0, 2) : random.Next(1, 6);
+
+                for (int i = 0; i < numAppointments; i++)
+                {
+                    var patientId = patientIds[random.Next(patientIds.Length)];
+                    var diseaseId = diseaseIds[random.Next(diseaseIds.Length)];
+                    var status = statuses[random.Next(statuses.Length)];
+                    
+                    // If the date is in the future relative to UTC date
+                    if (date > DateTime.UtcNow)
+                    {
+                        status = random.Next(0, 2) == 0 ? "confirmed" : "pending";
+                    }
+
+                    var apptTime = date.AddHours(random.Next(8, 17)).AddMinutes(random.Next(0, 4) * 15);
+                    var apptCode = $"APT-HIST-{appointmentId}";
+                    var notes = "Routine review for symptoms and progress.";
+
+                    var appt = new TblAppointment
+                    {
+                        Id = appointmentId,
+                        AppointmentCode = apptCode,
+                        PatientId = patientId,
+                        Datetime = apptTime,
+                        Status = status,
+                        Notes = notes,
+                        CreatedAt = date.AddDays(-random.Next(1, 5)),
+                        UpdatedAt = date
+                    };
+                    appointments.Add(appt);
+
+                    if (status == "completed")
+                    {
+                        // Generate prescription
+                        var sys = random.Next(110, 140);
+                        var dia = random.Next(70, 90);
+                        var weight = random.Next(50, 90);
+                        var rxNotes = Notes("Patient reports stable condition. Instructed on treatment plan.", 36.5 + random.NextDouble(), 60 + random.Next(0, 30), 95 + random.Next(0, 5), 150 + random.Next(0, 30), 22.0 + random.NextDouble() * 5.0, "None");
+
+                        var rx = new TblPrescription
+                        {
+                            Id = prescriptionId,
+                            AppointmentId = appointmentId,
+                            PatientId = patientId,
+                            DiseaseId = diseaseId,
+                            WeightKg = weight,
+                            BloodPressureSystolic = sys,
+                            BloodPressureDiastolic = dia,
+                            Notes = rxNotes,
+                            CreatedAt = apptTime,
+                            UpdatedAt = apptTime,
+                            DeleteFlag = false
+                        };
+                        prescriptions.Add(rx);
+
+                        // Prescribe 1 or 2 medicines
+                        int numMeds = random.Next(1, 3);
+                        for (int m = 0; m < numMeds; m++)
+                        {
+                            var medId = 10001 + random.Next(10);
+                            var rxItem = new TblPrescriptionItem
+                            {
+                                Id = rxItemId,
+                                PrescriptionId = prescriptionId,
+                                MedicineId = medId,
+                                Dosage = "1-0-1",
+                                Days = random.Next(3, 11),
+                                Quantity = random.Next(6, 21),
+                                Instruction = "After meal",
+                                CreatedAt = apptTime,
+                                UpdatedAt = apptTime,
+                                DeleteFlag = false
+                            };
+                            rxItems.Add(rxItem);
+                            rxItemId++;
+                        }
+
+                        // Generate payment
+                        var amount = random.Next(100, 300) * 100m; // MMK 10,000 to 30,000
+                        var tax = amount * 0.05m;
+                        var charges = random.Next(0, 3) * 500m;
+                        var payMethod = paymentMethods[random.Next(paymentMethods.Length)];
+                        var payStatus = "paid";
+
+                        var payment = new TblPayment
+                        {
+                            Id = paymentId,
+                            AppointmentId = appointmentId,
+                            PrescriptionId = prescriptionId,
+                            Amount = amount,
+                            Tax = tax,
+                            Charges = charges,
+                            PaymentMethod = payMethod,
+                            PaymentStatus = payStatus,
+                            PaidAt = apptTime,
+                            UpdatedAt = apptTime
+                        };
+                        payments.Add(payment);
+                        paymentId++;
+                        prescriptionId++;
+                    }
+                    else if (status == "confirmed" || status == "pending")
+                    {
+                        // Some confirmed/pending appointments might have pending payments
+                        if (random.Next(0, 2) == 0)
+                        {
+                            var amount = random.Next(100, 250) * 100m;
+                            var tax = amount * 0.05m;
+                            var payMethod = paymentMethods[random.Next(paymentMethods.Length)];
+                            var payStatus = "pending";
+
+                            var payment = new TblPayment
+                            {
+                                Id = paymentId,
+                                AppointmentId = appointmentId,
+                                Amount = amount,
+                                Tax = tax,
+                                Charges = 0m,
+                                PaymentMethod = payMethod,
+                                PaymentStatus = payStatus,
+                                PaidAt = null,
+                                UpdatedAt = apptTime
+                            };
+                            payments.Add(payment);
+                            paymentId++;
+                        }
+                    }
+
+                    appointmentId++;
+                }
+            }
+
+            await context.TblAppointments.AddRangeAsync(appointments);
+            await context.TblPrescriptions.AddRangeAsync(prescriptions);
+            await context.TblPrescriptionItems.AddRangeAsync(rxItems);
+            await context.TblPayments.AddRangeAsync(payments);
+            await context.SaveChangesAsync();
         }
 
         private static async Task RefreshMovingDemoDatesAsync(AppDbContext context, DateTime today, DateTime now)

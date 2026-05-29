@@ -6,7 +6,7 @@ const getValue = (row, key) => {
   return key.split(".").reduce((value, part) => value?.[part], row);
 };
 
-export default function DataTable({ columns, rows, actions, loading }) {
+export default function DataTable({ columns, rows, actions, loading, onRowClick }) {
   if (loading) {
     return (
       <div className="scms-card p-5">
@@ -36,7 +36,11 @@ export default function DataTable({ columns, rows, actions, loading }) {
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <tr key={row.id || row.patientId || row.appointmentId || row.medicineId || index}>
+              <tr
+                key={row.id || row.patientId || row.appointmentId || row.medicineId || index}
+                onClick={() => onRowClick && onRowClick(row)}
+                className={onRowClick ? "cursor-pointer hover:bg-slate-50 transition-colors" : ""}
+              >
                 {columns.map((column) => {
                   const value = getValue(row, column.key);
                   return (
@@ -51,7 +55,7 @@ export default function DataTable({ columns, rows, actions, loading }) {
                     </td>
                   );
                 })}
-                {actions && <td className="text-right">{actions(row)}</td>}
+                {actions && <td className="text-right" onClick={(e) => e.stopPropagation()}>{actions(row)}</td>}
               </tr>
             ))}
           </tbody>

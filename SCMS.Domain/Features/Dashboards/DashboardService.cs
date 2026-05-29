@@ -58,6 +58,21 @@ namespace SCMS.Domain.Features.Dashboards
             var (lowStockMeds, expiringBatches) = await GetInventoryAlertsAsync(todayDateOnly, thirtyDaysFromNow);
             var dailyRevenue = await GetDailyRevenueAsync(todayUtc, tomorrowUtc);
 
+            var totalRevenueDouble = await _context.TblPayments
+                .Where(p => p.PaymentStatus == "paid")
+                .Select(p => (double)p.Amount)
+                .SumAsync();
+
+            var totalRevenue = (decimal)totalRevenueDouble;
+
+            var todayPatientsCount = await _context.TblPatients
+                .CountAsync(p => p.CreatedAt >= todayUtc && p.DeleteFlag != true);
+
+            var totalMedicinesCount = await _context.TblMedicines
+                .CountAsync(m => m.DeleteFlag != true);
+
+            var stockRiskStatus = lowStockMeds.Count > 0 ? "At Risk" : "Safe";
+
             return Result<DoctorDashboardResponse>.Success(new DoctorDashboardResponse
             {
                 TodayAppointmentsCount = todayAppointments.Count,
@@ -65,6 +80,10 @@ namespace SCMS.Domain.Features.Dashboards
                 LowStockAlertsCount = lowStockMeds.Count,
                 ExpiringBatchesCount = expiringBatches.Count,
                 DailyRevenue = dailyRevenue,
+                TotalRevenue = totalRevenue,
+                TodayPatientsCount = todayPatientsCount,
+                TotalMedicinesCount = totalMedicinesCount,
+                StockRiskStatus = stockRiskStatus,
                 LowStockAlerts = lowStockMeds,
                 ExpiringBatchesAlerts = expiringBatches
             });
