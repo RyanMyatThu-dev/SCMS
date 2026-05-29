@@ -65,7 +65,7 @@ namespace SCMS.Domain.Features.Documents
 
             var bytes = _pdfDocumentService.CreateAppointmentReportPdf(result.Data);
             var type = (request.ReportType ?? "daily").ToLower();
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("yyyy-MM-dd");
+            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("dd-MM-yyyy");
             return File(bytes, "application/pdf", $"appointment-report-{type}-{dateStr}.pdf");
         }
 
@@ -113,7 +113,7 @@ namespace SCMS.Domain.Features.Documents
 
             var bytes = _pdfDocumentService.CreateRevenueReportPdf(result.Data);
             var type = (request.ReportType ?? "daily").ToLower();
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("yyyy-MM-dd");
+            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("dd-MM-yyyy");
             return File(bytes, "application/pdf", $"revenue-report-{type}-{dateStr}.pdf");
         }
 
@@ -144,7 +144,8 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var bytes = _pdfDocumentService.CreatePatientListReportPdf(result.Data);
-            return File(bytes, "application/pdf", "patient-list-report.pdf");
+            var dateStr = DateTime.UtcNow.ToString("dd-MM-yyyy");
+            return File(bytes, "application/pdf", $"patient-list-report-{dateStr}.pdf");
         }
 
         /// <summary>
@@ -174,7 +175,8 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var bytes = _pdfDocumentService.CreateMedicineStockReportPdf(result.Data);
-            return File(bytes, "application/pdf", "medicine-stock-report.pdf");
+            var dateStr = DateTime.UtcNow.ToString("dd-MM-yyyy");
+            return File(bytes, "application/pdf", $"medicine-stock-report-{dateStr}.pdf");
         }
 
         /// <summary>
@@ -225,7 +227,7 @@ namespace SCMS.Domain.Features.Documents
 
             var bytes = _pdfDocumentService.CreateFollowUpReportPdf(result.Data);
             var type = (request.ReportType ?? "all").ToLower();
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("yyyy-MM-dd");
+            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("dd-MM-yyyy");
             return File(bytes, "application/pdf", $"follow-up-report-{type}-{dateStr}.pdf");
         }
 
@@ -258,7 +260,7 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var bytes = _pdfDocumentService.CreateBusinessSummaryReportPdf(result.Data);
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("yyyy-MM");
+            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("dd-MM-yyyy");
             return File(bytes, "application/pdf", $"business-summary-{dateStr}.pdf");
         }
     }
