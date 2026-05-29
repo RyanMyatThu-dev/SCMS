@@ -87,6 +87,18 @@ namespace SCMS.Domain.Features.Prescriptions
             return Ok(result);
         }
 
+        [HttpDelete("templates/{id}")]
+        [Authorize(Roles = "admin,doctor")]
+        public async Task<IActionResult> DeleteTemplate(int id)
+        {
+            var result = await _prescriptionService.DeleteTemplateAsync(id);
+            if (result.IsFailure)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
         [HttpGet("{id}/pdf")]
         public async Task<IActionResult> GetPrescriptionPdf(int id)
         {

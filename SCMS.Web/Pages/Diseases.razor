@@ -145,6 +145,14 @@ else
                                         <Button Size="@ButtonSize.Small" Type="@ButtonType.Primary" Ghost OnClick="() => ShowEditCustomTemplate(tpl)">
                                             Edit
                                         </Button>
+                                        <Popconfirm Title="Delete this template?"
+                                                    OnConfirm="() => HandleDeleteTemplate(tpl)"
+                                                    OkText="Yes"
+                                                    CancelText="No">
+                                            <Button Size="@ButtonSize.Small" Danger Ghost>
+                                                Delete
+                                            </Button>
+                                        </Popconfirm>
                                     </div>
                                 </div>
                                 
@@ -553,6 +561,13 @@ else
             return;
         }
 
+        var medicineIds = newTemplateItems.Select(i => i.MedicineId).ToList();
+        if (medicineIds.Count != medicineIds.Distinct().Count())
+        {
+            newTemplateError = "A prescription template cannot contain duplicate medicines. Please remove any duplicate entries.";
+            return;
+        }
+
         isSavingTemplate = true;
         newTemplateError = null;
 
@@ -592,6 +607,22 @@ else
         finally
         {
             isSavingTemplate = false;
+        }
+    }
+
+    private async Task HandleDeleteTemplate(PrescriptionTemplateResponse tpl)
+    {
+        try
+        {
+            var result = await Api.DeletePrescriptionTemplateAsync(int.Parse(tpl.Id));
+            if (result.IsSuccess)
+            {
+                await LoadDiseaseTemplates();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting template: {ex.Message}");
         }
     }
 

@@ -473,6 +473,13 @@ namespace SCMS.Domain.Features.Prescriptions
             {
                 return Result<PrescriptionTemplateResponse>.Failure("At least one template item is required.");
             }
+
+            var medIdsToCheck = request.Items.Select(i => i.MedicineId).ToList();
+            if (medIdsToCheck.Count != medIdsToCheck.Distinct().Count())
+            {
+                return Result<PrescriptionTemplateResponse>.Failure("A prescription template cannot contain duplicate medicines.");
+            }
+
             foreach (var item in request.Items)
             {
                 if (item.MedicineId <= 0)
@@ -580,6 +587,29 @@ namespace SCMS.Domain.Features.Prescriptions
             await _context.SaveChangesAsync();
 
             return Result<PrescriptionTemplateResponse>.Success(await MapToTemplateResponseAsync(newTemplate.Id), "Prescription template saved.");
+        }
+
+        public async Task<Result<bool>> DeleteTemplateAsync(int id)
+        {
+            var template = await _context.TblPrescriptionTemplates
+                .Include(t => t.TblPrescriptionTemplateItems)
+                .FirstOrDefaultAsync(t => t.Id == id && t.DeleteFlag != true);
+
+            if (template == null)
+            {
+                return Result<bool>.Failure("Prescription template not found.");
+            }
+
+            template.DeleteFlag = true;
+            template.UpdatedAt = DateTime.UtcNow;
+
+            foreach (var item in template.TblPrescriptionTemplateItems)
+            {
+                item.DeleteFlag = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return Result<bool>.Success(true, "Prescription template removed successfully.");
         }
 
         public async Task<PagedResult<PrescriptionTemplateResponse>> GetTemplatesAsync(int? diseaseId, PaginationRequest paginationRequest)

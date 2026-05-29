@@ -401,6 +401,13 @@
             return;
         }
 
+        var medicineIds = prescription.Items.Select(i => i.MedicineId).ToList();
+        if (medicineIds.Count != medicineIds.Distinct().Count())
+        {
+            message = "A prescription template cannot contain duplicate medicines. Please remove duplicate medicine rows first.";
+            return;
+        }
+
         var result = await Api.SavePrescriptionTemplateAsync(new SaveTemplateRequest
         {
             Name = templateSaveName.Trim(),

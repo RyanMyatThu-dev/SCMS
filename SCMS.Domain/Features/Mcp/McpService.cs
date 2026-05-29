@@ -256,6 +256,20 @@ namespace SCMS.Domain.Features.Mcp
                         },
                         required = new[] { "name", "diseaseId", "items" }
                     }
+                },
+                new()
+                {
+                    Name = "delete_prescription_template",
+                    Description = "Deletes a prescription template by its ID (marks it as deleted in the system database).",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            templateId = new { type = "integer", description = "The unique ID of the prescription template to delete." }
+                        },
+                        required = new[] { "templateId" }
+                    }
                 }
             };
         }
@@ -284,6 +298,7 @@ namespace SCMS.Domain.Features.Mcp
                     "reschedule_today_appointments" => await RescheduleTodayAppointmentsAsync(request.Arguments),
                     "get_prescription_templates" => await GetPrescriptionTemplatesAsync(request.Arguments),
                     "create_prescription_template" => await CreatePrescriptionTemplateAsync(request.Arguments),
+                    "delete_prescription_template" => await DeletePrescriptionTemplateAsync(request.Arguments),
                     _ => null
                 };
 
@@ -1235,6 +1250,12 @@ namespace SCMS.Domain.Features.Mcp
                     return new { error = "At least one template item is required." };
                 }
 
+                var medicineIds = items.Select(i => i.MedicineId).ToList();
+                if (medicineIds.Count != medicineIds.Distinct().Count())
+                {
+                    return new { error = "A prescription template cannot contain duplicate medicines." };
+                }
+
                 foreach (var item in items)
                 {
                     if (item.MedicineId <= 0)
@@ -1293,6 +1314,39 @@ namespace SCMS.Domain.Features.Mcp
                 templateId = newTemplate.Id,
                 diseaseId = newTemplate.DiseaseId,
                 itemsCount = newTemplate.TblPrescriptionTemplateItems.Count
+            };
+        }
+
+        private async Task<object> DeletePrescriptionTemplateAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null || !arguments.TryGetValue("templateId", out var idObj) || !int.TryParse(idObj.ToString(), out var templateId))
+            {
+                return new { error = "Invalid or missing templateId." };
+            }
+
+            var template = await _context.TblPrescriptionTemplates
+                .Include(t => t.TblPrescriptionTemplateItems)
+                .FirstOrDefaultAsync(t => t.Id == templateId && t.DeleteFlag != true);
+
+            if (template == null)
+            {
+                return new { error = $"Prescription template with ID {templateId} not found." };
+            }
+
+            template.DeleteFlag = true;
+            template.UpdatedAt = DateTime.UtcNow;
+
+            foreach (var item in template.TblPrescriptionTemplateItems)
+            {
+                item.DeleteFlag = true;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully deleted prescription template '{template.Name}' with ID {templateId}."
             };
         }
     }
