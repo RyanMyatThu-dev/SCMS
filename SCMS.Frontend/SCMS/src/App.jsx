@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
-import NotFound from "./pages/NotFound";
-import PatientPortal from "./pages/PatientPortal";
 
 import AdminLayout from "./features/admin/components/AdminLayout";
 import AdminDashboard from "./features/admin/components/AdminDashboard";
@@ -21,14 +19,11 @@ import Documents from "./features/document/Documents";
 import Setting from "./features/sestting/Setting";
 import Reports from "./features/reports/Reports";
 
+import NotFound from "./pages/NotFound";
+
 const SplashScreen = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-    <div className="animate-bounce h-16 w-16 bg-indigo-600 text-white font-black text-2xl rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-4">
-      S
-    </div>
-    <h1 className="text-xl font-bold text-gray-800 tracking-wider animate-pulse">
-      SCMS PORTAL LOADING...
-    </h1>
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <h1 className="text-2xl font-bold text-slate-700">SCMS Loading...</h1>
   </div>
 );
 
@@ -38,6 +33,7 @@ function App() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     setIsAuthenticated(Boolean(token));
 
     const timer = setTimeout(() => {
@@ -52,66 +48,6 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* ====================================================
-            ၄။ ROOT ROUTE (/) စစ်ဆေးသည့်နေရာ
-           ==================================================== */}
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              userRole === "admin" ? (
-                <Navigate to="/admin/dashboard" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
-            ) : (
-              <Navigate to="/register" replace />
-            )
-          }
-        />
-
-        {/* Auth Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        {/* Patient Portal (mobile-first UI) */}
-        <Route path="/patient-portal" element={<PatientPortal />} />
-
-        {/* ====================================================
-            ၅။ ADMIN SIDE ROUTES (Layout မပါဘဲ တိုက်ရိုက်ပတ်ထားသည်)
-           ==================================================== */}
-        <Route path="/admin">
-          <Route index element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="appointments" element={<AdminAppointments />} />
-          <Route path="diseases" element={<AdminDiseases />} />
-          <Route path="documents" element={<AdminDocuments />} />
-          <Route path="follow-ups" element={<AdminFollowUps />} />
-          <Route path="lab-reports" element={<AdminLabReports />} />
-          <Route path="medicines" element={<AdminMedicines />} />
-          <Route
-            path="notifications"
-            element={<div className="p-6 font-bold">Admin Notifications</div>}
-          />
-        </Route>
-
-        {/* ====================================================
-            ၆။ USER/PATIENT SIDE ROUTES (Layout မပါဘဲ တိုက်ရိုက်ပတ်ထားသည်)
-           ==================================================== */}
-        <Route path="/">
-          <Route path="dashboard" element={<UserDashboard />} />
-          <Route path="book-appointment" element={<UserNewAppointment />} />
-          <Route path="my-documents" element={<UserMyDocuments />} />
-          <Route path="my-prescriptions" element={<UserMyPrescriptions />} />
-          <Route path="my-payments" element={<UserMyPayments />} />
-        </Route>
-
-        {/* 404 Route */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
     <Routes>
       <Route
         path="/"
@@ -129,18 +65,30 @@ function App() {
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
+
         <Route path="dashboard" element={<AdminDashboard />} />
+
         <Route path="patients" element={<Patients />} />
+
         <Route path="appointments" element={<Appointments />} />
+
         <Route path="prescriptions" element={<Prescriptions />} />
+
         <Route path="followups" element={<FollowUps />} />
+
         <Route path="payments" element={<Payments />} />
+
         <Route path="notifications" element={<Notification />} />
+
         <Route path="medicines" element={<Medicines />} />
+
         <Route path="diseases" element={<Disease />} />
+
         <Route path="documents" element={<Documents />} />
-        <Route path="/admin/settings" element={<Setting />} />
-        <Route path="/admin/reports" element={<Reports />} />
+
+        <Route path="settings" element={<Setting />} />
+
+        <Route path="reports" element={<Reports />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
