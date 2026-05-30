@@ -1,22 +1,21 @@
+import {
+    AlertCircle,
+    Calendar,
+    Clock,
+    CreditCard,
+    Download,
+    Droplet,
+    FileText,
+    Heart,
+    MapPin,
+    Plus,
+    Sparkles,
+    User
+} from "lucide-react";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import {
-  Calendar,
-  FileText,
-  CreditCard,
-  Download,
-  AlertCircle,
-  Plus,
-  Heart,
-  Droplet,
-  User,
-  MapPin,
-  Clock,
-  Sparkles,
-  DollarSign
-} from "lucide-react";
-import { appointmentsApi, prescriptionsApi, paymentsApi, downloadBlob } from "../../services/scmsApi";
 import { showAlert, showError } from "../../services/dialogs";
+import { appointmentsApi, downloadBlob, paymentsApi, prescriptionsApi } from "../../services/scmsApi";
 import { formatTemperatureF } from "../../utils/clinical";
 
 const PRIMARY = "#4F46E5"; // Patient theme indigo-600
@@ -33,10 +32,15 @@ export default function UserDashboard() {
     loadDashboard,
     language,
     t,
+    setManageOpen,
+    newProfile: parentNewProfile,
+    setNewProfile: setParentNewProfile,
   } = useOutletContext();
 
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [bookingForm, setBookingForm] = useState({ datetime: "", notes: "" });
+  const [bookingStep, setBookingStep] = useState(1);
+  const [bookingOpenProfileId, setBookingOpenProfileId] = useState(null);
+  const [bookingForm, setBookingForm] = useState({ reason: "general", datetime: "", notes: "" });
   const [submittingBooking, setSubmittingBooking] = useState(false);
 
   const [payingInvoice, setPayingInvoice] = useState(null);
@@ -73,10 +77,12 @@ export default function UserDashboard() {
         patientId: Number(activeProfile.patientId),
         datetime: `${bookingForm.datetime}:00`,
         notes: bookingForm.notes,
+        reason: bookingForm.reason,
       });
 
       setBookingOpen(false);
-      setBookingForm({ datetime: "", notes: "" });
+      setBookingStep(1);
+      setBookingForm({ reason: "general", datetime: "", notes: "" });
       await showAlert("Appointment booked successfully!");
       await loadDashboard(activeProfile.patientId);
     } catch (error) {
@@ -146,6 +152,9 @@ export default function UserDashboard() {
         <p className="mt-2 text-sm text-slate-500 max-w-sm">
           Please contact clinic staff to link your registered patient records with this account.
         </p>
+        <div className="mt-6 w-full max-w-xs">
+          <button onClick={() => setManageOpen(true)} className="btn bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 w-full font-black">Create Patient Profile</button>
+        </div>
       </div>
     );
   }
@@ -184,6 +193,39 @@ export default function UserDashboard() {
           {language === "mm" ? "ချိန်းဆိုမှု အသစ်ပြုလုပ်ရန်" : "Book Appointment"}
         </button>
       </section>
+
+      {/* Quick Action Panels */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col items-start">
+          <div className="text-xs font-black text-slate-400 uppercase">Quick Actions</div>
+          <div className="mt-3 text-lg font-black text-slate-800">{filteredTelemetry.appointments.length} Appointments</div>
+          <div className="mt-6 w-full flex gap-2">
+            <button onClick={() => { setBookingOpen(true); setBookingStep(1); setBookingOpenProfileId(activeProfile.patientId); }} className="btn bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-3 py-2 font-black">Book</button>
+            <button onClick={() => window.scrollTo({ top: 800, behavior: 'smooth' })} className="btn btn-ghost border border-slate-200 rounded-xl px-3 py-2">Records</button>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col items-start">
+          <div className="text-xs font-black text-slate-400 uppercase">Profiles</div>
+          <div className="mt-3 text-lg font-black text-slate-800">{data?.patientProfiles?.length || 0} Linked</div>
+          <div className="mt-6 w-full">
+            <button onClick={() => setManageOpen(true)} className="btn btn-ghost border border-slate-200 rounded-xl px-3 py-2 w-full">Manage</button>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col items-start">
+          <div className="text-xs font-black text-slate-400 uppercase">Outstanding</div>
+          <div className="mt-3 text-lg font-black text-slate-800">{filteredTelemetry.outstanding.length} Due</div>
+          <div className="mt-6 w-full">
+            <button onClick={() => window.scrollTo({ top: 400, behavior: 'smooth' })} className="btn btn-ghost border border-slate-200 rounded-xl px-3 py-2 w-full">Pay</button>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col items-start">
+          <div className="text-xs font-black text-slate-400 uppercase">Prescriptions</div>
+          <div className="mt-3 text-lg font-black text-slate-800">{filteredTelemetry.prescriptions.length}</div>
+          <div className="mt-6 w-full">
+            <button onClick={() => window.scrollTo({ top: 1200, behavior: 'smooth' })} className="btn btn-ghost border border-slate-200 rounded-xl px-3 py-2 w-full">View</button>
+          </div>
+        </div>
+      </div>
 
       {/* Grid: Upcoming Appointments & Unpaid Balances */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -384,57 +426,68 @@ export default function UserDashboard() {
         )}
       </section>
 
-      {/* --- BOOKING MODAL --- */}
+      {/* --- BOOKING WIZARD MODAL --- */}
       {bookingOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <form
-            onSubmit={handleBook}
-            className="w-full max-w-md bg-white rounded-3xl border border-slate-200 p-6 shadow-2xl space-y-4"
-          >
+          <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
                 <Sparkles size={18} className="text-indigo-600" />
                 Book Clinic Visit
               </h3>
-              <button
-                type="button"
-                onClick={() => setBookingOpen(false)}
-                className="text-xs font-bold text-slate-400 hover:text-slate-600"
-              >
-                Cancel
-              </button>
+              <button type="button" onClick={() => { setBookingOpen(false); setBookingStep(1); }} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
             </div>
 
-            <label className="block">
-              <span className="mb-2 block text-xs font-black text-slate-700">Preferred Date & Time</span>
-              <input
-                type="datetime-local"
-                required
-                className="input input-bordered w-full h-11 rounded-xl text-sm"
-                value={bookingForm.datetime}
-                onChange={(e) => setBookingForm((p) => ({ ...p, datetime: e.target.value }))}
-              />
-            </label>
+            <div className="mt-4">
+              <div className="text-xs font-black text-slate-400 uppercase mb-3">Step {bookingStep} of 3</div>
 
-            <label className="block">
-              <span className="mb-2 block text-xs font-black text-slate-700">Symptoms / Medical Notes (Optional)</span>
-              <textarea
-                className="textarea textarea-bordered w-full rounded-xl text-sm min-h-24"
-                placeholder="Fever for two days, cough, etc."
-                value={bookingForm.notes}
-                onChange={(e) => setBookingForm((p) => ({ ...p, notes: e.target.value }))}
-              />
-            </label>
+              {bookingStep === 1 && (
+                <div className="space-y-3">
+                  <div className="text-sm font-black">Choose Reason</div>
+                  <select value={bookingForm.reason} onChange={(e) => setBookingForm(p => ({ ...p, reason: e.target.value }))} className="select select-bordered w-full h-11 rounded-xl text-sm">
+                    <option value="general">General Consultation</option>
+                    <option value="followup">Follow-up</option>
+                    <option value="refill">Prescription Refill</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <div className="flex justify-end gap-2 mt-4">
+                    <button type="button" onClick={() => setBookingStep(2)} className="btn bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2">Next</button>
+                  </div>
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={submittingBooking}
-              className="btn bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 w-full font-black text-sm"
-            >
-              {submittingBooking && <span className="loading loading-spinner loading-sm" />}
-              Confirm & Book
-            </button>
-          </form>
+              {bookingStep === 2 && (
+                <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); setBookingStep(3); }}>
+                  <div className="text-sm font-black">Select Date & Time</div>
+                  <input type="datetime-local" required value={bookingForm.datetime} onChange={(e) => setBookingForm(p => ({ ...p, datetime: e.target.value }))} className="input input-bordered w-full h-11 rounded-xl text-sm" />
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-black text-slate-700">Notes (optional)</span>
+                    <textarea className="textarea textarea-bordered w-full rounded-xl text-sm min-h-20" value={bookingForm.notes} onChange={(e) => setBookingForm(p => ({ ...p, notes: e.target.value }))} />
+                  </label>
+                  <div className="flex justify-between gap-2 mt-4">
+                    <button type="button" onClick={() => setBookingStep(1)} className="btn btn-ghost border border-slate-200 rounded-xl px-4 py-2">Back</button>
+                    <button type="submit" className="btn bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2">Next</button>
+                  </div>
+                </form>
+              )}
+
+              {bookingStep === 3 && (
+                <form onSubmit={handleBook} className="space-y-3">
+                  <div className="text-sm font-black">Confirm Details</div>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm">
+                    <div><strong>Patient:</strong> {activeProfile.name}</div>
+                    <div><strong>Reason:</strong> {bookingForm.reason}</div>
+                    <div><strong>Date:</strong> {bookingForm.datetime}</div>
+                    {bookingForm.notes && <div><strong>Notes:</strong> {bookingForm.notes}</div>}
+                  </div>
+                  <div className="flex justify-between gap-2 mt-4">
+                    <button type="button" onClick={() => setBookingStep(2)} className="btn btn-ghost border border-slate-200 rounded-xl px-4 py-2">Back</button>
+                    <button type="submit" disabled={submittingBooking} className="btn bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2">{submittingBooking ? 'Booking...' : 'Confirm & Book'}</button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,18 +1,17 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  LogOut,
-  Languages,
-  User,
-  Menu,
-  X,
+    Languages,
+    LayoutDashboard,
+    LogOut,
+    Menu,
+    X
 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { BrandLogoIcon } from "../../components/BrandLogo";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { BrandLogoIcon } from "../../components/BrandLogo";
+import { showAlert, showError } from "../../services/dialogs";
 import { dashboardsApi, patientsApi } from "../../services/scmsApi";
-import { showError, showAlert } from "../../services/dialogs";
 
 const PRIMARY = "#4F46E5"; // Patient theme indigo-600
 const PRIMARY_LIGHT = "#EEF2FF"; // indigo-50
@@ -32,6 +31,8 @@ export default function UserLayout() {
   const [activeProfile, setActiveProfile] = useState(null);
   const [error, setError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [newProfile, setNewProfile] = useState({ name: "", gender: "", mobileNo: "", bloodType: "", actualAddress: "" });
 
   // Load patient dashboard telemetry
   const loadDashboard = useCallback(async (selectId = null) => {
@@ -40,7 +41,7 @@ export default function UserLayout() {
       setError("");
       const result = await dashboardsApi.patient();
       setData(result);
-      
+
       const profiles = result?.patientProfiles || [];
       if (profiles.length > 0) {
         // If a specific ID is requested, select it. Otherwise, default to first profile or currently selected
@@ -74,6 +75,23 @@ export default function UserLayout() {
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleCreateProfile = async () => {
+    try {
+      setLoading(true);
+      const payload = { ...newProfile };
+      await patientsApi.create(payload);
+      setManageOpen(false);
+      setNewProfile({ name: "", gender: "", mobileNo: "", bloodType: "", actualAddress: "" });
+      await showAlert("Patient profile created. It may take a moment to appear.");
+      await loadDashboard();
+    } catch (err) {
+      console.error(err);
+      await showError(err?.response?.data?.message || err?.message || "Failed to create profile.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getInitials = (name) =>
@@ -235,25 +253,37 @@ export default function UserLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Dynamic Family Profile Switcher */}
-            {data?.patientProfiles && data.patientProfiles.length > 0 && (
+            {/* Dynamic Family Profile Switcher (always show manage button) */}
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
-                  Active Patient:
-                </span>
-                <select
-                  className="select select-bordered select-sm h-9 rounded-xl border-slate-200 bg-white text-xs md:text-sm font-extrabold text-indigo-600 focus:border-indigo-500 focus:ring-0 focus:outline-none pr-8"
-                  value={activeProfileId || ""}
-                  onChange={(e) => switchActiveProfile(Number(e.target.value))}
+                {data?.patientProfiles && data.patientProfiles.length > 0 ? (
+                  <>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
+                      Active Patient:
+                    </span>
+                    <select
+                      className="select select-bordered select-sm h-9 rounded-xl border-slate-200 bg-white text-xs md:text-sm font-extrabold text-indigo-600 focus:border-indigo-500 focus:ring-0 focus:outline-none pr-8"
+                      value={activeProfileId || ""}
+                      onChange={(e) => switchActiveProfile(Number(e.target.value))}
+                    >
+                      {data.patientProfiles.map((p) => (
+                        <option key={p.patientId} value={p.patientId}>
+                          {p.name} ({p.bloodType || "O+"})
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <div className="text-sm font-bold text-slate-500">No profiles linked</div>
+                )}
+
+                <button
+                  title="Manage Profiles"
+                  onClick={() => setManageOpen(true)}
+                  className="ml-2 rounded-lg p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                 >
-                  {data.patientProfiles.map((p) => (
-                    <option key={p.patientId} value={p.patientId}>
-                      {p.name} ({p.bloodType || "O+"})
-                    </option>
-                  ))}
-                </select>
+                  +
+                </button>
               </div>
-            )}
 
             {/* Profile Avatar Widget */}
             {activeProfile && (
@@ -301,6 +331,9 @@ export default function UserLayout() {
                   filteredTelemetry,
                   loading,
                   loadDashboard,
+                  setManageOpen,
+                  newProfile,
+                  setNewProfile,
                   language,
                   t,
                 }}
@@ -309,6 +342,60 @@ export default function UserLayout() {
           </div>
         </main>
       </div>
+
+      {manageOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateProfile();
+            }}
+            className="w-full max-w-md bg-white rounded-3xl border border-slate-200 p-6 shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-800">Add Patient Profile</h3>
+              <button type="button" onClick={() => setManageOpen(false)} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-black text-slate-700">Full Name</span>
+              <input required value={newProfile.name} onChange={(e) => setNewProfile(p => ({ ...p, name: e.target.value }))} className="input input-bordered w-full h-11 rounded-xl text-sm" />
+            </label>
+
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="mb-2 block text-xs font-black text-slate-700">Gender</span>
+                <select value={newProfile.gender} onChange={(e) => setNewProfile(p => ({ ...p, gender: e.target.value }))} className="select select-bordered w-full h-11 rounded-xl text-sm">
+                  <option value="">Select</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-black text-slate-700">Blood Type</span>
+                <input value={newProfile.bloodType} onChange={(e) => setNewProfile(p => ({ ...p, bloodType: e.target.value }))} className="input input-bordered w-full h-11 rounded-xl text-sm" />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-black text-slate-700">Mobile Number</span>
+              <input value={newProfile.mobileNo} onChange={(e) => setNewProfile(p => ({ ...p, mobileNo: e.target.value }))} className="input input-bordered w-full h-11 rounded-xl text-sm" />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-black text-slate-700">Address (optional)</span>
+              <input value={newProfile.actualAddress} onChange={(e) => setNewProfile(p => ({ ...p, actualAddress: e.target.value }))} className="input input-bordered w-full h-11 rounded-xl text-sm" />
+            </label>
+
+            <div className="flex gap-2">
+              <button type="submit" className="btn bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 w-full font-black text-sm">Create Profile</button>
+            </div>
+          </form>
+        </div>
+      )}
+
     </div>
   );
 }
