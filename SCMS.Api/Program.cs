@@ -140,11 +140,11 @@ app.UseExceptionHandler(errorApp =>
 
 
 
-//using (var scope = app.Services.CreateScope())
-//{
-//    var seeder = scope.ServiceProvider.GetRequiredService<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
-//    await seeder.Seed1YearDataAsync();
-//}
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
+    await seeder.Seed1YearDataAsync();
+}
 
 
 
