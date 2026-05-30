@@ -1,5 +1,6 @@
 import {
   Activity,
+  ArrowLeft,
   BarChart3,
   Bell,
   CalendarDays,
@@ -38,6 +39,8 @@ export default function AppShell() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  
   useEffect(() => {
     document.documentElement.classList.remove("dark");
     localStorage.setItem("scms_theme", "light");
@@ -53,19 +56,21 @@ export default function AppShell() {
       {open && <button className="fixed inset-0 z-30 bg-[rgba(15,23,42,0.45)] lg:hidden" onClick={() => setOpen(false)} />}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col border-r border-scms-border bg-white p-4 transition-transform lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-scms-border bg-white p-4 transition-all lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } ${collapsed ? "lg:w-[84px]" : "lg:w-[268px]"}`}
       >
-        <div className="mb-5 flex items-start justify-between gap-3 rounded-2xl bg-scms-primary p-4 text-white">
-          <div className="flex gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white/20">
+        <div className={`mb-5 flex items-start justify-between gap-3 rounded-2xl bg-scms-primary text-white transition-all ${collapsed ? "p-2" : "p-4"}`}>
+          <div className="flex gap-3 items-center">
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white/20 shrink-0">
               <Stethoscope size={24} />
             </div>
-            <div>
-              <div className="text-lg font-black">{t.appName}</div>
-              <div className="text-xs font-semibold text-white/80">{t.appSubtitle}</div>
-            </div>
+            {!collapsed && (
+              <div className="animate-fadeIn">
+                <div className="text-lg font-black">{t.appName}</div>
+                <div className="text-xs font-semibold text-white/80 leading-none mt-0.5">{t.appSubtitle}</div>
+              </div>
+            )}
           </div>
           <button className="btn btn-ghost btn-sm btn-square text-white lg:hidden" onClick={() => setOpen(false)} aria-label="Close">
             <X size={18} />
@@ -81,40 +86,54 @@ export default function AppShell() {
                 to={item.to}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-extrabold transition ${
+                  `flex items-center rounded-xl px-3 py-2.5 text-sm font-extrabold transition ${
+                    collapsed ? "justify-center gap-0" : "gap-3"
+                  } ${
                     isActive ? "bg-scms-primaryLight text-scms-primary" : "text-[#475467] hover:bg-[#F2F4F7] hover:text-scms-text"
                   }`
                 }
+                title={collapsed ? t[item.key] : undefined}
               >
-                <Icon size={18} />
-                <span>{t[item.key]}</span>
+                <Icon size={18} className="shrink-0" />
+                {!collapsed && <span className="animate-fadeIn">{t[item.key]}</span>}
               </NavLink>
             );
           })}
         </nav>
 
         <div className="mt-4 space-y-2 border-t border-scms-border pt-4">
-          <button className="scms-btn-outline w-full justify-start" onClick={toggleLanguage}>
-            {t.language}
-          </button>
-          <button className="btn min-h-11 w-full justify-start rounded-xl border-[#FECDCA] bg-[#FFF1F0] text-scms-danger hover:border-[#FECDCA] hover:bg-[#FFF1F0]" onClick={handleLogout}>
-            <LogOut size={18} />
-            {t.logout}
+          <button 
+            className={`btn min-h-11 w-full rounded-xl border-[#FECDCA] bg-[#FFF1F0] text-scms-danger hover:border-[#FECDCA] hover:bg-[#FFF1F0] ${collapsed ? "justify-center px-0" : "justify-start px-5"}`} 
+            onClick={handleLogout}
+            title={collapsed ? t.logout : undefined}
+          >
+            <LogOut size={18} className="shrink-0" />
+            {!collapsed && <span className="animate-fadeIn">{t.logout}</span>}
           </button>
         </div>
       </aside>
 
-      <main className="lg:pl-[268px]">
+      <main className={`transition-all ${collapsed ? "lg:pl-[84px]" : "lg:pl-[268px]"}`}>
         <div className="mx-auto min-h-screen max-w-[1240px] px-4 py-5 md:px-6 lg:px-8">
           <header className="mb-6 flex items-center justify-between gap-4 rounded-[18px] border border-scms-border bg-white px-4 py-3 shadow-scms">
-            <button className="btn btn-ghost btn-square lg:hidden" onClick={() => setOpen(true)} aria-label="Menu">
-              <Menu size={20} />
-            </button>
-            <div>
+            <div className="flex items-center gap-2">
+              <button className="btn btn-ghost btn-square lg:hidden" onClick={() => setOpen(true)} aria-label="Menu">
+                <Menu size={20} />
+              </button>
+              <button className="btn btn-ghost btn-square hidden lg:flex rounded-xl" onClick={() => setCollapsed(!collapsed)} aria-label="Toggle Sidebar">
+                <Menu size={20} />
+              </button>
+              <button className="btn btn-ghost btn-sm btn-square rounded-xl text-scms-muted hover:text-scms-text hover:bg-slate-50" onClick={() => navigate(-1)} aria-label="Go Back">
+                <ArrowLeft size={20} />
+              </button>
+            </div>
+            
+            <div className="mr-auto">
               <div className="text-sm font-black text-scms-text">Admin User</div>
               <div className="text-xs font-semibold text-scms-muted">System Administrator</div>
             </div>
-            <div className="ml-auto flex items-center gap-3">
+            
+            <div className="flex items-center gap-3">
               <button className="scms-btn-outline hidden md:inline-flex" onClick={toggleLanguage}>
                 {t.language}
               </button>

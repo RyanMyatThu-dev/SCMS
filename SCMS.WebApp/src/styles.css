@@ -50,6 +50,28 @@ textarea {
   font-family: Inter, Manrope, "Padauk", system-ui, sans-serif;
 }
 
+/* Enforce Myanmar font globally when lang-mm class is active on root */
+.lang-mm, 
+.lang-mm body, 
+.lang-mm input, 
+.lang-mm button, 
+.lang-mm select, 
+.lang-mm textarea,
+.lang-mm .scms-btn-primary,
+.lang-mm .scms-btn-outline {
+  font-family: Inter, Manrope, "Padauk", system-ui, sans-serif !important;
+}
+
+/* Disable spin-buttons globally for number inputs to prevent overlapping/distorting toggles */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .scms-card {
   @apply rounded-[18px] border border-scms-border bg-white shadow-scms;
 }

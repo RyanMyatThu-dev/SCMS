@@ -160,7 +160,7 @@ export default function Dashboard() {
         />
         <StatCard
           label={statLabels.totalRevenue}
-          value={`MMK ${Number(stats.totalRevenue || 0).toLocaleString()}`}
+          value={`${Number(stats.totalRevenue || 0).toLocaleString()} MMK`}
           icon={CreditCard}
           tone="warning"
           onClick={() => navigate("/app/payments")}
@@ -172,7 +172,6 @@ export default function Dashboard() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-scms-text">Today's Appointments</h2>
-            <span className="text-xs font-bold text-scms-muted font-mono">{totalCount} today</span>
           </div>
 
           <DataTable
@@ -232,12 +231,35 @@ export default function Dashboard() {
 
         <div>
           <h2 className="mb-3 text-xl font-black text-scms-text">Stock Warnings</h2>
-          <div className="scms-card divide-y divide-scms-border">
+          <div className="scms-card divide-y divide-scms-border max-h-[360px] overflow-y-auto pr-1">
             {alerts.length ? (
               alerts.map((alert, index) => (
-                <div key={alert.id || index} className="p-4">
-                  <div className="font-extrabold text-scms-text">{alert.name || alert.medicineName || alert.type || "Inventory Alert"}</div>
-                  <div className="mt-1 text-sm text-scms-muted">{alert.message || alert.description || alert.status || "-"}</div>
+                <div key={alert.id || index} className="p-4 flex flex-col gap-1.5 hover:bg-slate-50 transition">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-[10px] font-black border px-2 py-0.5 rounded-full ${alert.alertType === "Low Stock" ? "bg-red-100 text-red-800 border-red-200" : "bg-amber-100 text-amber-800 border-amber-200"}`}>
+                      {alert.alertType ? alert.alertType.toUpperCase() : "ALERT"}
+                    </span>
+                    {alert.batchNo && (
+                      <span className="text-xs font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-200">
+                        Batch: {alert.batchNo}
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-extrabold text-sm text-scms-text">{alert.medicineName || alert.name}</div>
+                  <div className="text-xs font-semibold text-scms-muted mt-0.5 leading-relaxed space-y-1">
+                    <div>
+                      <strong className="text-slate-500">Reason:</strong> {alert.alertType === "Low Stock" ? "Stock level is critically low" : "Batch is nearing expiration"}
+                    </div>
+                    {alert.alertType === "Low Stock" ? (
+                      <div>
+                        <strong className="text-slate-500">Current Qty:</strong> <span className="text-red-600 font-bold font-mono">{alert.currentQuantity} units</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <strong className="text-slate-500">Expiry Date:</strong> <span className="text-amber-600 font-bold font-mono">{formatDate(alert.expiryDate)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
@@ -253,21 +275,24 @@ export default function Dashboard() {
           <div className="w-full max-w-md bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative">
             <button
               onClick={() => setDetailOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
+              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition z-10"
             >
               <X size={16} />
             </button>
             
             <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-3 mb-4">
               <div>
-                <span className="text-xs font-bold text-slate-400 font-mono">Slot #{selectedAppt.appointmentCode}</span>
-                <h3 className="text-lg font-black text-scms-text mt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 font-mono">Slot #{selectedAppt.appointmentCode}</span>
+                  <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(selectedAppt.status)}`}>
+                    {String(selectedAppt.status).toUpperCase()}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-scms-text mt-1.5">
                   {selectedAppt.patientName || selectedAppt.patient?.name}
                 </h3>
               </div>
-              <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(selectedAppt.status)}`}>
-                {String(selectedAppt.status).toUpperCase()}
-              </span>
+              <div className="w-8 h-8"></div>
             </div>
 
             <div className="space-y-3 text-xs leading-relaxed">

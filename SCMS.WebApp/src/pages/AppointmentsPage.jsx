@@ -181,8 +181,8 @@ export default function AppointmentsPage() {
           );
         }
 
-        // Sort tokens ascending
-        items.sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
+        // Sort chronologically by appointment date/time
+        items.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
 
         setAppointments(items);
         if (res.pagination) {
@@ -236,6 +236,12 @@ export default function AppointmentsPage() {
     if (!selectedMedicineId) return;
     const med = medicines.find(m => String(m.medicineId || m.id) === String(selectedMedicineId));
     if (!med) return;
+
+    const stock = med.totalStock ?? med.stock ?? 0;
+    if (stock <= 0) {
+      showAlert("Cannot prescribe this medication because it is out of stock (Stock: 0).");
+      return;
+    }
 
     // Avoid duplicates
     if (prescribedItems.some(i => i.medicineId === med.medicineId)) {
@@ -321,10 +327,7 @@ export default function AppointmentsPage() {
 
   const handleSaveConsult = async () => {
     if (!activeAppt) return;
-    if (prescribedItems.length === 0) {
-      showAlert("Please prescribe at least one medicine.");
-      return;
-    }
+    // Allow consultation without medicine if prescribedItems is empty
     if (scheduleFollowUp && !followUpDate) {
       showAlert("Please select a due date for the follow-up visit.");
       return;
@@ -494,7 +497,8 @@ export default function AppointmentsPage() {
             />
             <button
               type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0"
+              onClick={handleSearchSubmit}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0 z-10"
             >
               <Search size={14} />
               Search
@@ -742,9 +746,10 @@ export default function AppointmentsPage() {
               <button
                 type="button"
                 onClick={() => setEmrOpen(false)}
-                className="btn btn-sm btn-ghost hover:bg-slate-50 rounded-xl font-extrabold text-xs text-scms-muted hover:text-scms-text"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
+                aria-label="Close"
               >
-                Close consult
+                <X size={18} />
               </button>
             </div>
 
@@ -1085,15 +1090,8 @@ export default function AppointmentsPage() {
             <div className="pt-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setEmrOpen(false)}
-                className="scms-btn-outline h-11"
-              >
-                Discard Consultation
-              </button>
-              <button
-                type="button"
                 onClick={handleSaveConsult}
-                disabled={savingConsult || prescribedItems.length === 0}
+                disabled={savingConsult}
                 className="scms-btn-primary h-11 px-8 flex items-center gap-2 font-black text-sm"
               >
                 {savingConsult ? (

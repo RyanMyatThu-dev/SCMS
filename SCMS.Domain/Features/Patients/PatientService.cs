@@ -299,7 +299,7 @@ namespace SCMS.Domain.Features.Patients
             }
 
             var s = summaryResult.Data;
-            var dobStr = s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("yyyy-MM-dd") : "N/A";
+            var dobStr = s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("dd-MM-yyyy") : "N/A";
             
             // Build vitals history rows
             var vitalsRows = "";
@@ -307,7 +307,7 @@ namespace SCMS.Domain.Features.Patients
             {
                 vitalsRows += $@"
                 <tr>
-                    <td>{v.Date:yyyy-MM-dd HH:mm}</td>
+                    <td>{v.Date:dd-MM-yyyy HH:mm}</td>
                     <td>{v.WeightKg?.ToString() ?? "-"} kg</td>
                     <td>{(v.BloodPressureSystolic.HasValue && v.BloodPressureDiastolic.HasValue ? $"{v.BloodPressureSystolic}/{v.BloodPressureDiastolic}" : "-")}</td>
                     <td>{v.TemperatureC?.ToString() ?? "-"} C</td>
@@ -325,7 +325,7 @@ namespace SCMS.Domain.Features.Patients
                 rxRows += $@"
                 <div class='rx-card'>
                     <div class='rx-header'>
-                        <strong>{rx.DiseaseName}</strong> <span style='float:right; font-size: 12px; color: #666;'>{rx.Date:yyyy-MM-dd}</span>
+                        <strong>{rx.DiseaseName}</strong> <span style='float:right; font-size: 12px; color: #666;'>{rx.Date:dd-MM-yyyy}</span>
                     </div>
                     <div class='rx-body'>
                         Medicines: {string.Join(", ", rx.Medicines)}
@@ -453,7 +453,7 @@ namespace SCMS.Domain.Features.Patients
                         </div>
                         <div style='text-align: right;'>
                             <strong style='color:#3b82f6; font-size: 18px;'>EMR Report</strong><br/>
-                            <span style='font-size: 12px; color:#64748b;'>Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC</span>
+                            <span style='font-size: 12px; color:#64748b;'>Generated: {DateTime.UtcNow:dd-MM-yyyy HH:mm} UTC</span>
                         </div>
                     </div>
 

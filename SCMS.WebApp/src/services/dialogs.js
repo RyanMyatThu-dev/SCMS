@@ -22,6 +22,19 @@ export const showAlert = (message, title = "SCMS") =>
     confirmButtonText: "OK",
   });
 
+export const showSuccess = (message, title = "Success") =>
+  Swal.fire({
+    ...baseOptions,
+    title,
+    text: message,
+    icon: "success",
+    confirmButtonText: "OK",
+    customClass: {
+      ...baseOptions.customClass,
+      confirmButton: "btn min-h-11 rounded-xl border-0 bg-emerald-600 hover:bg-emerald-700 px-5 text-white",
+    }
+  });
+
 export const showError = (message, title = "Error") =>
   Swal.fire({
     ...baseOptions,

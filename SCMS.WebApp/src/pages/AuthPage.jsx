@@ -108,7 +108,15 @@ export default function AuthPage({ mode = "login" }) {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
               <input className="scms-input scms-input-icon w-full pr-12" type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => update("password", event.target.value)} />
-              <button type="button" className="btn btn-ghost btn-sm btn-square absolute right-2 top-1/2 -translate-y-1/2" onClick={() => setShowPassword((prev) => !prev)}>
+              <button 
+                type="button" 
+                className="btn btn-ghost btn-sm btn-square absolute right-2 top-1/2 -translate-y-1/2 z-10" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowPassword((prev) => !prev);
+                }}
+              >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
