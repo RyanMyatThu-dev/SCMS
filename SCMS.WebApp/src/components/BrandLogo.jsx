@@ -11,40 +11,34 @@ export function BrandLogoIcon({ size = 24, className = "" }) {
       className={className}
     >
       <defs>
-        {/* Rich gradient to match the premium blue curved clinical cross design */}
-        <linearGradient id="logoBlueGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#2563EB" />
-          <stop offset="50%" stopColor="#3B82F6" />
-          <stop offset="100%" stopColor="#1D4ED8" />
+        {/* Precise diagonal gradients for the two L-shaped ribbons to render the curved sheen */}
+        <linearGradient id="ribbon1Grad" x1="58" y1="10" x2="10" y2="58" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#1D4ED8" />
+          <stop offset="30%" stopColor="#2563EB" />
+          <stop offset="50%" stopColor="#E0F2FE" />
+          <stop offset="70%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#2563EB" />
         </linearGradient>
-        <linearGradient id="logoLightGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#60A5FA" />
-          <stop offset="100%" stopColor="#3B82F6" />
+        <linearGradient id="ribbon2Grad" x1="42" y1="90" x2="90" y2="42" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#1D4ED8" />
+          <stop offset="30%" stopColor="#2563EB" />
+          <stop offset="50%" stopColor="#E0F2FE" />
+          <stop offset="70%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#2563EB" />
         </linearGradient>
       </defs>
-      
-      {/* Vertical Curved Body */}
+
+      {/* Ribbon 1: Top-Vertical arm curving smoothly into the Left-Horizontal arm */}
       <path
-        d="M50 8C58 20 62 38 62 50C62 62 58 80 50 92C42 80 38 62 38 50C38 38 42 20 50 8Z"
-        fill="url(#logoBlueGrad)"
+        d="M 58 10 L 58 26 C 58 43.68, 43.68 58, 26 58 L 10 58 L 10 42 L 26 42 C 34.84 42, 42 34.84, 42 26 L 42 10 Z"
+        fill="url(#ribbon1Grad)"
       />
-      
-      {/* Horizontal Curved Body with Blend Mode and opacity for dynamic overlay */}
+
+      {/* Ribbon 2: Bottom-Vertical arm curving smoothly into the Right-Horizontal arm */}
       <path
-        d="M8 50C20 58 38 62 50 62C62 62 80 58 92 50C80 42 62 38 50 38C38 38 20 42 8 50Z"
-        fill="url(#logoLightGrad)"
-        opacity="0.95"
+        d="M 42 90 L 42 74 C 42 56.32, 56.32 42, 74 42 L 90 42 L 90 58 L 74 58 C 65.16 58, 58 65.16, 58 74 L 58 90 Z"
+        fill="url(#ribbon2Grad)"
       />
-      
-      {/* Inner sheen curve representing the dynamic overlapping ribbon structure */}
-      <path
-        d="M50 38C55 42 60 47 60 50C60 53 55 58 50 62C48 57 47 53 47 50C47 47 48 43 50 38Z"
-        fill="#FFFFFF"
-        opacity="0.3"
-      />
-      
-      {/* Sleek center core highlight */}
-      <circle cx="50" cy="50" r="5" fill="#FFFFFF" />
     </svg>
   );
 }
