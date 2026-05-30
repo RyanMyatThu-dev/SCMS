@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -339,7 +340,7 @@ class _PatientDashboard extends ConsumerWidget {
                     SizedBox(height: 16),
                     Text(
                       'No Patient Profiles Linked',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.black),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                     ),
                     SizedBox(height: 8),
                     Text(
@@ -389,7 +390,7 @@ class _PatientDashboard extends ConsumerWidget {
                         '${profile.name} (${profile.bloodType ?? "O+"})',
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.extrabold,
+                          fontWeight: FontWeight.w800,
                           fontSize: 13,
                         ),
                       ),
@@ -452,7 +453,7 @@ class _PatientDashboard extends ConsumerWidget {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
-                            fontWeight: FontWeight.black,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
@@ -466,7 +467,7 @@ class _PatientDashboard extends ConsumerWidget {
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 21,
-                                fontWeight: FontWeight.black,
+                                fontWeight: FontWeight.w900,
                                 letterSpacing: -0.5,
                               ),
                             ),
@@ -486,7 +487,7 @@ class _PatientDashboard extends ConsumerWidget {
                                     const SizedBox(width: 4),
                                     Text(
                                       'Blood Type: ${activeProfile.bloodType}',
-                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.black),
+                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
                                     ),
                                   ],
                                 ),
@@ -503,11 +504,11 @@ class _PatientDashboard extends ConsumerWidget {
                     children: [
                       const Icon(Icons.phone_outlined, color: Colors.white70, size: 16),
                       const SizedBox(width: 8),
-                      Text(activeProfile.mobileNo ?? 'No Mobile Number', style: const TextStyle(color: Colors.white90, fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text(activeProfile.mobileNo ?? 'No Mobile Number', style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                       const Spacer(),
                       const Icon(Icons.person_outline, color: Colors.white70, size: 16),
                       const SizedBox(width: 8),
-                      Text(activeProfile.gender ?? 'Not Specified', style: const TextStyle(color: Colors.white90, fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text(activeProfile.gender ?? 'Not Specified', style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   if (activeProfile.actualAddress != null) ...[
@@ -521,7 +522,7 @@ class _PatientDashboard extends ConsumerWidget {
                             activeProfile.actualAddress!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white90, fontSize: 13, fontWeight: FontWeight.w600),
+                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -547,7 +548,7 @@ class _PatientDashboard extends ConsumerWidget {
                         );
                       },
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Book Appointment', style: TextStyle(fontWeight: FontWeight.black)),
+                      label: const Text('Book Appointment', style: TextStyle(fontWeight: FontWeight.w900)),
                     ),
                   ),
                 ],
@@ -591,7 +592,7 @@ class _PatientDashboard extends ConsumerWidget {
                           children: [
                             Text(
                               'Code: #${appt.appointmentCode}',
-                              style: const TextStyle(fontWeight: FontWeight.black, color: Colors.indigo, fontSize: 13),
+                              style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.indigo, fontSize: 13),
                             ),
                             const Spacer(),
                             StatusPill(
@@ -672,7 +673,7 @@ class _PatientDashboard extends ConsumerWidget {
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
                   child: Center(
-                    child: Text('All balances are clear! Thank you.', style: TextStyle(color: Colors.emerald, fontWeight: FontWeight.black)),
+                    child: Text('All balances are clear! Thank you.', style: TextStyle(color: Colors.emerald, fontWeight: FontWeight.w900)),
                   ),
                 ),
               )
@@ -711,7 +712,7 @@ class _PatientDashboard extends ConsumerWidget {
                               children: [
                                 Text(
                                   '${NumberFormat.decimalPattern().format(invoice.amount)} MMK',
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.black, color: Colors.indigo),
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.indigo),
                                 ),
                                 if (invoice.tax > 0)
                                   const Text(
@@ -748,7 +749,7 @@ class _PatientDashboard extends ConsumerWidget {
                                       ),
                                     );
                                   },
-                                  child: const Text('Pay Now', style: TextStyle(fontWeight: FontWeight.extrabold)),
+                                  child: const Text('Pay Now', style: TextStyle(fontWeight: FontWeight.w800)),
                                 ),
                               ],
                             ),
@@ -805,7 +806,7 @@ class _PatientDashboard extends ConsumerWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   _formatJustDate(rx.createdAt),
-                                  style: const TextStyle(fontWeight: FontWeight.black, fontSize: 14),
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                                 ),
                               ],
                             ),
@@ -839,7 +840,7 @@ class _PatientDashboard extends ConsumerWidget {
                                   style: TextStyle(
                                     color: Colors.red.shade800,
                                     fontSize: 11,
-                                    fontWeight: FontWeight.black,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                               ),
@@ -862,25 +863,25 @@ class _PatientDashboard extends ConsumerWidget {
                               if (rx.weightKg > 0)
                                 Column(
                                   children: [
-                                    const Text('WEIGHT', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.black)),
+                                    const Text('WEIGHT', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w900)),
                                     const SizedBox(height: 4),
-                                    Text('${rx.weightKg} kg', style: const TextStyle(fontWeight: FontWeight.black, fontSize: 13)),
+                                    Text('${rx.weightKg} kg', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
                                   ],
                                 ),
                               if (rx.bloodPressureSystolic > 0)
                                 Column(
                                   children: [
-                                    const Text('BP', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.black)),
+                                    const Text('BP', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w900)),
                                     const SizedBox(height: 4),
-                                    Text('${rx.bloodPressureSystolic}/${rx.bloodPressureDiastolic}', style: const TextStyle(fontWeight: FontWeight.black, fontSize: 13)),
+                                    Text('${rx.bloodPressureSystolic}/${rx.bloodPressureDiastolic}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
                                   ],
                                 ),
                               if (rx.temperatureC != null && rx.temperatureC! > 0)
                                 Column(
                                   children: [
-                                    const Text('TEMP', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.black)),
+                                    const Text('TEMP', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w900)),
                                     const SizedBox(height: 4),
-                                    Text('${(rx.temperatureC! * 9 / 5 + 32).toStringAsFixed(1)} °F', style: const TextStyle(fontWeight: FontWeight.black, fontSize: 13)),
+                                    Text('${(rx.temperatureC! * 9 / 5 + 32).toStringAsFixed(1)} °F', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
                                   ],
                                 ),
                             ],
@@ -892,7 +893,7 @@ class _PatientDashboard extends ConsumerWidget {
                           const SizedBox(height: 16),
                           const Text(
                             'PRESCRIBED MEDICINES',
-                            style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.black, letterSpacing: 0.5),
+                            style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
                           ),
                           const SizedBox(height: 8),
                           ...rx.items.map((item) {
@@ -945,8 +946,7 @@ class _PatientDashboard extends ConsumerWidget {
                       ],
                     ),
                   );
-                });
-              }),
+                }),
           ],
         );
       },
@@ -1061,7 +1061,7 @@ class _BookAppointmentDialogState extends ConsumerState<_BookAppointmentDialog> 
                   SizedBox(width: 8),
                   Text(
                     'Book Clinic Visit',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.black),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   ),
                 ],
               ),
@@ -1073,7 +1073,7 @@ class _BookAppointmentDialogState extends ConsumerState<_BookAppointmentDialog> 
               const SizedBox(height: 20),
 
               // Date Time Picker Button
-              const Text('PREFERRED DATE & TIME', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.black)),
+              const Text('PREFERRED DATE & TIME', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               InkWell(
                 onTap: _submitting ? null : _pickDateTime,
@@ -1109,7 +1109,7 @@ class _BookAppointmentDialogState extends ConsumerState<_BookAppointmentDialog> 
               const SizedBox(height: 18),
 
               // Symptoms input
-              const Text('SYMPTOMS / NOTES (OPTIONAL)', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.black)),
+              const Text('SYMPTOMS / NOTES (OPTIONAL)', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               TextField(
                 controller: _notesController,
@@ -1157,7 +1157,7 @@ class _BookAppointmentDialogState extends ConsumerState<_BookAppointmentDialog> 
                       onPressed: _submitting ? null : _submitBooking,
                       child: _submitting
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Confirm Booking', style: TextStyle(fontWeight: FontWeight.black)),
+                          : const Text('Confirm Booking', style: TextStyle(fontWeight: FontWeight.w900)),
                     ),
                   ),
                 ],
@@ -1255,7 +1255,7 @@ class _SubmitPaymentProofDialogState extends ConsumerState<_SubmitPaymentProofDi
                   SizedBox(width: 8),
                   Text(
                     'Submit Payment Proof',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.black),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   ),
                 ],
               ),
@@ -1274,11 +1274,11 @@ class _SubmitPaymentProofDialogState extends ConsumerState<_SubmitPaymentProofDi
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('PAYMENT AMOUNT', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.black)),
+                        const Text('PAYMENT AMOUNT', style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 4),
                         Text(
                           '${NumberFormat.decimalPattern().format(widget.invoice.amount)} MMK',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.black, color: Colors.indigo),
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.indigo),
                         ),
                         const SizedBox(height: 4),
                         Text('For Appointment Code: #${widget.invoice.appointmentCode}', style: const TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -1290,7 +1290,7 @@ class _SubmitPaymentProofDialogState extends ConsumerState<_SubmitPaymentProofDi
               const SizedBox(height: 20),
 
               // Payment Gateway Selector
-              const Text('PAYMENT WALLET / METHOD', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.black)),
+              const Text('PAYMENT WALLET / METHOD', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1303,25 +1303,26 @@ class _SubmitPaymentProofDialogState extends ConsumerState<_SubmitPaymentProofDi
                   child: DropdownButton<String>(
                     value: _selectedMethod,
                     isExpanded: true,
-                    enabled: !_submitting,
                     items: _gateways.map((g) {
                       return DropdownMenuItem<String>(
                         value: g['value'],
                         child: Text(g['label']!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       );
                     }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() => _selectedMethod = val);
-                      }
-                    },
+                    onChanged: _submitting
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setState(() => _selectedMethod = val);
+                            }
+                          },
                   ),
                 ),
               ),
               const SizedBox(height: 18),
 
               // Screenshot URL Input
-              const Text('SCREENSHOT / RECEIPT IMAGE URL', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.black)),
+              const Text('SCREENSHOT / RECEIPT IMAGE URL', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               TextField(
                 controller: _screenshotController,
@@ -1375,7 +1376,7 @@ class _SubmitPaymentProofDialogState extends ConsumerState<_SubmitPaymentProofDi
                       onPressed: _submitting ? null : _submitProof,
                       child: _submitting
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Submit Proof', style: TextStyle(fontWeight: FontWeight.black)),
+                          : const Text('Submit Proof', style: TextStyle(fontWeight: FontWeight.w900)),
                     ),
                   ),
                 ],
