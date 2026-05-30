@@ -9,10 +9,14 @@ export default function PaginationControls({
   onPageChange,
   align = "end",
 }) {
-  if (loading || totalPages <= 1) return null;
+  if (loading) return null;
+
+  const isEmpty = totalCount === 0 || totalPages === 0;
+  const displayPage = isEmpty ? 0 : page;
+  const displayTotalPages = isEmpty ? 0 : totalPages;
 
   const goToPage = (nextPage) => {
-    if (!onPageChange) return;
+    if (!onPageChange || isEmpty) return;
     const bounded = Math.min(Math.max(nextPage, 1), totalPages);
     onPageChange(bounded);
   };
@@ -24,7 +28,7 @@ export default function PaginationControls({
     <nav className={`flex flex-wrap items-center ${alignment} gap-2 pt-4`} aria-label="Pagination">
       <button
         type="button"
-        disabled={page <= 1}
+        disabled={displayPage <= 1 || isEmpty}
         onClick={() => goToPage(page - 1)}
         className="btn btn-sm btn-outline h-9 rounded-lg border-scms-border"
       >
@@ -32,12 +36,12 @@ export default function PaginationControls({
         Prev
       </button>
       <span className="rounded-lg border border-scms-border bg-white px-3 py-2 text-xs font-extrabold text-scms-muted">
-        Page {page} of {totalPages}
+        Page {displayPage} of {displayTotalPages}
         {countLabel}
       </span>
       <button
         type="button"
-        disabled={page >= totalPages}
+        disabled={displayPage >= displayTotalPages || isEmpty}
         onClick={() => goToPage(page + 1)}
         className="btn btn-sm btn-outline h-9 rounded-lg border-scms-border"
       >

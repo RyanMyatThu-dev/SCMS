@@ -224,11 +224,19 @@ export default function AppointmentsPage() {
 
   const getStatusClass = (status) => {
     const s = String(status || "").toLowerCase();
-    if (s === "pending" || s === "requested") return "bg-amber-100 text-amber-800 border-amber-200";
-    if (s === "confirmed" || s === "paid") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (s === "completed") return "bg-indigo-100 text-indigo-800 border-indigo-200";
-    if (s === "cancelled" || s === "failed") return "bg-red-100 text-red-800 border-red-200";
-    return "bg-slate-100 text-slate-800 border-slate-200";
+    if (s === "completed" || s === "paid" || s === "success") {
+      return "bg-[#ECFDF3] text-[#027A48] border-[#A9EFC5]";
+    }
+    if (s === "confirmed" || s === "active") {
+      return "bg-[#EBF2FF] text-[#0052CC] border-[#B2CCFF]";
+    }
+    if (s === "cancelled" || s === "failed" || s === "rejected") {
+      return "bg-[#FFF1F0] text-[#D92D20] border-[#FECDCA]";
+    }
+    if (s === "pending" || s === "requested") {
+      return "bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]";
+    }
+    return "bg-[#F2F4F7] text-[#667085] border-[#E4E7EC]";
   };
 
   // EMR: Add selected medicine to prescription list
@@ -498,7 +506,7 @@ export default function AppointmentsPage() {
             <button
               type="submit"
               onClick={handleSearchSubmit}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0 z-10"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0 z-10 btn-no-scale"
             >
               <Search size={14} />
               Search
@@ -571,7 +579,7 @@ export default function AppointmentsPage() {
                     onClick={() => { setSelectedAppt(appt); setDetailOpen(true); }}
                     className="hover:bg-slate-50/70 cursor-pointer transition"
                   >
-                    <td className="font-extrabold text-scms-primary font-mono text-sm">#{appt.appointmentCode}</td>
+                    <td className="font-extrabold text-scms-primary font-mono text-sm">{appt.appointmentCode}</td>
                     <td className="font-extrabold text-scms-text">{appt.patientName || appt.patient?.name || appt.patientId}</td>
                     <td className="font-semibold">{formatDate(appt.datetime)}</td>
                     <td className="font-bold text-indigo-600 font-mono text-center sm:text-left">{appt.tokenNumber || "-"}</td>
@@ -627,7 +635,7 @@ export default function AppointmentsPage() {
             >
               <div>
                 <div className="flex justify-between items-center gap-2">
-                  <span className="text-xs font-black text-indigo-600 font-mono">#{appt.appointmentCode}</span>
+                  <span className="text-xs font-black text-indigo-600 font-mono">{appt.appointmentCode}</span>
                   <span className={`text-[9px] font-black border px-2 py-0.5 rounded-full ${getStatusClass(appt.status)}`}>
                     {String(appt.status).toUpperCase()}
                   </span>
@@ -684,7 +692,7 @@ export default function AppointmentsPage() {
             <div className="flex justify-between items-start gap-3 border-b border-slate-100 pb-3 mb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 font-mono">Slot #{selectedAppt.appointmentCode}</span>
+                  <span className="text-xs font-bold text-slate-400 font-mono">Slot {selectedAppt.appointmentCode}</span>
                   <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(selectedAppt.status)}`}>
                     {String(selectedAppt.status).toUpperCase()}
                   </span>
@@ -739,7 +747,7 @@ export default function AppointmentsPage() {
                     Clinical Consulting Workspace
                   </h3>
                   <span className="text-xs font-semibold text-scms-muted">
-                    Active Patient: <strong className="text-scms-text font-black">{activeAppt.patientName || activeAppt.patient?.name}</strong> | Slot: #{activeAppt.appointmentCode}
+                    Active Patient: <strong className="text-scms-text font-black">{activeAppt.patientName || activeAppt.patient?.name}</strong> | Slot: {activeAppt.appointmentCode}
                   </span>
                 </div>
               </div>
@@ -768,7 +776,7 @@ export default function AppointmentsPage() {
                     <label className="block">
                       <span className="mb-1 block font-bold text-slate-500">Weight (kg)</span>
                       <input
-                        type="number"
+                        type="text"
                         placeholder="e.g. 70"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={vitals.weightKg}
@@ -779,7 +787,7 @@ export default function AppointmentsPage() {
                     <label className="block">
                       <span className="mb-1 block font-bold text-slate-500">Height (cm)</span>
                       <input
-                        type="number"
+                        type="text"
                         placeholder="e.g. 175"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={vitals.heightCm}
@@ -797,7 +805,7 @@ export default function AppointmentsPage() {
                     <label className="block">
                       <span className="mb-1 block font-bold text-slate-500">BP Systolic</span>
                       <input
-                        type="number"
+                        type="text"
                         placeholder="e.g. 120"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={vitals.bloodPressureSystolic}
@@ -808,7 +816,7 @@ export default function AppointmentsPage() {
                     <label className="block">
                       <span className="mb-1 block font-bold text-slate-500">BP Diastolic</span>
                       <input
-                        type="number"
+                        type="text"
                         placeholder="e.g. 80"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={vitals.bloodPressureDiastolic}
@@ -819,8 +827,7 @@ export default function AppointmentsPage() {
                     <label className="block">
                       <span className="mb-1 block font-bold text-slate-500">Temp (°F)</span>
                       <input
-                        type="number"
-                        step="0.1"
+                        type="text"
                         placeholder="e.g. 98.6"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={vitals.temperatureF}
@@ -831,7 +838,7 @@ export default function AppointmentsPage() {
                     <label className="block">
                       <span className="mb-1 block font-bold text-slate-500">Pulse (BPM)</span>
                       <input
-                        type="number"
+                        type="text"
                         placeholder="e.g. 72"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={vitals.pulseBpm}
@@ -842,7 +849,7 @@ export default function AppointmentsPage() {
                     <label className="block">
                       <span className="mb-1 block font-bold text-slate-500">Spo2 (%)</span>
                       <input
-                        type="number"
+                        type="text"
                         placeholder="e.g. 98"
                         className="input input-bordered h-9 rounded-lg text-xs w-full"
                         value={vitals.spo2Percent}
@@ -956,7 +963,7 @@ export default function AppointmentsPage() {
                       onChange={(e) => setSelectedMedicineId(e.target.value)}
                     >
                       <option value="">-- Select medicine to add --</option>
-                      {medicines.map(m => (
+                      {medicines.filter(m => (m.totalStock ?? m.stock ?? 0) > 0).map(m => (
                         <option key={m.medicineId} value={m.medicineId}>
                           {m.name} (Stock: {m.totalStock ?? m.stock ?? 0})
                         </option>

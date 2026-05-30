@@ -266,7 +266,7 @@ namespace SCMS.Domain.Features.Payments
             return Result<PaymentDetailsResponse>.Success(MapToResponse(payment, payment.Appointment), "Payment verified and appointment confirmed.");
         }
 
-        public async Task<PagedResult<PaymentDetailsResponse>> GetPaymentsAsync(string? status, PaginationRequest paginationRequest)
+        public async Task<PagedResult<PaymentDetailsResponse>> GetPaymentsAsync(string? status, PaginationRequest paginationRequest, string? dateFilter = null, string? searchQuery = null)
         {
             var query = _context.TblPayments
                 .Include(p => p.Appointment)
@@ -281,6 +281,25 @@ namespace SCMS.Domain.Features.Payments
                     return PagedResult<PaymentDetailsResponse>.Failure("Invalid payment status filter.");
                 }
                 query = query.Where(p => p.PaymentStatus == s);
+            }
+
+            if (!string.IsNullOrWhiteSpace(dateFilter))
+            {
+                if (DateTime.TryParse(dateFilter, out var parsedDate))
+                {
+                    var dateStart = parsedDate.Date;
+                    var dateEnd = dateStart.AddDays(1);
+                    query = query.Where(p => (p.PaidAt ?? p.UpdatedAt) >= dateStart && (p.PaidAt ?? p.UpdatedAt) < dateEnd);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                var cleanSearch = searchQuery.Trim().ToLower();
+                query = query.Where(p => 
+                    (p.Appointment.AppointmentCode != null && p.Appointment.AppointmentCode.ToLower().Contains(cleanSearch)) || 
+                    (p.Appointment.Patient.Name != null && p.Appointment.Patient.Name.ToLower().Contains(cleanSearch))
+                );
             }
 
             var totalCount = await query.CountAsync();

@@ -100,11 +100,19 @@ export default function Dashboard() {
 
   const getStatusClass = (status) => {
     const s = String(status || "").toLowerCase();
-    if (s === "pending" || s === "requested") return "bg-amber-100 text-amber-800 border-amber-200";
-    if (s === "confirmed" || s === "paid") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (s === "completed") return "bg-indigo-100 text-indigo-800 border-indigo-200";
-    if (s === "cancelled" || s === "failed") return "bg-red-100 text-red-800 border-red-200";
-    return "bg-slate-100 text-slate-800 border-slate-200";
+    if (s === "completed" || s === "paid" || s === "success") {
+      return "bg-[#ECFDF3] text-[#027A48] border-[#A9EFC5]";
+    }
+    if (s === "confirmed" || s === "active" || s === "approved") {
+      return "bg-[#EBF2FF] text-[#0052CC] border-[#B2CCFF]";
+    }
+    if (s === "cancelled" || s === "failed" || s === "rejected") {
+      return "bg-[#FFF1F0] text-[#D92D20] border-[#FECDCA]";
+    }
+    if (s === "pending" || s === "requested") {
+      return "bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]";
+    }
+    return "bg-[#F2F4F7] text-[#667085] border-[#E4E7EC]";
   };
 
   const formatDate = (val) => {
@@ -230,40 +238,55 @@ export default function Dashboard() {
         </div>
 
         <div>
-          <h2 className="mb-3 text-xl font-black text-scms-text">Stock Warnings</h2>
-          <div className="scms-card divide-y divide-scms-border max-h-[360px] overflow-y-auto pr-1">
+          <h2 className="mb-3 text-xl font-black text-scms-text flex items-center">
+            Stock Warnings
+            {alerts.length > 0 && (
+              <span className="ml-2 bg-red-100 text-red-700 text-xs font-extrabold px-2.5 py-0.5 rounded-full border border-red-200">
+                {alerts.length}
+              </span>
+            )}
+          </h2>
+          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
             {alerts.length ? (
-              alerts.map((alert, index) => (
-                <div key={alert.id || index} className="p-4 flex flex-col gap-1.5 hover:bg-slate-50 transition">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-[10px] font-black border px-2 py-0.5 rounded-full ${alert.alertType === "Low Stock" ? "bg-red-100 text-red-800 border-red-200" : "bg-amber-100 text-amber-800 border-amber-200"}`}>
-                      {alert.alertType ? alert.alertType.toUpperCase() : "ALERT"}
-                    </span>
-                    {alert.batchNo && (
-                      <span className="text-xs font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-200">
-                        Batch: {alert.batchNo}
+              alerts.map((alert, index) => {
+                const isLowStock = alert.alertType === "Low Stock";
+                const cardBg = isLowStock ? "bg-red-50/30 border-red-100 hover:bg-red-50/50" : "bg-amber-50/30 border-amber-100 hover:bg-amber-50/50";
+                const badgeStyle = isLowStock ? "bg-red-100 text-red-800 border-red-200" : "bg-amber-100 text-amber-800 border-amber-200";
+
+                return (
+                  <div key={alert.id || index} className={`p-4 rounded-2xl border transition ${cardBg} space-y-2`}>
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                      <span className={`text-[10px] font-black border px-2 py-0.5 rounded-full uppercase ${badgeStyle}`}>
+                        {alert.alertType || "Alert"}
                       </span>
-                    )}
-                  </div>
-                  <div className="font-extrabold text-sm text-scms-text">{alert.medicineName || alert.name}</div>
-                  <div className="text-xs font-semibold text-scms-muted mt-0.5 leading-relaxed space-y-1">
-                    <div>
-                      <strong className="text-slate-500">Reason:</strong> {alert.alertType === "Low Stock" ? "Stock level is critically low" : "Batch is nearing expiration"}
+                      {alert.batchNo && (
+                        <span className="text-xs font-mono font-bold bg-white text-slate-600 px-2 py-0.5 rounded-lg border border-slate-200">
+                          Batch: {alert.batchNo}
+                        </span>
+                      )}
                     </div>
-                    {alert.alertType === "Low Stock" ? (
+                    
+                    <div className="text-sm font-black text-slate-800">{alert.medicineName || alert.name}</div>
+                    
+                    <div className="grid gap-2 grid-cols-2 text-xs font-semibold text-slate-600 pt-1">
                       <div>
-                        <strong className="text-slate-500">Current Qty:</strong> <span className="text-red-600 font-bold font-mono">{alert.currentQuantity} units</span>
+                        <span className="text-slate-400 font-bold block">Weight / Qty</span>
+                        <strong className={isLowStock ? "text-red-600 font-bold font-mono" : "text-slate-700 font-mono"}>
+                          {alert.currentQuantity ?? 0} units
+                        </strong>
                       </div>
-                    ) : (
                       <div>
-                        <strong className="text-slate-500">Expiry Date:</strong> <span className="text-amber-600 font-bold font-mono">{formatDate(alert.expiryDate)}</span>
+                        <span className="text-slate-400 font-bold block">Reason / Expiry</span>
+                        <strong className={isLowStock ? "text-slate-700" : "text-amber-600 font-mono"}>
+                          {isLowStock ? "Critically Low Stock" : formatDate(alert.expiryDate)}
+                        </strong>
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
-              <div className="p-5 text-sm font-bold text-scms-muted">No inventory alerts.</div>
+              <div className="scms-card p-5 text-sm font-bold text-scms-muted">No inventory alerts.</div>
             )}
           </div>
         </div>
@@ -272,18 +295,12 @@ export default function Dashboard() {
       {/* --- APPOINTMENT DETAILS POPUP ON DASHBOARD --- */}
       {detailOpen && selectedAppt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn animate-duration-150">
-          <div className="w-full max-w-md bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative">
-            <button
-              onClick={() => setDetailOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition z-10"
-            >
-              <X size={16} />
-            </button>
+          <div className="w-full max-w-md bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative font-sans">
             
-            <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-3 mb-4">
+            <div className="flex justify-between items-start gap-3 border-b border-slate-100 pb-3 mb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 font-mono">Slot #{selectedAppt.appointmentCode}</span>
+                  <span className="text-xs font-bold text-slate-400 font-mono">Slot {selectedAppt.appointmentCode}</span>
                   <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(selectedAppt.status)}`}>
                     {String(selectedAppt.status).toUpperCase()}
                   </span>
@@ -292,7 +309,12 @@ export default function Dashboard() {
                   {selectedAppt.patientName || selectedAppt.patient?.name}
                 </h3>
               </div>
-              <div className="w-8 h-8"></div>
+              <button
+                onClick={() => setDetailOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition shrink-0"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="space-y-3 text-xs leading-relaxed">

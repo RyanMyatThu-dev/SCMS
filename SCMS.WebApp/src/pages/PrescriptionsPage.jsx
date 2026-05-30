@@ -35,14 +35,12 @@ export default function PrescriptionsPage() {
   const { t } = useLanguage();
 
   const [prescriptions, setPrescriptions] = useState([]);
-  const [patients, setPatients] = useState([]);
   const [diseases, setDiseases] = useState([]);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState("table"); // "table" or "card"
   
   // Search & Filter State
   const [patientSearch, setPatientSearch] = useState("");
-  const [selectedPatientId, setSelectedPatientId] = useState("");
   const [selectedDiseaseId, setSelectedDiseaseId] = useState("");
   const [dateFilter, setDateFilter] = useState(""); // YYYY-MM-DD
 
@@ -57,11 +55,7 @@ export default function PrescriptionsPage() {
 
   const loadFilterCatalog = async () => {
     try {
-      const [patientsRes, diseasesRes] = await Promise.all([
-        patientsApi.list({ pageSize: 100 }),
-        diseasesApi.list({ pageSize: 100 }),
-      ]);
-      setPatients(toArray(patientsRes));
+      const diseasesRes = await diseasesApi.list({ pageSize: 100 });
       setDiseases(toArray(diseasesRes));
     } catch (e) {
       console.error("Failed to load filter catalogs", e);
@@ -76,10 +70,6 @@ export default function PrescriptionsPage() {
         pageNumber: pageNum,
         pageSize: 10,
       };
-
-      if (selectedPatientId) {
-        params.patientId = Number(selectedPatientId);
-      }
 
       const res = await prescriptionsApi.list(params);
 
@@ -117,7 +107,7 @@ export default function PrescriptionsPage() {
   useEffect(() => {
     loadPrescriptions(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, selectedPatientId, selectedDiseaseId, dateFilter]);
+  }, [page, selectedDiseaseId, dateFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -188,21 +178,6 @@ export default function PrescriptionsPage() {
         </form>
 
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* Patient Direct filter */}
-          <div className="relative w-full sm:w-48">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <select
-              className="select select-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
-              value={selectedPatientId}
-              onChange={(e) => { setSelectedPatientId(e.target.value); setPage(1); }}
-            >
-              <option value="">All Patients</option>
-              {patients.map(p => (
-                <option key={p.patientId || p.id} value={p.patientId || p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Disease filter */}
           <div className="relative w-full sm:w-48">
             <Activity className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />

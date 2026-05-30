@@ -112,13 +112,22 @@ export default function UserDashboard() {
 
   const getStatusClass = (status) => {
     const s = String(status || "").toLowerCase();
-    if (s === "pending" || s === "requested") return "bg-amber-100 text-amber-800 border-amber-200";
-    if (s === "confirmed" || s === "paid" || s === "completed") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (s === "cancelled" || s === "failed") return "bg-red-100 text-red-800 border-red-200";
-    return "bg-slate-100 text-slate-800 border-slate-200";
+    if (s === "completed" || s === "paid" || s === "success") {
+      return "bg-[#ECFDF3] text-[#027A48] border-[#A9EFC5]";
+    }
+    if (s === "approved" || s === "confirmed" || s === "active") {
+      return "bg-[#EBF2FF] text-[#0052CC] border-[#B2CCFF]";
+    }
+    if (s === "cancelled" || s === "failed" || s === "rejected") {
+      return "bg-[#FFF1F0] text-[#D92D20] border-[#FECDCA]";
+    }
+    if (s === "pending" || s === "requested") {
+      return "bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]";
+    }
+    return "bg-[#F2F4F7] text-[#667085] border-[#E4E7EC]";
   };
 
-  const money = (value) => `MMK ${Number(value || 0).toLocaleString()}`;
+  const money = (value) => `${Number(value || 0).toLocaleString()} MMK`;
   const formatDate = (val) => {
     if (!val) return "";
     const date = new Date(val);

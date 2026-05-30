@@ -58,9 +58,9 @@ namespace SCMS.Domain.Features.Prescriptions
             {
                 return Result<PrescriptionResponse>.Failure("Appointment id is required.");
             }
-            if (request.Items == null || request.Items.Count == 0)
+            if (request.Items == null)
             {
-                return Result<PrescriptionResponse>.Failure("At least one prescription item is required.");
+                request.Items = new List<PrescriptionItemDto>();
             }
             foreach (var item in request.Items)
             {

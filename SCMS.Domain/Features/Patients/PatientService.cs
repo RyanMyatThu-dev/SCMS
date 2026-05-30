@@ -86,7 +86,7 @@ namespace SCMS.Domain.Features.Patients
             return Result<PatientProfileResponse>.Success(MapToResponse(patient), "Patient profile created successfully.");
         }
 
-        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(int userId, PaginationRequest paginationRequest, bool isStaff = false)
+        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(int userId, PaginationRequest paginationRequest, bool isStaff = false, string? search = null)
         {
             var query = _context.TblPatients
                 .Where(p => p.DeleteFlag != true);
@@ -94,6 +94,16 @@ namespace SCMS.Domain.Features.Patients
             if (!isStaff)
             {
                 query = query.Where(p => p.UserId == userId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var cleanSearch = search.Trim().ToLower();
+                query = query.Where(p => 
+                    p.Name.ToLower().Contains(cleanSearch) || 
+                    (p.MobileNo != null && p.MobileNo.Contains(cleanSearch)) || 
+                    (p.Email != null && p.Email.ToLower().Contains(cleanSearch))
+                );
             }
 
             var totalCount = await query.CountAsync();
@@ -107,6 +117,27 @@ namespace SCMS.Domain.Features.Patients
             var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
 
             return PagedResult<PatientProfileResponse>.Success(list, pagination);
+        }
+
+        public async Task<Result> DeletePatientProfileAsync(int id, int userId)
+        {
+            var patient = await _context.TblPatients
+                .FirstOrDefaultAsync(p => p.PatientId == id && p.DeleteFlag != true);
+
+            if (patient == null)
+            {
+                return Result.Failure("Patient profile not found.");
+            }
+            if (!await CanAccessPatientAsync(id, userId))
+            {
+                return Result.Failure("Access denied.");
+            }
+
+            patient.DeleteFlag = true;
+            patient.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Result.Success("Patient profile deleted successfully.");
         }
 
         public async Task<Result<PatientProfileResponse>> GetPatientProfileByIdAsync(int id, int userId)

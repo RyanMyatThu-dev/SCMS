@@ -41,7 +41,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetPatientProfiles([FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetPatientProfiles([FromQuery] PaginationRequest paginationRequest, [FromQuery] string? query = null)
         {
             paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
@@ -53,7 +53,7 @@ namespace SCMS.Domain.Features.Patients
                 return Unauthorized(Result.Failure("User id is required."));
             }
 
-            var result = await _patientService.GetPatientProfilesAsync(userId.Value, paginationRequest, User.IsStaff());
+            var result = await _patientService.GetPatientProfilesAsync(userId.Value, paginationRequest, User.IsStaff(), query);
             if (result.IsFailure)
             {
                 return BadRequest(result);
@@ -134,9 +134,30 @@ namespace SCMS.Domain.Features.Patients
                 return Unauthorized(Result.Failure("User id is required."));
             }
 
-            var html = await _patientService.GenerateMedicalSummaryHtmlAsync(id, userId.Value);
-            var bytes = _pdfDocumentService.CreateMedicalSummaryPdf($"Medical Summary {id}", html);
+            var result = await _patientService.GetMedicalSummaryAsync(id, userId.Value);
+            if (result.IsFailure || result.Data == null)
+            {
+                return BadRequest(result);
+            }
+            var bytes = _pdfDocumentService.CreateMedicalSummaryPdf(result.Data);
             return File(bytes, "application/pdf", $"medical-summary-{id}.pdf");
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePatientProfile(int id)
+        {
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _patientService.DeletePatientProfileAsync(id, userId.Value);
+            if (result.IsFailure)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
         }
 
 

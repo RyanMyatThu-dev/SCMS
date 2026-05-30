@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
+using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared.Contracts.Reports;
@@ -52,6 +53,89 @@ namespace SCMS.Domain.Features.Documents
             }
 
             DrawFooter(b, y);
+            return b.Build();
+        }
+
+        public byte[] CreateMedicalSummaryPdf(MedicalSummaryResponse s)
+        {
+            var b = new PdfBuilder();
+            float y = PageH - MarginTop;
+
+            // ── Header ─────────────────────────────────────────────────
+            y = DrawClinicHeader(b, y, "MEDICAL SUMMARY");
+
+            b.AddText(MarginL, y, 8, "F1",
+                $"Generated: {DateTime.UtcNow:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+            y -= 16;
+
+            // ── Personal Info ──────────────────────────────────────────
+            y = DrawSectionTitle(b, y, "Personal Information");
+            var infoRows = new List<string[]>
+            {
+                new[] { "Full Name", s.PatientName },
+                new[] { "Date of Birth", s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("dd-MM-yyyy") : "-" },
+                new[] { "Gender", s.Gender ?? "Not Specified" },
+                new[] { "Blood Type", s.BloodType ?? "Not Specified" }
+            };
+            y = DrawKeyValueTable(b, y, infoRows);
+            y -= 8;
+
+            // ── Clinical Notes & History ──────────────────────────────
+            y = DrawSectionTitle(b, y, "Clinical Notes & History");
+            var clinicalRows = new List<string[]>
+            {
+                new[] { "Allergies", s.Allergies ?? "None Known" },
+                new[] { "Chronic Conditions", s.ChronicConditions ?? "None" },
+                new[] { "Past Surgeries", s.PastSurgeries ?? "None" },
+                new[] { "Family History", s.FamilyHistory ?? "None" },
+                new[] { "Vaccination History", s.VaccinationHistory ?? "None" }
+            };
+            y = DrawKeyValueTable(b, y, clinicalRows);
+            y -= 8;
+
+            // ── Vitals History Table ──────────────────────────────────
+            y = DrawSectionTitle(b, y, "Vital Signs Trends");
+            var vitalsHeaders = new[] { "Date", "Weight (kg)", "BP (mmHg)", "Temp (°C)", "Pulse (bpm)", "SpO2 (%)", "Height (cm)", "BMI" };
+            var vitalsWidths = new[] { 90f, 60f, 65f, 55f, 55f, 50f, 55f, ContentW - 430f };
+            var vitalsRows = s.VitalsHistory.Select(v => new[]
+            {
+                v.Date.ToString("dd-MM-yyyy HH:mm"),
+                v.WeightKg?.ToString("F1") ?? "-",
+                v.BloodPressureSystolic.HasValue && v.BloodPressureDiastolic.HasValue
+                    ? $"{v.BloodPressureSystolic}/{v.BloodPressureDiastolic}" : "-",
+                v.TemperatureC?.ToString("F1") ?? "-",
+                v.PulseBpm?.ToString() ?? "-",
+                v.Spo2Percent?.ToString() ?? "-",
+                v.HeightCm?.ToString("F1") ?? "-",
+                v.Bmi?.ToString("F1") ?? "-"
+            }).ToList();
+
+            if (vitalsRows.Count == 0)
+            {
+                vitalsRows.Add(new[] { "-", "No vitals recorded yet", "-", "-", "-", "-", "-", "-" });
+            }
+            y = DrawTable(b, y, vitalsHeaders, vitalsRows, vitalsWidths);
+            y -= 8;
+
+            // ── Active Prescriptions ───────────────────────────────────
+            y = DrawSectionTitle(b, y, "Active Prescriptions (Past 30 Days)");
+            var rxHeaders = new[] { "Prescription #", "Date", "Diagnosis", "Medicines" };
+            var rxWidths = new[] { 80f, 100f, 130f, ContentW - 310f };
+            var rxRows = s.ActivePrescriptions.Select(rx => new[]
+            {
+                $"RX-{rx.PrescriptionId:D5}",
+                rx.Date.ToString("dd-MM-yyyy"),
+                rx.DiseaseName,
+                string.Join(", ", rx.Medicines)
+            }).ToList();
+
+            if (rxRows.Count == 0)
+            {
+                rxRows.Add(new[] { "-", "No active prescriptions", "-", "-" });
+            }
+            y = DrawTable(b, y, rxHeaders, rxRows, rxWidths);
+
+            DrawFooter(b, y - 30);
             return b.Build();
         }
 

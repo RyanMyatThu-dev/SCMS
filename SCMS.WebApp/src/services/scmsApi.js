@@ -31,6 +31,7 @@ export const patientsApi = {
   summary: (id) => api.get(`/Patients/${id}/summary`).then(unwrap),
   summaryHtml: (id) => api.get(`/Patients/${id}/summary/html`).then(unwrap),
   summaryPdf: (id) => api.get(`/Patients/${id}/summary/pdf`, { responseType: "blob" }),
+  delete: (id) => api.delete(`/Patients/${id}`).then(unwrap),
 };
 
 export const prescriptionsApi = {

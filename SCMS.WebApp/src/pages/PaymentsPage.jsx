@@ -58,34 +58,17 @@ export default function PaymentsPage() {
       setLoading(true);
       const res = await paymentsApi.list({
         status: selectedStatus || undefined,
+        query: query.trim() || undefined,
+        dateFilter: dateFilter || undefined,
         pageNumber: pageNum,
         pageSize: 10
       });
 
       if (res) {
-        let items = res.data || [];
-        
-        // Search client-side by Patient Name or Appointment Code
-        if (query.trim()) {
-          const q = query.toLowerCase();
-          items = items.filter(p =>
-            p.patientName?.toLowerCase().includes(q) ||
-            p.appointmentCode?.toLowerCase().includes(q)
-          );
-        }
-
-        // Filter client-side by Paid Date if selected
-        if (dateFilter) {
-          items = items.filter(p => {
-            const dateStr = p.paidAt || p.createdAt;
-            return dateStr?.split("T")[0] === dateFilter;
-          });
-        }
-
-        setPayments(items);
+        setPayments(res.data || []);
         if (res.pagination) {
           setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || items.length);
+          setTotalCount(res.pagination.totalCount || (res.data || []).length);
         }
       }
     } catch (error) {
@@ -149,10 +132,19 @@ export default function PaymentsPage() {
 
   const getStatusClass = (status) => {
     const s = String(status || "").toLowerCase();
-    if (s === "pending" || s === "requested") return "bg-amber-100 text-amber-800 border-amber-200";
-    if (s === "paid" || s === "completed" || s === "success" || s === "approved") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (s === "failed" || s === "cancelled") return "bg-red-100 text-red-800 border-red-200";
-    return "bg-slate-100 text-slate-800 border-slate-200";
+    if (s === "completed" || s === "paid" || s === "success") {
+      return "bg-[#ECFDF3] text-[#027A48] border-[#A9EFC5]";
+    }
+    if (s === "approved" || s === "confirmed" || s === "active") {
+      return "bg-[#EBF2FF] text-[#0052CC] border-[#B2CCFF]";
+    }
+    if (s === "cancelled" || s === "failed" || s === "rejected") {
+      return "bg-[#FFF1F0] text-[#D92D20] border-[#FECDCA]";
+    }
+    if (s === "pending" || s === "requested") {
+      return "bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]";
+    }
+    return "bg-[#F2F4F7] text-[#667085] border-[#E4E7EC]";
   };
 
   const openDetail = (p) => {
@@ -284,7 +276,7 @@ export default function PaymentsPage() {
                         {formatDate(p.paidAt || p.createdAt)}
                       </td>
                       <td className="font-black text-sm text-scms-text">
-                        MMK {Number(p.amount || p.totalAmount).toLocaleString()}
+                        {Number(p.amount || p.totalAmount).toLocaleString()} MMK
                       </td>
                       <td>
                         <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(status)}`}>
@@ -349,7 +341,7 @@ export default function PaymentsPage() {
                   <div className="mt-4 bg-slate-50 p-3.5 rounded-2xl text-xs space-y-2">
                     <div className="flex justify-between text-slate-500 font-semibold">
                       <span>Total Amount:</span>
-                      <strong className="text-scms-text text-sm font-mono">MMK {Number(p.amount || p.totalAmount).toLocaleString()}</strong>
+                      <strong className="text-scms-text text-sm font-mono">{Number(p.amount || p.totalAmount).toLocaleString()} MMK</strong>
                     </div>
                     <div className="flex justify-between text-slate-500 font-semibold">
                       <span>Transaction Date:</span>
@@ -448,29 +440,29 @@ export default function PaymentsPage() {
                   <strong className="text-scms-text capitalize">{selectedPayment.paymentMethod || "Manual Proof"}</strong>
                 </div>
 
-                <div className="border-t border-slate-200 pt-3 space-y-2.5">
+                 <div className="border-t border-slate-200 pt-3 space-y-2.5">
                   <div className="flex justify-between">
                     <span>Clinical Base Charge:</span>
-                    <strong className="text-scms-text font-mono">MMK {Number(selectedPayment.amount || selectedPayment.totalAmount).toLocaleString()}</strong>
+                    <strong className="text-scms-text font-mono">{Number(selectedPayment.amount || selectedPayment.totalAmount).toLocaleString()} MMK</strong>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Commercial Service Tax (5%):</span>
-                    <strong className="text-scms-text font-mono">MMK {Number(selectedPayment.tax || 0).toLocaleString()}</strong>
+                    <strong className="text-scms-text font-mono">{Number(selectedPayment.tax || 0).toLocaleString()} MMK</strong>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>System Surcharge / Fees:</span>
-                    <strong className="text-scms-text font-mono">MMK {Number(selectedPayment.charges || 0).toLocaleString()}</strong>
+                    <strong className="text-scms-text font-mono">{Number(selectedPayment.charges || 0).toLocaleString()} MMK</strong>
                   </div>
                 </div>
 
                 <div className="border-t border-slate-200 pt-3 flex justify-between text-sm">
                   <span className="font-black text-slate-800">Grand Total Invoiced:</span>
                   <strong className="text-indigo-600 font-mono font-black">
-                    MMK {Number(
+                    {Number(
                       (selectedPayment.amount || selectedPayment.totalAmount) +
                       (selectedPayment.tax || 0) +
                       (selectedPayment.charges || 0)
-                    ).toLocaleString()}
+                    ).toLocaleString()} MMK
                   </strong>
                 </div>
               </div>

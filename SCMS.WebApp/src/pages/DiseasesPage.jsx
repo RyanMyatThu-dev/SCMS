@@ -504,10 +504,10 @@ export default function DiseasesPage() {
         </div>
       )}
 
-      {/* --- CLINICAL PRESCRIPTION TEMPLATE Drawer/Modal --- */}
+      {/* --- CLINICAL PRESCRIPTION TEMPLATE Drawer/Modal (Redesigned as Centered Side-by-Side Modal) --- */}
       {templateDrawerOpen && selectedDisease && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end p-0 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-2xl bg-white h-screen border-l border-scms-border p-6 shadow-2xl overflow-y-auto flex flex-col justify-between font-sans">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-5xl bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative max-h-[90vh] overflow-hidden flex flex-col justify-between font-sans">
             
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
@@ -528,22 +528,25 @@ export default function DiseasesPage() {
               </button>
             </div>
 
-            {/* Content pane */}
-            <div className="flex-1 overflow-y-auto py-5 space-y-6">
+            {/* Split Grid Content pane */}
+            <div className="flex-grow overflow-y-auto py-5 grid gap-8 md:grid-cols-2 min-h-[400px]">
               
-              {/* Existing templates */}
-              <div className="space-y-3">
-                <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">
+              {/* Left Column: Configured Disease Templates List */}
+              <div className="space-y-4 md:border-r md:border-slate-100 md:pr-6 flex flex-col">
+                <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider shrink-0">
                   Configured Disease Templates
                 </h4>
                 {loadingTemplates ? (
-                  <div className="grid place-items-center h-20">
-                    <span className="loading loading-spinner loading-xs text-indigo-600" />
+                  <div className="grid place-items-center flex-grow py-12">
+                    <span className="loading loading-spinner loading-md text-indigo-600" />
                   </div>
                 ) : templates.length === 0 ? (
-                  <p className="text-xs italic text-slate-400 py-3">No templates registered for this diagnosis. Create one below!</p>
+                  <div className="text-center py-16 text-slate-400 text-xs font-semibold flex-grow flex flex-col justify-center">
+                    <FolderOpen size={32} className="mx-auto mb-2 opacity-40 animate-pulse" />
+                    No templates registered for this diagnosis.
+                  </div>
                 ) : (
-                  <div className="grid gap-3">
+                  <div className="grid gap-3 overflow-y-auto max-h-[50vh] pr-1">
                     {templates.map((tpl) => (
                       <div key={tpl.id} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-start text-xs">
                         <div className="space-y-1">
@@ -557,8 +560,9 @@ export default function DiseasesPage() {
                           </div>
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleDeleteTemplate(tpl.id)}
-                          className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 border-0"
+                          className="p-1.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 border-0 transition shrink-0"
                           title="Delete Template"
                         >
                           <Trash size={13} />
@@ -569,152 +573,166 @@ export default function DiseasesPage() {
                 )}
               </div>
 
-              {/* Add New Template Form */}
-              <form onSubmit={saveTemplateSubmit} className="border-t border-slate-100 pt-5 space-y-4">
-                <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">
-                  Create Custom Disease Template
-                </h4>
+              {/* Right Column: Add New Template Form */}
+              <form onSubmit={saveTemplateSubmit} className="space-y-4 md:pl-2 flex flex-col justify-between">
+                <div className="space-y-4 overflow-y-auto max-h-[52vh] pr-1">
+                  <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">
+                    Create Custom Disease Template
+                  </h4>
 
-                <label className="block">
-                  <span className="mb-2 block text-xs font-black text-slate-600">Template Name *</span>
-                  <input
-                    required
-                    placeholder="e.g. Standard 5-day Hypertension block"
-                    className="input input-bordered h-10 rounded-xl text-xs w-full"
-                    value={newTemplateName}
-                    onChange={(e) => setNewTemplateName(e.target.value)}
-                  />
-                </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-black text-slate-600">Template Name *</span>
+                    <input
+                      required
+                      placeholder="e.g. Standard 5-day Hypertension block"
+                      className="input input-bordered h-10 rounded-xl text-xs w-full bg-white"
+                      value={newTemplateName}
+                      onChange={(e) => setNewTemplateName(e.target.value)}
+                    />
+                  </label>
 
-                {/* Sub-form: Add medicine to template */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
-                  <span className="text-xs font-black text-indigo-700 block">Add Medicine to Local List</span>
-                  
-                  <div className="grid gap-3 sm:grid-cols-2 text-xs">
-                    <label className="block sm:col-span-2">
-                      <span className="mb-1 block font-bold text-slate-500">Medicine *</span>
-                      <select
-                        className="select select-bordered h-9 rounded-lg text-xs w-full bg-white border-slate-300"
-                        value={selectedMedicineId}
-                        onChange={(e) => setSelectedMedicineId(e.target.value)}
-                      >
-                        <option value="">Select Medicine</option>
-                        {medicines.map(m => (
-                          <option key={m.medicineId || m.id} value={m.medicineId || m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                    </label>
+                  {/* Sub-form: Add medicine to template */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                    <span className="text-xs font-black text-indigo-700 block">Add Medicine to Local List</span>
+                    
+                    <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                      <label className="block sm:col-span-2">
+                        <span className="mb-1 block font-bold text-slate-500">Medicine *</span>
+                        <select
+                          className="select select-bordered h-9 rounded-lg text-xs w-full bg-white border-slate-300"
+                          value={selectedMedicineId}
+                          onChange={(e) => setSelectedMedicineId(e.target.value)}
+                        >
+                          <option value="">Select Medicine</option>
+                          {medicines.map(m => (
+                            <option key={m.medicineId || m.id} value={m.medicineId || m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label className="block">
-                      <span className="mb-1 block font-bold text-slate-500">How often?</span>
-                      <select
-                        className="select select-bordered h-9 rounded-lg text-xs w-full bg-white border-slate-300 font-semibold"
-                        value={commonDosageValues.includes(dosage) ? dosage : "Custom"}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setDosage(val === "Custom" ? "Every 8 hours" : val);
-                          setQuantity(calculateQuantity(val, days));
-                        }}
-                      >
-                        {dosageOptions.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
+                      <label className="block">
+                        <span className="mb-1 block font-bold text-slate-500">How often?</span>
+                        <select
+                          className="select select-bordered h-9 rounded-lg text-xs w-full bg-white border-slate-300 font-semibold"
+                          value={commonDosageValues.includes(dosage) ? dosage : "Custom"}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setDosage(val === "Custom" ? "Every 8 hours" : val);
+                            setQuantity(calculateQuantity(val, days));
+                          }}
+                        >
+                          {dosageOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
 
-                      {!commonDosageValues.includes(dosage) && (
+                        {!commonDosageValues.includes(dosage) && (
+                          <input
+                            type="text"
+                            className="input input-bordered h-8 rounded-lg mt-1 text-xs w-full text-center"
+                            value={dosage}
+                            onChange={(e) => setDosage(e.target.value)}
+                            placeholder="e.g. Every 8 hours"
+                          />
+                        )}
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-1 block font-bold text-slate-500">Days *</span>
                         <input
-                          type="text"
-                          className="input input-bordered h-8 rounded-lg mt-1 text-xs w-full text-center"
-                          value={dosage}
-                          onChange={(e) => setDosage(e.target.value)}
-                          placeholder="e.g. Every 8 hours"
+                          type="number"
+                          min="1"
+                          placeholder="5"
+                          className="input input-bordered h-9 rounded-lg text-xs w-full bg-white"
+                          value={days}
+                          onChange={(e) => {
+                            setDays(e.target.value);
+                            setQuantity(calculateQuantity(dosage, e.target.value));
+                          }}
                         />
-                      )}
-                    </label>
+                      </label>
 
-                    <label className="block">
-                      <span className="mb-1 block font-bold text-slate-500">Days *</span>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="5"
-                        className="input input-bordered h-9 rounded-lg text-xs w-full"
-                        value={days}
-                        onChange={(e) => {
-                          setDays(e.target.value);
-                          setQuantity(calculateQuantity(dosage, e.target.value));
-                        }}
-                      />
-                    </label>
+                      <label className="block">
+                        <span className="mb-1 block font-bold text-slate-500">Quantity *</span>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="10"
+                          className="input input-bordered h-9 rounded-lg text-xs w-full bg-white"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                        />
+                      </label>
 
-                    <label className="block">
-                      <span className="mb-1 block font-bold text-slate-500">Quantity *</span>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="10"
-                        className="input input-bordered h-9 rounded-lg text-xs w-full"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-1 block font-bold text-slate-500">Instruction</span>
-                      <input
-                        placeholder="e.g. After meal"
-                        className="input input-bordered h-9 rounded-lg text-xs w-full"
-                        value={instruction}
-                        onChange={(e) => setInstruction(e.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={addTemplateItem}
-                    className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg w-full font-bold mt-2 border-0"
-                  >
-                    Add medicine to template
-                  </button>
-                </div>
-
-                {/* Local template items checklist */}
-                {templateItems.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="text-xs font-black text-slate-600 block">Template Medicines Checklist:</span>
-                    <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-100">
-                      {templateItems.map((item) => (
-                        <div key={item.medicineId} className="flex justify-between items-center p-3 text-xs bg-white">
-                          <div>
-                            <span className="font-extrabold text-slate-800">{item.medicineName}</span>
-                            <div className="text-[10px] text-slate-500 font-medium">
-                              Dosage: {item.dosage} | Days: {item.days} | Qty: {item.quantity} | {item.instruction}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeTemplateItem(item.medicineId)}
-                            className="p-1 rounded bg-rose-50 text-rose-600 border-0 hover:bg-rose-100"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
+                      <label className="block">
+                        <span className="mb-1 block font-bold text-slate-500">Instruction</span>
+                        <input
+                          placeholder="e.g. After meal"
+                          className="input input-bordered h-9 rounded-lg text-xs w-full bg-white"
+                          value={instruction}
+                          onChange={(e) => setInstruction(e.target.value)}
+                        />
+                      </label>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={addTemplateItem}
+                      className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg w-full font-bold mt-2 border-0"
+                    >
+                      Add medicine to template
+                    </button>
                   </div>
-                )}
+
+                  {/* Local template items checklist */}
+                  {templateItems.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-black text-slate-600 block">Template Medicines Checklist:</span>
+                      <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-100">
+                        {templateItems.map((item) => (
+                          <div key={item.medicineId} className="flex justify-between items-center p-3 text-xs bg-white">
+                            <div>
+                              <span className="font-extrabold text-slate-800">{item.medicineName}</span>
+                              <div className="text-[10px] text-slate-500 font-medium">
+                                Dosage: {item.dosage} | Days: {item.days} | Qty: {item.quantity} | {item.instruction}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeTemplateItem(item.medicineId)}
+                              className="p-1 rounded bg-rose-50 text-rose-600 border-0 hover:bg-rose-100"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="submit"
                   disabled={savingTemplate}
-                  className="scms-btn-primary w-full h-11 font-black text-sm"
+                  className="scms-btn-primary w-full h-11 font-black text-sm shrink-0 flex items-center justify-center gap-1.5"
                 >
                   {savingTemplate && <span className="loading loading-spinner loading-xs" />}
                   Save New Template
                 </button>
               </form>
             </div>
+
+            {/* Actions Footer */}
+            <div className="pt-4 border-t border-slate-100 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setTemplateDrawerOpen(false)}
+                className="scms-btn-outline px-6 h-10 text-xs font-black"
+              >
+                Close Workspace
+              </button>
+            </div>
+
           </div>
         </div>
       )}

@@ -58,13 +58,17 @@ namespace SCMS.Domain.Features.Payments
 
         [HttpGet]
         [Authorize(Roles = "owner,admin,doctor")]
-        public async Task<IActionResult> GetPayments([FromQuery] string? status, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetPayments(
+            [FromQuery] string? status, 
+            [FromQuery] PaginationRequest paginationRequest,
+            [FromQuery] string? dateFilter = null,
+            [FromQuery] string? query = null)
         {
             paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
-            var result = await _paymentService.GetPaymentsAsync(status, paginationRequest);
+            var result = await _paymentService.GetPaymentsAsync(status, paginationRequest, dateFilter, query);
             if (result.IsFailure)
             {
                 return BadRequest(result);

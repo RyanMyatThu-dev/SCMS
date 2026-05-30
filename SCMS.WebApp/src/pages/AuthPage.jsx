@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, User } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, User, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -56,7 +56,7 @@ export default function AuthPage({ mode = "login" }) {
     <main className="grid min-h-screen bg-scms-bg lg:grid-cols-[1.05fr_0.95fr]">
       <section className="hidden items-center justify-center p-12 lg:flex">
         <div className="w-full max-w-xl rounded-[30px] bg-gradient-to-br from-scms-primary to-scms-primaryDark p-10 text-white shadow-[0_30px_80px_rgba(0,82,204,0.22)]">
-          <div className="grid h-14 w-14 place-items-center rounded-[18px] bg-white/20 text-2xl font-black">S</div>
+          <div className="grid h-14 w-14 place-items-center rounded-[18px] bg-white/20 text-white shrink-0"><Stethoscope size={28} /></div>
           <h1 className="mt-7 text-4xl font-black tracking-tight">SCMS Portal</h1>
           <p className="mt-4 max-w-md text-sm leading-7 text-white/80">
             Smart Clinic Management System for appointments, EMR, prescriptions, medicines, payments and reports.
@@ -76,7 +76,7 @@ export default function AuthPage({ mode = "login" }) {
         <form className="w-full max-w-md rounded-[28px] border border-scms-border bg-white p-7 shadow-scms-raised" onSubmit={submit}>
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-scms-primary text-xl font-black text-white lg:hidden">S</div>
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-scms-primary text-white lg:hidden shrink-0"><Stethoscope size={22} /></div>
               <h2 className="mt-4 text-3xl font-black text-scms-text">{isRegister ? t.register : t.welcome}</h2>
               <p className="mt-2 text-sm leading-6 text-scms-muted">{isRegister ? t.registerHint : t.loginHint}</p>
             </div>
@@ -103,7 +103,7 @@ export default function AuthPage({ mode = "login" }) {
             </div>
           </label>
 
-          <label className="mb-5 block">
+          <div className="mb-5 block">
             <span className="mb-2 block text-xs font-extrabold text-scms-text">{t.password}</span>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
@@ -120,7 +120,7 @@ export default function AuthPage({ mode = "login" }) {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-          </label>
+          </div>
 
           <button className="scms-btn-primary w-full" disabled={loading}>
             {loading && <span className="loading loading-spinner loading-sm" />}

@@ -59,7 +59,13 @@ textarea {
 .lang-mm textarea,
 .lang-mm .scms-btn-primary,
 .lang-mm .scms-btn-outline {
-  font-family: Inter, Manrope, "Padauk", system-ui, sans-serif !important;
+  font-family: Inter, Manrope, "Noto Sans Myanmar", "Padauk", system-ui, sans-serif !important;
+  line-height: 1.5 !important;
+}
+
+/* Disable active scaling on search buttons to prevent one-tap delays or bouncing targets */
+.btn-no-scale:active {
+  transform: translateY(-50%) scale(1) !important;
 }
 
 /* Disable spin-buttons globally for number inputs to prevent overlapping/distorting toggles */
