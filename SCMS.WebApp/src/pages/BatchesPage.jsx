@@ -35,6 +35,52 @@ const toArray = (data) => {
   return [];
 };
 
+const getDaysRemaining = (expiryDate) => {
+  if (!expiryDate) return 0;
+  
+  let parts;
+  let year, month, day;
+  
+  if (String(expiryDate).includes("-")) {
+    parts = String(expiryDate).split("-");
+    if (parts[0].length === 4) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
+    } else {
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      year = parseInt(parts[2], 10);
+    }
+  } else if (String(expiryDate).includes("/")) {
+    parts = String(expiryDate).split("/");
+    if (parts[0].length === 4) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
+    } else {
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      year = parseInt(parts[2], 10);
+    }
+  } else {
+    const d = new Date(expiryDate);
+    if (isNaN(d.getTime())) return 0;
+    year = d.getFullYear();
+    month = d.getMonth();
+    day = d.getDate();
+  }
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(year, month, day);
+  expiry.setHours(0, 0, 0, 0);
+  
+  const diffTime = expiry - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+};
+
 export default function BatchesPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -687,25 +733,29 @@ export default function BatchesPage() {
                   <p className="text-slate-400 text-[11px] mt-1 font-medium">All medicines and active batches are within healthy inventory margins.</p>
                 </div>
               ) : (
-                alerts.map((alert, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-100 text-xs">
-                    <AlertTriangle className="text-amber-600 mt-0.5 shrink-0" size={16} />
-                    <div className="flex-1">
-                      <strong className="text-slate-800 font-extrabold">{alert.medicineName}</strong>
-                      <p className="text-slate-600 mt-1 font-medium leading-relaxed">
-                        {alert.alertType === "LowStock" ? (
-                          <span className="text-amber-700 font-bold">
-                            ⚠️ Total stock is critically low: {alert.currentStock} units remaining (Threshold: 20).
-                          </span>
-                        ) : (
-                          <span className="text-rose-700 font-bold">
-                            ⏳ Batch <span className="font-mono text-[10px]">{alert.batchNo}</span> is expiring on {formatDate(alert.expiryDate)} ({alert.daysUntilExpiry} days remaining).
-                          </span>
-                        )}
-                      </p>
+                alerts.map((alert, idx) => {
+                  const isLowStock = alert.alertType === "Low Stock" || alert.alertType === "LowStock";
+                  const daysRemaining = getDaysRemaining(alert.expiryDate);
+                  return (
+                    <div key={idx} className="flex items-start gap-3 p-3.5 rounded-2xl bg-rose-50 border border-rose-100 text-xs">
+                      <AlertTriangle className="text-rose-600 mt-0.5 shrink-0" size={16} />
+                      <div className="flex-1">
+                        <strong className="text-slate-800 font-extrabold">{alert.medicineName}</strong>
+                        <p className="text-slate-600 mt-1 font-medium leading-relaxed">
+                          {isLowStock ? (
+                            <span className="text-amber-700 font-bold">
+                              ⚠️ Total stock is critically low: {alert.currentQuantity} units remaining (Threshold: 20).
+                            </span>
+                          ) : (
+                            <span className="text-rose-700 font-bold">
+                              ⏳ Batch <span className="font-mono text-[10px]">{alert.batchNo}</span> is expiring on {formatDate(alert.expiryDate)} ({daysRemaining} days remaining).
+                            </span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 

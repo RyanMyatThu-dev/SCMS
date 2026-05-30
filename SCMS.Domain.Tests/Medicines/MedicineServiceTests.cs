@@ -41,7 +41,7 @@ public class MedicineServiceTests
         var result = await service.QuarantineExpiredBatchesAsync();
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("expired", (await db.Context.TblMedicineBatches.FindAsync(expiredActive.Id))!.Status);
+        Assert.Equal("quarantined", (await db.Context.TblMedicineBatches.FindAsync(expiredActive.Id))!.Status);
         Assert.Equal("active", (await db.Context.TblMedicineBatches.FindAsync(futureActive.Id))!.Status);
     }
 

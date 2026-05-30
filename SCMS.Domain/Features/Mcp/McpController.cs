@@ -105,10 +105,13 @@ namespace SCMS.Domain.Features.Mcp
                                    "- Keep answers concise, clear, and direct (low token usage focus).\n" +
                                    "- Always retrieve data using the provided MCP tools before answering. NEVER fabricate patient details, stock levels, or EMR data.\n" +
                                    "- Never diagnose patients or recommend prescription changes independently. Remind the user that clinical judgment belongs to the doctor.\n" +
+                                   "- Always output all dates in 'dd-MM-yyyy' format in all your natural language replies (e.g., 24-06-2026 instead of 2026-06-24). Never output dates in 'yyyy-MM-dd' or other formats. This is extremely important.\n" +
                                    "- For simple bulk rescheduling of today's active appointments (e.g., 'reschedule all appointments to start from 8:30 AM', or 'arrive clinic at 9 AM, reschedule today's appointments to start from 9:30 AM'), use the simple `reschedule_today_appointments` tool with the target start time. It will automatically shift all today's active slots relatively.\n" +
                                    "- For fine-grained range-based rescheduling of specific time slots, use `reschedule_appointments_in_range`.\n" +
                                    "- For status updates (confirm, cancel, complete) by Patient Name, use `update_appointment_status_by_patient_name` directly to search and apply changes.\n" +
-                                   "- For managing, showing, or recommending medication templates for specific diseases (e.g., 'what are the standard templates/pills for Asthma?', or 'save a template for Hypertension'), use `get_prescription_templates` and `create_prescription_template` tools."
+                                   "- For bulk status updates of all today's appointments at once (e.g. 'confirm all today's appointments', 'cancel all today's appointments', 'complete all visits today'), use the `bulk_update_today_appointments_status` tool directly with the desired status ('confirmed', 'completed', 'cancelled', 'pending').\n" +
+                                   "- For managing, showing, or recommending medication templates for specific diseases (e.g., 'what are the standard templates/pills for Asthma?', or 'save a template for Hypertension'), use `get_prescription_templates` and `create_prescription_template` tools.\n" +
+                                   "- For comprehensive Know Your Patient (KYP) clinical and behavioral intelligence summaries, patient briefs, profiles, or 360-degree patient reviews (e.g. 'brief me on today's next patient', 'give me a KYP brief on Aung Min', or 'what's Ko Aung Min's clinical and behavioral intelligence brief?'), use the `get_patient_kyp_brief` tool directly using the patient's ID or Name to analyze their adherence profiling, EMR Sentinel warnings, and financial or budget sensitivity context."
                         }
                     }
                 };
@@ -301,6 +304,16 @@ namespace SCMS.Domain.Features.Mcp
                         Role = "user",
                         Parts = toolResponseParts
                     });
+                }
+
+                // Auto-convert any remaining yyyy-MM-dd date formats to dd-MM-yyyy in the final reply for absolute format consistency
+                if (!string.IsNullOrEmpty(finalReply))
+                {
+                    finalReply = System.Text.RegularExpressions.Regex.Replace(
+                        finalReply,
+                        @"\b(\d{4})-(\d{2})-(\d{2})\b",
+                        "$3-$2-$1"
+                    );
                 }
 
                 return Ok(Result<AiChatResponse>.Success(new AiChatResponse { Reply = finalReply }));

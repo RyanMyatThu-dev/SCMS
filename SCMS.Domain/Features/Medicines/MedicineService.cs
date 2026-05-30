@@ -109,7 +109,7 @@ namespace SCMS.Domain.Features.Medicines
 
             foreach (var batch in expiredBatches)
             {
-                batch.Status = "expired";
+                batch.Status = "quarantined";
                 batch.UpdatedAt = DateTime.UtcNow;
             }
 
@@ -166,7 +166,7 @@ namespace SCMS.Domain.Features.Medicines
                             CurrentQuantity = b.Quantity,
                             ExpiryDate = b.ExpiryDate,
                             AlertType = "Nearing Expiry",
-                            Message = $"Batch {b.BatchNo} of {medName} is expiring on {b.ExpiryDate:yyyy-MM-dd} (in {(b.ExpiryDate.ToDateTime(TimeOnly.MinValue) - DateTime.UtcNow).Days} days)."
+                            Message = $"Batch {b.BatchNo} of {medName} is expiring on {b.ExpiryDate:dd-MM-yyyy} (in {(b.ExpiryDate.ToDateTime(TimeOnly.MinValue) - DateTime.UtcNow).Days} days)."
                         });
                     }
                 }
@@ -231,7 +231,7 @@ namespace SCMS.Domain.Features.Medicines
 
         private static readonly HashSet<string> AllowedBatchStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
-            "active", "expired", "disposed"
+            "active", "expired", "disposed", "quarantined"
         };
 
         public async Task<PagedResult<BatchDetailResponse>> GetBatchesAsync(
