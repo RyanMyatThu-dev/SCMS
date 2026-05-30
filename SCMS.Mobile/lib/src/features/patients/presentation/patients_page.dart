@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/home_widgets.dart';
 import '../../../shared/widgets/scms_app_shell.dart';
@@ -98,7 +99,6 @@ class _PatientsPageState extends ConsumerState<PatientsPage> {
                       itemBuilder: (context, index) {
                         final p = filtered[index];
                         final selected = _selectedPatientId == p.patientId;
-                        final colors = Theme.of(context).colorScheme;
 
                         return ChoiceChip(
                           label: Text(p.name),

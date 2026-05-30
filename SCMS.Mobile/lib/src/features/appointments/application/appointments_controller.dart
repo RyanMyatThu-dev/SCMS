@@ -44,7 +44,7 @@ class AppointmentsState {
   }
 }
 
-class AppointmentsNotifier extends AutoDisposeNotifier<AppointmentsState> {
+class AppointmentsNotifier extends Notifier<AppointmentsState> {
   @override
   AppointmentsState build() {
     // Proactively fetch when build starts

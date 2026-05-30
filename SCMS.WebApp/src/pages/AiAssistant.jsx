@@ -77,8 +77,8 @@ export default function AiAssistant() {
       role: "model",
       content:
         language === "mm"
-          ? "မင်္ဂလာပါ! ကျွန်တော်ကတော့ SCMS AI အကူအညီပေးသူ ဖြစ်ပါတယ်။ ဆေးခန်းလည်ပတ်မှုတွေ၊ ချိန်းဆိုမှုတွေနဲ့ ဆေးဝါးလက်ကျန်တွေကို ရှာဖွေစုံစမ်းဖို့ ဘယ်လိုကူညီပေးရမလဲခင်ဗျာ။"
-          : "Hello! I am your intelligent SCMS assistant. How can I help you manage clinic operations, reschedule appointments, or check inventory levels today?",
+          ? "မင်္ဂလာပါ! ကျွန်တော်ကတော့ ကုမယ် AI အကူအညီပေးသူ ဖြစ်ပါတယ်။ ဆေးခန်းလည်ပတ်မှုတွေ၊ ချိန်းဆိုမှုတွေနဲ့ ဆေးဝါးလက်ကျန်တွေကို ရှာဖွေစုံစမ်းဖို့ ဘယ်လိုကူညီပေးရမလဲခင်ဗျာ။"
+          : "Hello! I am your intelligent ကုမယ် assistant. How can I help you manage clinic operations, reschedule appointments, or check inventory levels today?",
     },
   ]);
   const [input, setInput] = useState("");

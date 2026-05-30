@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/app_providers.dart';
@@ -52,5 +53,40 @@ class DashboardRepository {
     }
 
     return PatientDashboardResponse.fromJson(data);
+  }
+
+  Future<void> submitPaymentProof({
+    required int appointmentId,
+    required String paymentMethod,
+    required double amount,
+    required String screenshotUrl,
+  }) async {
+    final response = await _apiClient.post(
+      '/Payments/manual-proof',
+      data: {
+        'appointmentId': appointmentId,
+        'paymentMethod': paymentMethod,
+        'amount': amount,
+        'screenshotUrl': screenshotUrl,
+      },
+    );
+
+    final body = response.data as Map<String, dynamic>?;
+    if (body == null) {
+      throw const AppException('Empty response from server');
+    }
+
+    final isSuccess = body['isSuccess'] as bool? ?? false;
+    if (!isSuccess) {
+      throw AppException(body['message'] as String? ?? 'Failed to submit payment proof');
+    }
+  }
+
+  Future<Uint8List> downloadPrescriptionPdf(int prescriptionId) async {
+    return _apiClient.getBytes('/Prescriptions/$prescriptionId/pdf');
+  }
+
+  Future<Uint8List> downloadInvoicePdf(int paymentId) async {
+    return _apiClient.getBytes('/Payments/$paymentId/invoice/pdf');
   }
 }

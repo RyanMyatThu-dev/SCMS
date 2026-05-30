@@ -42,10 +42,12 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> {
               onCallNext: () async {
                 try {
                   await notifier.callNext();
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Called next patient in queue')),
                   );
                 } catch (e) {
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Error: $e')),
                   );
@@ -57,10 +59,12 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> {
               onBook: (patientId, datetime, notes) async {
                 try {
                   await notifier.book(patientId, datetime, notes: notes);
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Appointment booked successfully!')),
                   );
                 } catch (e) {
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Error: $e')),
                   );

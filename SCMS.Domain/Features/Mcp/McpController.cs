@@ -140,7 +140,7 @@ namespace SCMS.Domain.Features.Mcp
                         Tools = geminiTools
                     };
 
-                    var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
+                    var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
                     HttpResponseMessage httpResponse = null!;
                     string errContent = string.Empty;
                     bool callSuccessful = false;
@@ -337,7 +337,8 @@ namespace SCMS.Domain.Features.Mcp
                     .Replace("\"type\":\"string\"", "\"type\":\"STRING\"")
                     .Replace("\"type\":\"integer\"", "\"type\":\"INTEGER\"")
                     .Replace("\"type\":\"number\"", "\"type\":\"NUMBER\"")
-                    .Replace("\"type\":\"boolean\"", "\"type\":\"BOOLEAN\"");
+                    .Replace("\"type\":\"boolean\"", "\"type\":\"BOOLEAN\"")
+                    .Replace("\"type\":\"array\"", "\"type\":\"ARRAY\"");
 
                 return JsonSerializer.Deserialize<object>(rawJson) ?? originalSchema;
             }

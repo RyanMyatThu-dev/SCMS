@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
@@ -50,6 +52,27 @@ class ApiClient {
 
   Future<Response<T>> delete<T>(String path) {
     return _guard(() => _dio.delete<T>(path));
+  }
+
+  Future<Uint8List> getBytes(String path) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final list = response.data;
+      if (list == null) {
+        throw const AppException('Empty file returned from server');
+      }
+      return Uint8List.fromList(list);
+    } on DioException catch (error) {
+      throw AppException(
+        error.response?.statusMessage ??
+            error.message ??
+            'Network request failed',
+        statusCode: error.response?.statusCode,
+      );
+    }
   }
 
   Future<Response<T>> _guard<T>(Future<Response<T>> Function() request) async {
