@@ -92,6 +92,33 @@ class AuthRepository {
     );
   }
 
+  /// Register a new patient account.
+  Future<void> register({
+    required String name,
+    required String email,
+    required String password,
+    String? mobileNo,
+  }) async {
+    final response = await _apiClient.post('/Auth/register', data: {
+      'name': name,
+      'email': email,
+      'password': password,
+      if (mobileNo != null && mobileNo.isNotEmpty) 'mobileNo': mobileNo,
+    });
+
+    final body = response.data as Map<String, dynamic>?;
+    if (body == null) {
+      throw const AppException('Empty response from server');
+    }
+
+    final isSuccess = body['isSuccess'] as bool? ?? false;
+    if (!isSuccess) {
+      throw AppException(
+        body['message'] as String? ?? 'Registration failed',
+      );
+    }
+  }
+
   Future<void> signOut() {
     return _tokenStore.clear();
   }
