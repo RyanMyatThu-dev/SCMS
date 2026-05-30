@@ -1,0 +1,162 @@
+@page "/billing"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Billing</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Billing</h1>
+        <p>Submit manual payment proof and test gateway payment callbacks.</p>
+    </div>
+    <button class="secondary" @onclick="LoadAppointments">Refresh appointments</button>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <Alert Type="@(message.Contains("failed", StringComparison.OrdinalIgnoreCase) || message.Contains("error", StringComparison.OrdinalIgnoreCase) ? AlertType.Error : AlertType.Info)"
+           Message="@message" ShowIcon="true" Closable OnClose="ClearMessage" Style="margin-bottom: 16px;" />
+}
+
+<section class="two-column">
+    <div>
+        <h2>Manual proof</h2>
+        <div class="item-card">
+            <EditForm Model="manualForm" OnValidSubmit="SubmitManualProof">
+                <label>Appointment</label>
+                <select class="field" @bind="manualForm.AppointmentId">
+                    <option value="0">Select appointment</option>
+                    @foreach (var appointment in appointments)
+                    {
+                        <option value="@appointment.Id">@appointment.AppointmentCode - @appointment.PatientName - @appointment.Datetime.ToString("MMM dd hh:mm tt")</option>
+                    }
+                </select>
+                <label>Payment method</label>
+                <InputText class="field" @bind-Value="manualForm.PaymentMethod" />
+                <label>Amount</label>
+                <Microsoft.AspNetCore.Components.Forms.InputNumber class="field" @bind-Value="manualForm.Amount" />
+                <label>Screenshot URL</label>
+                <InputText class="field" @bind-Value="manualForm.ScreenshotUrl" />
+                <button class="primary" type="submit" style="margin-top: 12px;">Submit proof</button>
+            </EditForm>
+        </div>
+    </div>
+
+    <AuthorizeView Roles="owner">
+        <Authorized Context="billingAuth">
+            <div>
+                <h2>Gateway callback</h2>
+                <div class="item-card">
+                    <EditForm Model="gatewayForm" OnValidSubmit="SubmitGatewayCallback">
+                        <label>Appointment</label>
+                        <select class="field" @bind="gatewayForm.AppointmentId">
+                            <option value="0">Select appointment</option>
+                            @foreach (var appointment in appointments)
+                            {
+                                <option value="@appointment.Id">@appointment.AppointmentCode - @appointment.PatientName</option>
+                            }
+                        </select>
+                        <label>Payment method</label>
+                        <InputText class="field" @bind-Value="gatewayForm.PaymentMethod" />
+                        <label>Amount</label>
+                        <Microsoft.AspNetCore.Components.Forms.InputNumber class="field" @bind-Value="gatewayForm.Amount" />
+                        <label>Gateway transaction ID</label>
+                        <InputText class="field" @bind-Value="gatewayForm.GatewayTransactionId" />
+                        <label style="display: inline-flex; gap: 8px; align-items: center;">
+                            <InputCheckbox @bind-Value="gatewayForm.IsSuccess" />
+                            Successful payment
+                        </label>
+                        <button class="primary" type="submit" style="margin-top: 12px;">Process callback</button>
+                    </EditForm>
+                </div>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</section>
+
+@code {
+    private readonly List<AppointmentDetailsResponse> appointments = new();
+    private readonly ManualPaymentProofRequest manualForm = new()
+    {
+        PaymentMethod = "kbzpay"
+    };
+    private readonly ProcessPaymentCallbackRequest gatewayForm = new()
+    {
+        PaymentMethod = "card",
+        IsSuccess = true
+    };
+    private bool isStaff;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isStaff = authState.User.IsInRole("owner");
+        await LoadAppointments();
+    }
+
+    private async Task LoadAppointments()
+    {
+        var result = await Api.AppointmentsAsync(DateTime.UtcNow.Date.AddMonths(-2), DateTime.UtcNow.Date.AddMonths(2), pageSize: 100);
+        appointments.Clear();
+        appointments.AddRange(result.Data);
+        message = result.IsSuccess ? null : result.Message;
+    }
+
+    private async Task SubmitManualProof()
+    {
+        if (!ValidatePayment(manualForm.AppointmentId, manualForm.Amount, manualForm.PaymentMethod))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(manualForm.ScreenshotUrl))
+        {
+            message = "Screenshot URL is required.";
+            return;
+        }
+
+        var result = await Api.SubmitManualPaymentProofAsync(manualForm);
+        message = result.Message;
+    }
+
+    private async Task SubmitGatewayCallback()
+    {
+        if (!isStaff || !ValidatePayment(gatewayForm.AppointmentId, gatewayForm.Amount, gatewayForm.PaymentMethod))
+        {
+            return;
+        }
+
+        var result = await Api.ProcessPaymentCallbackAsync(gatewayForm);
+        message = result.Message;
+    }
+
+    private bool ValidatePayment(int appointmentId, decimal amount, string? paymentMethod)
+    {
+        if (appointmentId <= 0)
+        {
+            message = "Select an appointment first.";
+            return false;
+        }
+
+        if (amount <= 0)
+        {
+            message = "Amount must be greater than zero.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(paymentMethod))
+        {
+            message = "Payment method is required.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+    }
+}

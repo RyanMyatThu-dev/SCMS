@@ -1,0 +1,153 @@
+@page "/book"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Book Appointment</PageTitle>
+
+<PageHeader Title="Book appointment" Subtitle="Queue-based appointment booking with estimated wait time." />
+
+<Card>
+    <Steps Current="currentStep">
+        <Step Title="Patient" />
+        <Step Title="Date" />
+        <Step Title="Confirm" />
+        <Step Title="Result" />
+    </Steps>
+
+    <div style="margin-top: 24px; min-height: 200px;">
+        @if (currentStep == 0)
+        {
+            <div style="max-width: 400px; margin: 0 auto;">
+                <Text Strong>Select Patient</Text>
+                <Select TItem="PatientProfileResponse" TItemValue="int" @bind-Value="request.PatientId" DataSource="patients" 
+                        ValueName="@nameof(PatientProfileResponse.PatientId)" LabelName="@nameof(PatientProfileResponse.Name)"
+                        Style="width: 100%; margin-top: 8px;" Placeholder="Select patient" />
+                <div style="margin-top: 24px; text-align: right;">
+                    <Button Type="@ButtonType.Primary" OnClick="NextStep" Disabled="@(request.PatientId == 0)">Next</Button>
+                </div>
+            </div>
+        }
+        else if (currentStep == 1)
+        {
+            <div style="max-width: 400px; margin: 0 auto;">
+                <div style="margin-bottom: 16px;">
+                    <Text Strong>Date</Text>
+                    <DatePicker @bind-Value="appointmentDate" Style="width: 100%; margin-top: 8px;" />
+                </div>
+                <div style="margin-top: 24px; text-align: right;">
+                    <Space>
+                        <SpaceItem><Button OnClick="PrevStep">Previous</Button></SpaceItem>
+                        <SpaceItem><Button Type="@ButtonType.Primary" OnClick="NextStep">Next</Button></SpaceItem>
+                    </Space>
+                </div>
+            </div>
+        }
+        else if (currentStep == 2)
+        {
+            <div style="max-width: 400px; margin: 0 auto;">
+                <div style="margin-bottom: 16px;">
+                    <Text Strong>Reason for Visit</Text>
+                    <TextArea @bind-Value="request.Notes" Rows="4" Style="width: 100%; margin-top: 8px;" />
+                </div>
+                <div style="margin-top: 24px; text-align: right;">
+                    <Space>
+                        <SpaceItem><Button OnClick="PrevStep">Previous</Button></SpaceItem>
+                        <SpaceItem><Button Type="@ButtonType.Primary" OnClick="Book" Loading="isBooking">Confirm Booking</Button></SpaceItem>
+                    </Space>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <Alert Type="@AlertType.Error" Message="@message" ShowIcon="true" Style="margin-top: 16px;" />
+                }
+            </div>
+        }
+        else if (currentStep == 3)
+        {
+            <div style="max-width: 500px; margin: 0 auto; text-align: center;">
+                <Result Status="@ResultStatus.Success" Title="Appointment Booked Successfully!">
+                    <SubTitleTemplate>
+                        @if (response != null)
+                        {
+                            <div>
+                                <p><strong>Code:</strong> @response.AppointmentCode</p>
+                                <p><strong>Token:</strong> @response.TokenNumber</p>
+                                <p><strong>Estimated Wait:</strong> @response.EstimatedWaitTimeMinutes mins</p>
+                                <p><strong>Status:</strong> @response.Status</p>
+                            </div>
+                        }
+                    </SubTitleTemplate>
+                    <Extra>
+                        <Button Type="@ButtonType.Primary" OnClick="Reset">Book Another</Button>
+                        <a href="/appointments"><Button>View Appointments</Button></a>
+                    </Extra>
+                </Result>
+            </div>
+        }
+    </div>
+</Card>
+
+@code {
+    private readonly BookAppointmentRequest request = new();
+    private readonly List<PatientProfileResponse> patients = new();
+    private BookAppointmentResponse? response;
+    private DateTime appointmentDate = DateTime.Today.AddDays(1);
+    private string appointmentTime = "09:00";
+    private string? message;
+    private int currentStep = 0;
+    private bool isBooking = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.PatientProfilesAsync();
+        patients.AddRange(result.Data);
+    }
+
+    private void NextStep()
+    {
+        if (currentStep < 3) currentStep++;
+    }
+
+    private void PrevStep()
+    {
+        if (currentStep > 0) currentStep--;
+    }
+
+    private void Reset()
+    {
+        request.PatientId = 0;
+        request.Notes = "";
+        response = null;
+        message = null;
+        currentStep = 0;
+    }
+
+    private async Task Book()
+    {
+        isBooking = true;
+        message = null;
+        try
+        {
+            // Date is passed to backend, which automatically schedules the time
+            // based on the token sequence of the day.
+            request.Datetime = appointmentDate.Date;
+            var result = await Api.BookAppointmentAsync(request);
+            if (result.IsSuccess)
+            {
+                response = result.Data;
+                currentStep = 3; // Move to Result step
+            }
+            else
+            {
+                message = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Booking failed: {ex.Message}";
+        }
+        finally
+        {
+            isBooking = false;
+        }
+    }
+}
