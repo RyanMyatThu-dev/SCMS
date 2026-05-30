@@ -8,12 +8,10 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Moon,
   Pill,
   RotateCcw,
   Sparkles,
   Stethoscope,
-  Sun,
   Users,
   X,
 } from "lucide-react";
@@ -40,21 +38,15 @@ export default function AppShell() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState(localStorage.getItem("scms_theme") || "light");
-
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("scms_theme", theme);
-  }, [theme]);
+    document.documentElement.classList.remove("dark");
+    localStorage.setItem("scms_theme", "light");
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
   };
-
-  const toggleTheme = () => setTheme((current) => (current === "dark" ? "light" : "dark"));
-  const themeLabel = theme === "dark" ? "Light Mode" : "Dark Mode";
-  const ThemeIcon = theme === "dark" ? Sun : Moon;
 
   return (
     <div className="min-h-screen bg-scms-bg text-scms-text">
@@ -105,10 +97,6 @@ export default function AppShell() {
           <button className="scms-btn-outline w-full justify-start" onClick={toggleLanguage}>
             {t.language}
           </button>
-          <button className="scms-btn-outline w-full justify-start" onClick={toggleTheme}>
-            <ThemeIcon size={18} />
-            {themeLabel}
-          </button>
           <button className="btn min-h-11 w-full justify-start rounded-xl border-[#FECDCA] bg-[#FFF1F0] text-scms-danger hover:border-[#FECDCA] hover:bg-[#FFF1F0]" onClick={handleLogout}>
             <LogOut size={18} />
             {t.logout}
@@ -129,10 +117,6 @@ export default function AppShell() {
             <div className="ml-auto flex items-center gap-3">
               <button className="scms-btn-outline hidden md:inline-flex" onClick={toggleLanguage}>
                 {t.language}
-              </button>
-              <button className="scms-btn-outline hidden md:inline-flex" onClick={toggleTheme}>
-                <ThemeIcon size={18} />
-                {themeLabel}
               </button>
             </div>
           </header>

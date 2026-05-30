@@ -648,5 +648,96 @@ namespace SCMS.Domain.Tests.Mcp
             Assert.Equal("cancelled", updated.Status);
             Assert.Contains("Klaus did it", updated.Notes);
         }
+
+        [Fact]
+        public async Task CallToolAsync_GetPatientKypBrief_ReturnsComprehensiveBriefSuccessfully()
+        {
+            // Arrange
+            var user = await CreateTestUserAsync("damon@scms.demo");
+            
+            var addressMeta = new McpServiceTestsAddressMeta
+            {
+                ActualAddress = "123 Mystic Falls",
+                Allergies = "Penicillin",
+                ChronicConditions = "Asthma",
+                PastSurgeries = "None",
+                FamilyHistory = "None",
+                VaccinationHistory = "Flu vaccine 2025"
+            };
+            var serializedAddress = System.Text.Json.JsonSerializer.Serialize(addressMeta);
+
+            var patient = new TblPatient
+            {
+                UserId = user.UserId,
+                Name = "Damon Salvatore",
+                MobileNo = "09979998811",
+                DateOfBirth = new DateOnly(1994, 6, 18),
+                Gender = "male",
+                Address = serializedAddress,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false
+            };
+            _db.Context.TblPatients.Add(patient);
+            await _db.Context.SaveChangesAsync();
+
+            var appointment = new TblAppointment
+            {
+                AppointmentCode = "APT-011-TEST",
+                PatientId = patient.PatientId,
+                Datetime = DateTime.UtcNow.Date.AddHours(11),
+                Status = "cancelled",
+                Notes = "No show",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Context.TblAppointments.Add(appointment);
+            await _db.Context.SaveChangesAsync();
+
+            var payment = new TblPayment
+            {
+                AppointmentId = appointment.Id,
+                Amount = 5000,
+                Tax = 500,
+                Charges = 0,
+                PaymentMethod = "kbzpay",
+                PaymentStatus = "pending",
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Context.TblPayments.Add(payment);
+            await _db.Context.SaveChangesAsync();
+
+            var request = new McpToolCallRequest
+            {
+                Name = "get_patient_kyp_brief",
+                Arguments = new Dictionary<string, object>
+                {
+                    { "patientName", "Damon" }
+                }
+            };
+
+            // Act
+            var result = await _service.CallToolAsync(request);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.Data);
+            var text = result.Data.Content[0].Text;
+            Assert.Contains("Damon Salvatore", text);
+            Assert.Contains("Penicillin", text);
+            Assert.Contains("Asthma", text);
+            Assert.Contains("High", text); // Adherence profiling risk because 100% cancelled
+            Assert.Contains("123 Mystic Falls", text);
+        }
+
+        private class McpServiceTestsAddressMeta
+        {
+            public string? ActualAddress { get; set; }
+            public string? Allergies { get; set; }
+            public string? ChronicConditions { get; set; }
+            public string? PastSurgeries { get; set; }
+            public string? FamilyHistory { get; set; }
+            public string? VaccinationHistory { get; set; }
+        }
     }
 }

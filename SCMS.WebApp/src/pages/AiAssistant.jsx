@@ -14,6 +14,62 @@ import { useEffect, useRef, useState } from "react";
 import { mcpApi } from "../services/scmsApi";
 import { useLanguage } from "../context/LanguageContext";
 
+const renderMessageContent = (content) => {
+  if (!content) return null;
+
+  // Auto-translate yyyy-MM-dd dates to dd-MM-yyyy format
+  const formattedContent = content.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3-$2-$1");
+  const lines = formattedContent.split("\n");
+
+  return lines.map((line, lineIdx) => {
+    const trimmed = line.trim();
+    const isBullet = trimmed.startsWith("* ") || trimmed.startsWith("- ");
+    let lineContent = line;
+    if (isBullet) {
+      const bulletIndex = line.indexOf(trimmed.startsWith("* ") ? "* " : "- ");
+      lineContent = line.substring(bulletIndex + 2);
+    }
+
+    const parts = [];
+    const regex = /\*\*(.*?)\*\*/g;
+    let match;
+    let lastIndex = 0;
+
+    while ((match = regex.exec(lineContent)) !== null) {
+      const matchIndex = match.index;
+      if (matchIndex > lastIndex) {
+        parts.push(lineContent.substring(lastIndex, matchIndex));
+      }
+      parts.push(
+        <strong key={matchIndex} className="font-extrabold">
+          {match[1]}
+        </strong>
+      );
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < lineContent.length) {
+      parts.push(lineContent.substring(lastIndex));
+    }
+
+    const contentNode = parts.length > 0 ? parts : lineContent;
+
+    if (isBullet) {
+      return (
+        <ul key={lineIdx} className="list-disc pl-5 my-0.5">
+          <li className="font-medium">{contentNode}</li>
+        </ul>
+      );
+    }
+
+    return (
+      <p key={lineIdx} className="min-h-[1.25rem] font-medium">
+        {contentNode}
+      </p>
+    );
+  });
+};
+
 export default function AiAssistant() {
   const { t, language } = useLanguage();
   const [messages, setMessages] = useState([
@@ -225,7 +281,7 @@ export default function AiAssistant() {
                     : "bg-[#F2F4F7] text-scms-text rounded-tl-none"
                 }`}
               >
-                <div className="whitespace-pre-line font-medium">{msg.content}</div>
+                <div className="space-y-1">{renderMessageContent(msg.content)}</div>
               </div>
             </div>
           ))}

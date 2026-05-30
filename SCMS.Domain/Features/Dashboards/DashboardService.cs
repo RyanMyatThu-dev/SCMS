@@ -65,8 +65,10 @@ namespace SCMS.Domain.Features.Dashboards
 
             var totalRevenue = (decimal)totalRevenueDouble;
 
-            var todayPatientsCount = await _context.TblPatients
-                .CountAsync(p => p.CreatedAt >= todayUtc && p.DeleteFlag != true);
+            var todayPatientsCount = todayAppointments
+                .Select(a => a.PatientId)
+                .Distinct()
+                .Count();
 
             var totalMedicinesCount = await _context.TblMedicines
                 .CountAsync(m => m.DeleteFlag != true);
