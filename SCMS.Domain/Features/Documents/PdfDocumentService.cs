@@ -63,6 +63,10 @@ namespace SCMS.Domain.Features.Documents
             // ── Header ─────────────────────────────────────────────────
             y = DrawClinicHeader(b, y, "PRESCRIPTION");
 
+            b.AddText(MarginL, y, 8, "F1",
+                $"Generated: {rx.CreatedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+            y -= 16;
+
             // ── Patient & visit info (2-column key-value table) ────────
             y = DrawSectionTitle(b, y, "Patient & Visit Details");
             var infoRows = new List<string[]>
@@ -140,6 +144,76 @@ namespace SCMS.Domain.Features.Documents
             y -= 30;
             b.AddLine(MarginL + 300, y, MarginL + ContentW, y, 0.5f);
             b.AddText(MarginL + 340, y - 12, 8, "F1", "Authorized Signature");
+
+            DrawFooter(b, y - 30);
+            return b.Build();
+        }
+
+        public byte[] CreatePrescriptionReportPdf(PrescriptionReportResponse report)
+        {
+            var b = new PdfBuilder();
+            float y = PageH - MarginTop;
+
+            y = DrawClinicHeader(b, y, "PRESCRIPTION REPORT");
+
+            b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
+            y -= 14;
+            b.AddText(MarginL, y, 8, "F1",
+                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+            y -= 16;
+
+            y = DrawSectionTitle(b, y, "Summary");
+            var stats = new List<(string, string, string)>
+            {
+                ("Total Prescriptions", report.TotalPrescriptions.ToString(), "0.1 0.4 0.8"),
+                ("Total Medicines", report.TotalMedicines.ToString(), "0.1 0.7 0.3"),
+                ("Patients", report.DistinctPatients.ToString(), "0.5 0.2 0.7")
+            };
+            y = DrawStatsRow(b, y, stats);
+
+            y = DrawSectionTitle(b, y, "Prescription Details");
+            var headers = new[] { "No.", "Patient Name", "Appointment", "Diagnosis", "Date", "Items" };
+            var colWidths = new[] { 30f, 130f, 100f, 120f, 80f, ContentW - 460f };
+
+            var dataRows = report.Items.Select((item, idx) => new[]
+            {
+                (idx + 1).ToString(),
+                item.PatientName,
+                item.AppointmentCode,
+                item.DiseaseName ?? "-",
+                item.CreatedAt.ToString("dd-MM-yyyy"),
+                $"{item.MedicineCount} ({item.TotalQuantity} total)"
+            }).ToList();
+
+            if (dataRows.Count == 0)
+            {
+                dataRows.Add(new[] { "-", "No prescriptions found", "-", "-", "-", "-" });
+            }
+
+            int rowIdx = 0;
+            bool firstPage = true;
+            while (rowIdx < dataRows.Count)
+            {
+                if (!firstPage)
+                {
+                    b.AddPage();
+                    y = PageH - MarginTop;
+                    y = DrawClinicHeader(b, y, "PRESCRIPTION REPORT");
+                    b.AddText(MarginL, y, 10, "F2", report.ReportTitle + " (continued)");
+                    y -= 16;
+                }
+
+                float availableH = y - 70;
+                float headerH = 20f;
+                float rowH = 18f;
+                int maxRows = Math.Max(1, (int)((availableH - headerH) / rowH));
+                int endIdx = Math.Min(rowIdx + maxRows, dataRows.Count);
+
+                var pageRows = dataRows.GetRange(rowIdx, endIdx - rowIdx);
+                y = DrawTable(b, y, headers, pageRows, colWidths);
+                rowIdx = endIdx;
+                firstPage = false;
+            }
 
             DrawFooter(b, y - 30);
             return b.Build();
@@ -420,8 +494,8 @@ namespace SCMS.Domain.Features.Documents
 
             // ── Detailed Transactions table ────────────────────────────
             y = DrawSectionTitle(b, y, "Transaction Details");
-            var txHeaders = new[] { "No.", "Appointment", "Patient", "Method", "Amount", "Tax", "Total", "Paid At" };
-            var txWidths = new[] { 25f, 80f, 110f, 60f, 65f, 55f, 65f, ContentW - 460f };
+            var txHeaders = new[] { "No.", "Appointment", "Patient", "Method", "Amount", "Tax", "Total" };
+            var txWidths = new[] { 30f, 100f, 130f, 70f, 70f, 60f, ContentW - 460f };
 
             var txRows = report.Items.Select((item, idx) => new[]
             {
@@ -433,11 +507,12 @@ namespace SCMS.Domain.Features.Documents
                 item.Tax.ToString("N2"),
                 item.Total.ToString("N2"),
                 item.PaidAt?.ToString("dd-MM-yyyy") ?? "-"
+                item.Total.ToString("N2")
             }).ToList();
 
             if (txRows.Count == 0)
             {
-                txRows.Add(new[] { "-", "No transactions", "-", "-", "-", "-", "-", "-" });
+                txRows.Add(new[] { "-", "No transactions", "-", "-", "-", "-", "-" });
             }
 
             // Handle multi-page
@@ -504,8 +579,7 @@ namespace SCMS.Domain.Features.Documents
             {
                 ("Total Patients", report.TotalPatients.ToString(), "0.1 0.4 0.8"),
                 ("Male", report.MaleCount.ToString(), "0.1 0.7 0.3"),
-                ("Female", report.FemaleCount.ToString(), "0.8 0.2 0.5"),
-                ("Other", report.OtherGenderCount.ToString(), "0.5 0.5 0.5")
+                ("Female", report.FemaleCount.ToString(), "0.8 0.2 0.5")
             };
             y = DrawStatsRow(b, y, stats);
 
@@ -556,15 +630,7 @@ namespace SCMS.Domain.Features.Documents
                 firstPage = false;
             }
 
-            // ── Totals row ─────────────────────────────────────────────
-            y -= 8;
-            float totRowH = 20;
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH, fill: true, fillGray: 0.22f);
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH);
-            b.AddText(MarginL + 8, y - 14, 9, "F2",
-                $"Total: {report.TotalPatients}   |   Male: {report.MaleCount}   |   Female: {report.FemaleCount}   |   Other: {report.OtherGenderCount}",
-                gray: 1f);
-            y -= totRowH;
+
 
             // ── Signature ──────────────────────────────────────────────
 
@@ -676,15 +742,7 @@ namespace SCMS.Domain.Features.Documents
                 firstPage = false;
             }
 
-            // ── Totals row ─────────────────────────────────────────────
-            y -= 8;
-            float totRowH = 20;
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH, fill: true, fillGray: 0.22f);
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH);
-            b.AddText(MarginL + 8, y - 14, 9, "F2",
-                $"Total Medicines: {report.TotalMedicines}   |   Total Batches: {report.TotalBatches}   |   Low Stock: {report.LowStockCount}   |   Expired: {report.ExpiredCount}",
-                gray: 1f);
-            y -= totRowH;
+
 
             // ── Signature ──────────────────────────────────────────────
 
@@ -774,15 +832,7 @@ namespace SCMS.Domain.Features.Documents
                 firstPage = false;
             }
 
-            // ── Totals row ─────────────────────────────────────────────
-            y -= 8;
-            float totRowH = 20;
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH, fill: true, fillGray: 0.22f);
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH);
-            b.AddText(MarginL + 8, y - 14, 9, "F2",
-                $"Total: {report.TotalFollowUps}   |   Pending: {report.PendingCount}   |   Completed: {report.CompletedCount}   |   Overdue: {report.OverdueCount}",
-                gray: 1f);
-            y -= totRowH;
+
 
             // ── Signature ──────────────────────────────────────────────
 
@@ -793,6 +843,7 @@ namespace SCMS.Domain.Features.Documents
 
         public byte[] CreateBusinessSummaryReportPdf(BusinessSummaryReportResponse report)
         {
+            var grandTotal = report.TotalIncome + report.TotalTax + report.TotalCharges;
             var b = new PdfBuilder();
             float y = PageH - MarginTop;
 
@@ -804,36 +855,48 @@ namespace SCMS.Domain.Features.Documents
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
                 $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
-            y -= 16;
-
-            // ── Summary (key-value table) ──────────────────────────────
-            y = DrawSectionTitle(b, y, "Monthly Metrics");
+            y -= 10;
             b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd:dd-MM-yyyy}");
-            y -= 16;
-            var stats = new List<(string, string, string)>
-            {
-                ("Patients", report.TotalPatients.ToString(), "0.1 0.4 0.8"),
-                ("New", report.NewPatients.ToString(), "0.1 0.7 0.3"),
-                ("Appointments", report.TotalAppointments.ToString(), "0.5 0.2 0.7"),
-                ("Prescriptions", report.TotalPrescriptions.ToString(), "0.5 0.5 0.5"),
-                ("Income", report.TotalIncome.ToString("N2"), "0.1 0.7 0.3"),
-                ("Tax", report.TotalTax.ToString("N2"), "0.8 0.2 0.2"),
-                ("Charges", report.TotalCharges.ToString("N2"), "0.9 0.5 0.1")
-            };
-            y = DrawStatsRow(b, y, stats);
-
-            // ── Highlights ─────────────────────────────────────────────
             y -= 20;
-            float totRowH = 24;
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH, fill: true, fillGray: 0.15f);
-            b.AddRect(MarginL, y - totRowH, ContentW, totRowH);
-            b.AddText(MarginL + 8, y - 16, 11, "F2", "TOTAL MONTHLY INCOME", gray: 1f);
-            b.AddText(MarginL + ContentW - 130, y - 16, 11, "F2",
-                report.TotalIncome.ToString("N2"), gray: 1f);
+
+            // ── Patient Overview (key-value table) ──────────────────────
+            y = DrawSectionTitle(b, y, "Patient Overview");
+            var patientRows = new List<string[]>
+            {
+                new[] { "Total Registered Patients", report.TotalPatients.ToString() },
+                new[] { "New Patients (This Month)", report.NewPatients.ToString() }
+            };
+            y = DrawKeyValueTable(b, y, patientRows);
+            y -= 12;
+
+            // ── Clinical Activity ────────────────────────────────────────
+            y = DrawSectionTitle(b, y, "Clinical Activity");
+            var activityRows = new List<string[]>
+            {
+                new[] { "Total Appointments", report.TotalAppointments.ToString() },
+                new[] { "Total Prescriptions", report.TotalPrescriptions.ToString() }
+            };
+            y = DrawKeyValueTable(b, y, activityRows);
+            y -= 12;
+
+            // ── Financial Summary (table) ────────────────────────────────
+            y = DrawSectionTitle(b, y, "Financial Summary");
+            var finHeaders = new[] { "Category", "Amount" };
+            var finWidths = new[] { ContentW - 140f, 140f };
+            var finRows = new List<string[]>
+            {
+                new[] { "Service Income", report.TotalIncome.ToString("N2") },
+                new[] { "Tax Collected", report.TotalTax.ToString("N2") },
+                new[] { "Additional Charges", report.TotalCharges.ToString("N2") }
+            };
+            y = DrawTable(b, y, finHeaders, finRows, finWidths);
+
+            // ── Grand total row ────────────────────────────────────────
+            float totRowH = 22;
+            b.AddRect(MarginL, y - totRowH, ContentW, totRowH, fill: true, fillRgb: "0.1 0.3 0.6");
+            b.AddText(MarginL + 8, y - 15, 10, "F2", "GRAND TOTAL", gray: 1f);
+            b.AddText(MarginL + ContentW - 135, y - 15, 10, "F2", grandTotal.ToString("N2"), gray: 1f);
             y -= totRowH;
-
-            // ── Signature ──────────────────────────────────────────────
-
 
             DrawFooter(b, y - 30);
             return b.Build();

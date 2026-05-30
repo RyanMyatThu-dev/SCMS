@@ -184,14 +184,14 @@ namespace SCMS.Domain.Features.Documents
         /// </summary>
         [HttpGet("follow-ups")]
         public async Task<IActionResult> GetFollowUpReport(
-            [FromQuery] string? reportType,
-            [FromQuery] DateTime? date,
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
             [FromQuery] string? status)
         {
             var request = new FollowUpReportRequest
             {
-                ReportType = reportType ?? "all",
-                Date = date,
+                StartDate = startDate,
+                EndDate = endDate,
                 Status = status ?? "all"
             };
 
@@ -208,14 +208,14 @@ namespace SCMS.Domain.Features.Documents
         /// </summary>
         [HttpGet("follow-ups/pdf")]
         public async Task<IActionResult> GetFollowUpReportPdf(
-            [FromQuery] string? reportType,
-            [FromQuery] DateTime? date,
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
             [FromQuery] string? status)
         {
             var request = new FollowUpReportRequest
             {
-                ReportType = reportType ?? "all",
-                Date = date,
+                StartDate = startDate,
+                EndDate = endDate,
                 Status = status ?? "all"
             };
 
@@ -226,18 +226,48 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var bytes = _pdfDocumentService.CreateFollowUpReportPdf(result.Data);
-            var type = (request.ReportType ?? "all").ToLower();
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("dd-MM-yyyy");
-            return File(bytes, "application/pdf", $"follow-up-report-{type}-{dateStr}.pdf");
+            var dateStr = startDate?.ToString("dd-MM-yyyy") ?? DateTime.UtcNow.ToString("dd-MM-yyyy");
+            return File(bytes, "application/pdf", $"follow-up-report-{dateStr}.pdf");
+        }
+
+        /// <summary>
+        /// Get prescription report data (JSON).
+        /// </summary>
+        [HttpGet("prescriptions")]
+        public async Task<IActionResult> GetPrescriptionReport()
+        {
+            var result = await _reportService.GetPrescriptionReportAsync();
+            if (result.IsFailure)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Download prescription report as a PDF file.
+        /// </summary>
+        [HttpGet("prescriptions/pdf")]
+        public async Task<IActionResult> GetPrescriptionReportPdf()
+        {
+            var result = await _reportService.GetPrescriptionReportAsync();
+            if (result.IsFailure || result.Data == null)
+            {
+                return BadRequest(result);
+            }
+
+            var bytes = _pdfDocumentService.CreatePrescriptionReportPdf(result.Data);
+            var dateStr = DateTime.UtcNow.ToString("dd-MM-yyyy");
+            return File(bytes, "application/pdf", $"prescription-report-{dateStr}.pdf");
         }
 
         /// <summary>
         /// Get monthly business summary report data (JSON).
         /// </summary>
         [HttpGet("business-summary")]
-        public async Task<IActionResult> GetBusinessSummaryReport([FromQuery] DateTime? date)
+        public async Task<IActionResult> GetBusinessSummaryReport([FromQuery] int? month, [FromQuery] int? year)
         {
-            var request = new BusinessSummaryReportRequest { Date = date };
+            var request = new BusinessSummaryReportRequest { Month = month, Year = year };
             var result = await _reportService.GetBusinessSummaryReportAsync(request);
             if (result.IsFailure)
             {
@@ -250,9 +280,9 @@ namespace SCMS.Domain.Features.Documents
         /// Download monthly business summary report as a PDF file.
         /// </summary>
         [HttpGet("business-summary/pdf")]
-        public async Task<IActionResult> GetBusinessSummaryReportPdf([FromQuery] DateTime? date)
+        public async Task<IActionResult> GetBusinessSummaryReportPdf([FromQuery] int? month, [FromQuery] int? year)
         {
-            var request = new BusinessSummaryReportRequest { Date = date };
+            var request = new BusinessSummaryReportRequest { Month = month, Year = year };
             var result = await _reportService.GetBusinessSummaryReportAsync(request);
             if (result.IsFailure || result.Data == null)
             {
@@ -260,8 +290,7 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var bytes = _pdfDocumentService.CreateBusinessSummaryReportPdf(result.Data);
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString("dd-MM-yyyy");
-            return File(bytes, "application/pdf", $"business-summary-{dateStr}.pdf");
+            return File(bytes, "application/pdf", $"business-summary-{year ?? DateTime.UtcNow.Year}-{month ?? DateTime.UtcNow.Month:D2}.pdf");
         }
     }
 }
