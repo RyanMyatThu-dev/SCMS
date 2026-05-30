@@ -128,17 +128,13 @@ export default function AuthPage({ mode = "login" }) {
             {isRegister ? t.register : t.login}
           </button>
 
-          <div className="mt-5 text-center text-sm text-scms-muted">
-            {isRegister ? (
+          {isRegister && (
+            <div className="mt-5 text-center text-sm text-scms-muted">
               <Link className="font-extrabold text-scms-primary" to="/login">
                 {t.login}
               </Link>
-            ) : (
-              <Link className="font-extrabold text-scms-primary" to="/register">
-                {t.register}
-              </Link>
-            )}
-          </div>
+            </div>
+          )}
         </form>
       </section>
     </main>
