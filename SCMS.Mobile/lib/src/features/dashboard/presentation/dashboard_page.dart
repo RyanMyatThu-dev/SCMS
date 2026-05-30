@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -425,7 +424,7 @@ class _PatientDashboard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.indigo.withOpacity(0.3),
+                    color: Colors.indigo.withValues(alpha: 0.3),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   )
@@ -441,9 +440,9 @@ class _PatientDashboard extends ConsumerWidget {
                         height: 58,
                         width: 58,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
                         ),
                         alignment: Alignment.center,
                         child: Text(
@@ -476,9 +475,9 @@ class _PatientDashboard extends ConsumerWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.red.shade400.withOpacity(0.3),
+                                  color: Colors.red.shade400.withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(99),
-                                  border: Border.all(color: Colors.red.shade200.withOpacity(0.4)),
+                                  border: Border.all(color: Colors.red.shade200.withValues(alpha: 0.4)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -630,7 +629,7 @@ class _PatientDashboard extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.indigo.shade50.withOpacity(0.4),
+                              color: Colors.indigo.shade50.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(12),
                               border: Border(left: BorderSide(color: Colors.indigo.shade300, width: 3)),
                             ),
@@ -1266,7 +1265,7 @@ class _SubmitPaymentProofDialogState extends ConsumerState<_SubmitPaymentProofDi
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.shade50.withOpacity(0.5),
+                  color: Colors.indigo.shade50.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: Colors.indigo.shade100),
                 ),

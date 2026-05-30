@@ -99,7 +99,6 @@ class _PatientsPageState extends ConsumerState<PatientsPage> {
                       itemBuilder: (context, index) {
                         final p = filtered[index];
                         final selected = _selectedPatientId == p.patientId;
-                        final colors = Theme.of(context).colorScheme;
 
                         return ChoiceChip(
                           label: Text(p.name),
