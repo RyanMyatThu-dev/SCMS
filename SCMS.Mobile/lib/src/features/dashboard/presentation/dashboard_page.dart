@@ -945,8 +945,9 @@ class _PatientDashboard extends ConsumerWidget {
                         ],
                       ],
                     ),
-                  );
-                }),
+                  ),
+                );
+              }),
           ],
         );
       },
