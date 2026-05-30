@@ -4,8 +4,11 @@ namespace SCMS.Shared.Contracts.Reports
 {
     public class BusinessSummaryReportRequest
     {
-        /// <summary>The target date (used to derive the month).</summary>
-        public DateTime? Date { get; set; }
+        /// <summary>Month (1-12). Defaults to current month.</summary>
+        public int? Month { get; set; }
+
+        /// <summary>Year (e.g. 2026). Defaults to current year.</summary>
+        public int? Year { get; set; }
     }
 
     public class BusinessSummaryReportResponse
