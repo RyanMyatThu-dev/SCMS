@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import Swal from "sweetalert2";
 import scmsApi from "../../services/scmsApi";
@@ -574,11 +574,48 @@ function PatientCard({ patient, selected, onClick }) {
   );
 }
 
-function Input({ label, ...props }) {
+function Input({ label, type, ...props }) {
+  const ref = useRef(null);
+
+  if (type === "date") {
+    const raw = props.value || "";
+    const formatted = (() => {
+      if (!raw) return "";
+      const [y, m, d] = raw.split("-");
+      if (!y || !m || !d) return raw;
+      return `${d}-${m}-${y}`;
+    })();
+
+    const openPicker = () => {
+      if (ref.current) {
+        try { ref.current.showPicker(); } catch { ref.current.click(); }
+      }
+    };
+
+    return (
+      <label style={labelStyle}>
+        {label}
+        <div style={{ ...inputStyle, position: "relative", cursor: "pointer", display: "flex", alignItems: "center" }} onClick={openPicker}>
+          <span style={{ color: formatted ? TEXT : MUTED, pointerEvents: "none" }}>
+            {formatted || "dd-MM-yyyy"}
+          </span>
+          <input
+            ref={ref}
+            type="date"
+            name={props.name}
+            value={raw}
+            onChange={props.onChange}
+            style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer" }}
+          />
+        </div>
+      </label>
+    );
+  }
+
   return (
     <label style={labelStyle}>
       {label}
-      <input {...props} style={inputStyle} />
+      <input type={type} {...props} style={inputStyle} />
     </label>
   );
 }

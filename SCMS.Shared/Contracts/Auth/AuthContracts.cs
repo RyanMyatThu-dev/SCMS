@@ -35,7 +35,8 @@ namespace SCMS.Shared.Contracts.Auth
         public string? MobileNo { get; set; }
         public List<string> Roles { get; set; } = new();
 
-        public bool IsStaff => Roles.Any(r => string.Equals(r, "admin", StringComparison.OrdinalIgnoreCase)
+        public bool IsStaff => Roles.Any(r => string.Equals(r, "owner", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(r, "admin", StringComparison.OrdinalIgnoreCase)
             || string.Equals(r, "doctor", StringComparison.OrdinalIgnoreCase));
     }
 }

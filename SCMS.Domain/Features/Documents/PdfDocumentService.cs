@@ -505,6 +505,8 @@ namespace SCMS.Domain.Features.Documents
                 CapitalizeFirst(item.PaymentMethod),
                 item.Amount.ToString("N2"),
                 item.Tax.ToString("N2"),
+                item.Total.ToString("N2"),
+                item.PaidAt?.ToString("dd-MM-yyyy") ?? "-"
                 item.Total.ToString("N2")
             }).ToList();
 

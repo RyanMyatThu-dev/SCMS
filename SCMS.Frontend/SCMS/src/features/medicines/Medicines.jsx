@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import scmsApi from "../../services/scmsApi";
+import { showConfirm } from "../../utils/dialogs";
 
 const PRIMARY = "#0052CC";
 const PRIMARY_LIGHT = "#EBF2FF";
@@ -261,7 +262,7 @@ export default function Medicines() {
             msg.toLowerCase().includes("upload") ||
             error?.response?.status === 500)
         ) {
-          const ok = confirm(
+          const ok = await showConfirm(
             "Image upload failed or photo service is not configured. Save medicine without image?",
           );
 
@@ -294,7 +295,7 @@ export default function Medicines() {
   };
 
   const deleteMedicine = async (medicine) => {
-    const ok = confirm(
+    const ok = await showConfirm(
       lang === "mm"
         ? "ဒီဆေးကို ဖျက်မှာ သေချာလား?"
         : "Are you sure you want to delete this medicine?",

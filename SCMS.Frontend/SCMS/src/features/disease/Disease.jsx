@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import scmsApi from "../../services/scmsApi";
+import { showConfirm } from "../../utils/dialogs";
 
 const PRIMARY = "#0052CC";
 const PRIMARY_LIGHT = "#EBF2FF";
@@ -170,7 +171,7 @@ export default function Disease() {
   };
 
   const deleteDisease = async (disease) => {
-    const ok = confirm(
+    const ok = await showConfirm(
       lang === "mm"
         ? "ဒီရောဂါအမည်ကို ဖျက်မှာ သေချာလား?"
         : "Are you sure you want to delete this disease?",
