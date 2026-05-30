@@ -85,7 +85,7 @@ export default function UserNotification() {
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: TEXT }}>{notif.title || "Notification"}</div>
                   <p style={{ fontSize: 13, color: MUTED, marginTop: 4, lineHeight: 1.45 }}>{notif.description}</p>
-                  <span style={{ fontSize: 11, color: MUTED, display: "block", marginTop: 6 }}>{new Date(notif.createdAt).toLocaleString()}</span>
+                  <span style={{ fontSize: 11, color: MUTED, display: "block", marginTop: 6 }}>{(() => { const d = new Date(notif.createdAt); return isNaN(d.getTime()) ? String(notif.createdAt) : `${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${d.getFullYear()}`; })()}</span>
                 </div>
               </div>
 

@@ -221,7 +221,7 @@ export default function Reports() {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(
-      `${range.toUpperCase()} REPORT • ${new Date().toLocaleString()}`,
+      `${range.toUpperCase()} REPORT • ${(() => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${d.getFullYear()}`; })()}`,
       14,
       25,
     );
@@ -262,7 +262,7 @@ export default function Reports() {
         .map((a) => [
           a.appointmentCode || a.code || "-",
           a.patientName || a.patient?.name || "-",
-          getDate(a) ? new Date(getDate(a)).toLocaleString() : "-",
+          getDate(a) ? (() => { const d = new Date(getDate(a)); return `${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${d.getFullYear()}`; })() : "-",
           a.status || "-",
         ]),
       headStyles: { fillColor: [71, 84, 103] },

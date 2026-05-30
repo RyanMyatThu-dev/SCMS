@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import scmsApi from "../../services/scmsApi";
+import { showConfirm } from "../../utils/dialogs";
 
 const PRIMARY = "#0052CC";
 const PRIMARY_LIGHT = "#EBF2FF";
@@ -72,14 +73,10 @@ function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-
-  return date.toLocaleString("en-MY", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 }
 
 export default function Appointments() {
@@ -291,7 +288,7 @@ export default function Appointments() {
   };
 
   const cancelAppointment = async (appointment) => {
-    const ok = confirm(
+    const ok = await showConfirm(
       lang === "mm"
         ? "ဒီ appointment ကို cancel လုပ်မှာ သေချာလား?"
         : "Are you sure you want to cancel this appointment?",

@@ -59,7 +59,7 @@ namespace SCMS.Domain.Features.Notifications
         }
 
         [HttpPost]
-        [Authorize(Roles = "owner")]
+        [Authorize(Roles = "owner,admin,doctor")]
         public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationApiRequest request)
         {
             var result = await _notificationService.CreateNotificationAsync(request.UserId, request.Title, request.Description, request.ActionRoute);

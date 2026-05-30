@@ -9,6 +9,10 @@ namespace SCMS.Shared.Contracts.Dashboards
         public int LowStockAlertsCount { get; set; }
         public int ExpiringBatchesCount { get; set; }
         public decimal DailyRevenue { get; set; }
+        public decimal TotalRevenue { get; set; }
+        public int TodayPatientsCount { get; set; }
+        public int TotalMedicinesCount { get; set; }
+        public string StockRiskStatus { get; set; } = "Safe";
 
         public List<string> LowStockAlerts { get; set; } = new();
         public List<string> ExpiringBatchesAlerts { get; set; } = new();
