@@ -1,8 +1,9 @@
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, User, Stethoscope } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, User } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { BrandLogoIcon } from "../components/BrandLogo";
 import { showError } from "../services/dialogs";
 
 export default function AuthPage({ mode = "login" }) {
@@ -56,8 +57,8 @@ export default function AuthPage({ mode = "login" }) {
     <main className="grid min-h-screen bg-scms-bg lg:grid-cols-[1.05fr_0.95fr]">
       <section className="hidden items-center justify-center p-12 lg:flex">
         <div className="w-full max-w-xl rounded-[30px] bg-gradient-to-br from-scms-primary to-scms-primaryDark p-10 text-white shadow-[0_30px_80px_rgba(0,82,204,0.22)]">
-          <div className="grid h-14 w-14 place-items-center rounded-[18px] bg-white/20 text-white shrink-0"><Stethoscope size={28} /></div>
-          <h1 className="mt-7 text-4xl font-black tracking-tight">SCMS Portal</h1>
+          <div className="grid h-14 w-14 place-items-center rounded-[18px] bg-white shrink-0 shadow-md"><BrandLogoIcon size={34} /></div>
+          <h1 className="mt-7 text-4xl font-black tracking-tight">ကုမယ် Portal</h1>
           <p className="mt-4 max-w-md text-sm leading-7 text-white/80">
             Smart Clinic Management System for appointments, EMR, prescriptions, medicines, payments and reports.
           </p>
@@ -76,7 +77,7 @@ export default function AuthPage({ mode = "login" }) {
         <form className="w-full max-w-md rounded-[28px] border border-scms-border bg-white p-7 shadow-scms-raised" onSubmit={submit}>
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-scms-primary text-white lg:hidden shrink-0"><Stethoscope size={22} /></div>
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white border border-scms-border lg:hidden shrink-0 shadow-sm"><BrandLogoIcon size={24} /></div>
               <h2 className="mt-4 text-3xl font-black text-scms-text">{isRegister ? t.register : t.welcome}</h2>
               <p className="mt-2 text-sm leading-6 text-scms-muted">{isRegister ? t.registerHint : t.loginHint}</p>
             </div>

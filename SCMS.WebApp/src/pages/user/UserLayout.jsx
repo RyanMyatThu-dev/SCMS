@@ -7,10 +7,10 @@ import {
   User,
   Menu,
   X,
-  Users
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { BrandLogoIcon } from "../../components/BrandLogo";
 import { dashboardsApi, patientsApi } from "../../services/scmsApi";
 import { showError, showAlert } from "../../services/dialogs";
 
@@ -106,8 +106,8 @@ export default function UserLayout() {
       <aside className="hidden lg:flex w-64 flex-col border-r border-slate-200 bg-white p-5 shrink-0">
         <div className="pb-5 border-b border-slate-100">
           <div className="text-2xl font-black text-indigo-600 tracking-tight flex items-center gap-2">
-            <Users size={24} className="text-indigo-600" />
-            {t.appName || "SCMS"}
+            <BrandLogoIcon size={28} />
+            {t.appName || "ကုမယ်"}
           </div>
           <div className="mt-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Patient Portal
@@ -165,8 +165,8 @@ export default function UserLayout() {
         <div className="flex items-center justify-between pb-5 border-b border-slate-100">
           <div>
             <div className="text-2xl font-black text-indigo-600 tracking-tight flex items-center gap-2">
-              <Users size={24} />
-              {t.appName || "SCMS"}
+              <BrandLogoIcon size={28} />
+              {t.appName || "ကုမယ်"}
             </div>
             <div className="mt-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Patient Portal

@@ -14,7 +14,7 @@ const baseOptions = {
   heightAuto: false,
 };
 
-export const showAlert = (message, title = "SCMS") =>
+export const showAlert = (message, title = "ကုမယ်") =>
   Swal.fire({
     ...baseOptions,
     title,

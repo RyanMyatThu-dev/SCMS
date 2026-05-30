@@ -260,8 +260,21 @@ namespace SCMS.Domain
 
         private static void ConfigureDatabaseProvider(DbContextOptionsBuilder options, IConfiguration configuration)
         {
-            var connectionString = GetConnectionString(configuration, "PostgreSqlConnection", null);
-            options.UseNpgsql(connectionString);
+            if (IsSqliteProvider(configuration))
+            {
+                var connectionString = GetConnectionString(configuration, "SqliteConnection", "Data Source=scms.local.db");
+                options.UseSqlite(connectionString);
+                return;
+            }
+
+            if (IsPostgreSqlProvider(configuration))
+            {
+                var connectionString = GetConnectionString(configuration, "PostgreSqlConnection", null);
+                options.UseNpgsql(connectionString);
+                return;
+            }
+
+            throw new InvalidOperationException("Unsupported Database:Provider. Use 'Sqlite' or 'PostgreSql'.");
         }
 
         private static string GetConnectionString(IConfiguration configuration, string namedConnection, string? fallback)

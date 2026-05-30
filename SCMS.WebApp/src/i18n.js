@@ -1,6 +1,6 @@
 export const translations = {
   en: {
-    appName: "SCMS",
+    appName: "ကုမယ်",
     appSubtitle: "Smart Clinic Management",
     language: "မြန်မာ",
     login: "Sign In",
@@ -10,7 +10,7 @@ export const translations = {
     password: "Password",
     fullName: "Full Name",
     welcome: "Welcome Back",
-    loginHint: "Sign in to continue to the SCMS Admin Portal.",
+    loginHint: "Sign in to continue to the ကုမယ် Admin Portal.",
     registerHint: "Create an account for clinic access.",
     dashboard: "Dashboard",
     patients: "Patients",
@@ -70,7 +70,7 @@ export const translations = {
     confirmDelete: "Are you sure you want to delete this record?",
   },
   mm: {
-    appName: "SCMS",
+    appName: "ကုမယ်",
     appSubtitle: "ဆေးခန်းစီမံခန့်ခွဲမှုစနစ်",
     language: "English",
     login: "ဝင်မည်",
@@ -80,7 +80,7 @@ export const translations = {
     password: "စကားဝှက်",
     fullName: "အမည်အပြည့်အစုံ",
     welcome: "ပြန်လည်ကြိုဆိုပါသည်",
-    loginHint: "SCMS Admin Portal သို့ ဝင်ရန် အကောင့်ဖြင့် စတင်ပါ။",
+    loginHint: "ကုမယ် Admin Portal သို့ ဝင်ရန် အကောင့်ဖြင့် စတင်ပါ။",
     registerHint: "ဆေးခန်းအသုံးပြုရန် အကောင့်ဖန်တီးပါ။",
     dashboard: "ဒက်ရှ်ဘုတ်",
     patients: "လူနာများ",

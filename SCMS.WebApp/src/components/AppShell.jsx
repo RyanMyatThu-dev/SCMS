@@ -12,7 +12,6 @@ import {
   Pill,
   RotateCcw,
   Sparkles,
-  Stethoscope,
   Users,
   X,
 } from "lucide-react";
@@ -20,6 +19,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { BrandLogoIcon } from "./BrandLogo";
 
 const navItems = [
   { to: "/app/dashboard", key: "dashboard", icon: LayoutDashboard },
@@ -62,8 +62,8 @@ export default function AppShell() {
       >
         <div className={`mb-5 flex items-start justify-between gap-3 rounded-2xl bg-scms-primary text-white transition-all ${collapsed ? "p-2" : "p-4"}`}>
           <div className="flex gap-3 items-center">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white/20 shrink-0">
-              <Stethoscope size={24} />
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white shrink-0 shadow-sm">
+              <BrandLogoIcon size={26} />
             </div>
             {!collapsed && (
               <div className="animate-fadeIn">
