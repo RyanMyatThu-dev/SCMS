@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 /// Supported locales in the application.
 enum AppLocale {
@@ -125,7 +125,7 @@ class AppStrings {
     passwordHint: 'စကားဝှက်ထည့်ပါ',
     emailHint: 'you@example.com',
     nameHint: 'အမည်ထည့်ပါ',
-    mobileHint: '+၉၅ ၉xxx xxx xxx',
+    mobileHint: '၀၉ ၉xxx xxx xxx',
   );
 }
 
