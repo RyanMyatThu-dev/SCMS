@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.Mcp;
+using SCMS.Shared.Contracts.Prescriptions;
 
 namespace SCMS.Domain.Features.Mcp
 {
@@ -150,14 +151,14 @@ namespace SCMS.Domain.Features.Mcp
                 new()
                 {
                     Name = "cancel_appointments_in_range",
-                    Description = "Cancel all appointments scheduled within a specific date/time range (ISO 8601 format).",
+                    Description = "Cancel all appointments scheduled within a specific date/time range. Supports relative dates like 'today' or 'tomorrow' and simple times.",
                     InputSchema = new
                     {
                         type = "object",
                         properties = new
                         {
-                            startTime = new { type = "string", description = "The start of the time range, e.g. '2026-05-29T10:00:00'." },
-                            endTime = new { type = "string", description = "The end of the time range, e.g. '2026-05-29T12:00:00'." },
+                            startTime = new { type = "string", description = "Start of the time range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 12:00'), or full ISO dates." },
+                            endTime = new { type = "string", description = "End of the time range. Supports simple times (e.g. '12:00'), relative dates ('today at 12:00', 'tomorrow at 14:00'), or full ISO dates." },
                             reason = new { type = "string", description = "Optional reason for cancelling these appointments." }
                         },
                         required = new[] { "startTime", "endTime" }
@@ -166,15 +167,15 @@ namespace SCMS.Domain.Features.Mcp
                 new()
                 {
                     Name = "reschedule_appointments_in_range",
-                    Description = "Reschedule all appointments scheduled within a source time range by shifting them to a new target start time (ISO 8601 format).",
+                    Description = "Reschedule all appointments scheduled within a source time range by shifting them to a new target start time. Supports relative dates and simple times.",
                     InputSchema = new
                     {
                         type = "object",
                         properties = new
                         {
-                            sourceStartTime = new { type = "string", description = "Start of the source time range to reschedule from, e.g. '2026-05-29T10:00:00'." },
-                            sourceEndTime = new { type = "string", description = "End of the source time range to reschedule from, e.g. '2026-05-29T11:00:00'." },
-                            targetStartTime = new { type = "string", description = "New start time to begin shifting appointments to, e.g. '2026-05-29T14:00:00'." }
+                            sourceStartTime = new { type = "string", description = "Start of source range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 10:00'), or full ISO dates." },
+                            sourceEndTime = new { type = "string", description = "End of source range. Supports simple times (e.g. '11:00'), relative dates ('today at 11:00', 'tomorrow at 11:00'), or full ISO dates." },
+                            targetStartTime = new { type = "string", description = "New start time to begin shifting appointments to. Supports simple times (e.g. '14:00'), relative dates ('today at 14:00', 'tomorrow at 08:30'), or full ISO dates." }
                         },
                         required = new[] { "sourceStartTime", "sourceEndTime", "targetStartTime" }
                     }
@@ -198,15 +199,76 @@ namespace SCMS.Domain.Features.Mcp
                 new()
                 {
                     Name = "reschedule_today_appointments",
-                    Description = "Reschedule all today's active appointments to start from a new target start time (shifting them all relatively to preserve their relative spacing and sequence).",
+                    Description = "Reschedule today's active appointments to start from a new target start time. Supports simple times (e.g. '08:30' or '8:30 AM') and relative dates ('today at 08:30').",
                     InputSchema = new
                     {
                         type = "object",
                         properties = new
                         {
-                            targetStartTime = new { type = "string", description = "The new start time for the first appointment of the day, e.g. '2026-05-29T09:30:00'." }
+                            targetStartTime = new { type = "string", description = "The new start time for the first appointment. Supports simple times (e.g. '08:30'), relative ('today at 08:30'), or full ISO dates." }
                         },
                         required = new[] { "targetStartTime" }
+                    }
+                },
+                new()
+                {
+                    Name = "get_prescription_templates",
+                    Description = "Retrieve saved prescription templates. Supports optional filtering by diseaseId or diseaseName.",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            diseaseId = new { type = "integer", description = "Optional disease ID filter." },
+                            diseaseName = new { type = "string", description = "Optional disease name filter (partial match)." }
+                        }
+                    }
+                },
+                new()
+                {
+                    Name = "create_prescription_template",
+                    Description = "Create a new prescription template with medicines, dosage, and days for a specific disease.",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            name = new { type = "string", description = "The name of the template." },
+                            diseaseId = new { type = "integer", description = "The unique ID of the disease." },
+                            items = new
+                            {
+                                type = "array",
+                                description = "List of template items (medicines).",
+                                items = new
+                                {
+                                    type = "object",
+                                    properties = new
+                                    {
+                                        medicineId = new { type = "integer", description = "The unique ID of the medicine." },
+                                        dosage = new { type = "string", description = "Dosage details (e.g. '500 mg')." },
+                                        days = new { type = "integer", description = "Duration in days." },
+                                        quantity = new { type = "integer", description = "Total quantity." },
+                                        instruction = new { type = "string", description = "Usage instruction." }
+                                    },
+                                    required = new[] { "medicineId", "days", "quantity" }
+                                }
+                            }
+                        },
+                        required = new[] { "name", "diseaseId", "items" }
+                    }
+                },
+                new()
+                {
+                    Name = "delete_prescription_template",
+                    Description = "Deletes a prescription template by its ID (marks it as deleted in the system database).",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            templateId = new { type = "integer", description = "The unique ID of the prescription template to delete." }
+                        },
+                        required = new[] { "templateId" }
                     }
                 }
             };
@@ -234,6 +296,9 @@ namespace SCMS.Domain.Features.Mcp
                     "reschedule_appointments_in_range" => await RescheduleAppointmentsInRangeAsync(request.Arguments),
                     "update_appointment_status_by_patient_name" => await UpdateAppointmentStatusByPatientNameAsync(request.Arguments),
                     "reschedule_today_appointments" => await RescheduleTodayAppointmentsAsync(request.Arguments),
+                    "get_prescription_templates" => await GetPrescriptionTemplatesAsync(request.Arguments),
+                    "create_prescription_template" => await CreatePrescriptionTemplateAsync(request.Arguments),
+                    "delete_prescription_template" => await DeletePrescriptionTemplateAsync(request.Arguments),
                     _ => null
                 };
 
@@ -822,10 +887,78 @@ namespace SCMS.Domain.Features.Mcp
 
         private static DateTime ParseDateTimeUtc(string input)
         {
-            if (DateTime.TryParse(input, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            var trimmed = input.Trim().ToLowerInvariant();
+            
+            var todayStr = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            var tomorrowStr = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd");
+
+            if (trimmed.Contains("today"))
             {
-                return dt.Kind == DateTimeKind.Local ? dt.ToUniversalTime() : dt;
+                trimmed = trimmed.Replace("today", todayStr).Trim();
             }
+            else if (trimmed.Contains("tomorrow"))
+            {
+                trimmed = trimmed.Replace("tomorrow", tomorrowStr).Trim();
+            }
+
+            // Clean up common joining words
+            trimmed = trimmed.Replace(" at ", " ");
+
+            // Check if it has a date separator or month name to see if it specifies a full date
+            bool hasDateSeparator = trimmed.Contains('-') || trimmed.Contains('/') || trimmed.Contains('.');
+            bool hasMonthName = trimmed.Contains("jan") ||
+                                trimmed.Contains("feb") ||
+                                trimmed.Contains("mar") ||
+                                trimmed.Contains("apr") ||
+                                trimmed.Contains("may") ||
+                                trimmed.Contains("jun") ||
+                                trimmed.Contains("jul") ||
+                                trimmed.Contains("aug") ||
+                                trimmed.Contains("sep") ||
+                                trimmed.Contains("oct") ||
+                                trimmed.Contains("nov") ||
+                                trimmed.Contains("dec");
+
+            if (!hasDateSeparator && !hasMonthName)
+            {
+                // Time-only string (e.g. "08:30", "8:30 AM", "14:00", "2:00 PM")
+                // Parse it as a time to extract hours, minutes, and seconds
+                if (DateTime.TryParse(trimmed, out var parsedTime))
+                {
+                    // Construct a UTC DateTime with today's date and the parsed time
+                    var today = DateTime.UtcNow.Date;
+                    return new DateTime(
+                        today.Year, 
+                        today.Month, 
+                        today.Day, 
+                        parsedTime.Hour, 
+                        parsedTime.Minute, 
+                        parsedTime.Second, 
+                        DateTimeKind.Utc
+                    );
+                }
+            }
+
+            // Otherwise, it's a full date string, parse it using standard TryParse
+            if (DateTime.TryParse(trimmed, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            {
+                if (dt.Kind == DateTimeKind.Local)
+                {
+                    return dt.ToUniversalTime();
+                }
+                else if (dt.Kind == DateTimeKind.Unspecified)
+                {
+                    return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                }
+                return dt;
+            }
+
+            // Fallback: try general parsing style
+            if (DateTime.TryParse(trimmed, null, System.Globalization.DateTimeStyles.None, out var dtFallback))
+            {
+                return dtFallback.Kind == DateTimeKind.Local ? dtFallback.ToUniversalTime() : dtFallback;
+            }
+
             throw new FormatException($"Invalid date/time format: {input}");
         }
 
@@ -1046,6 +1179,175 @@ namespace SCMS.Domain.Features.Mcp
             }
 
             return notes.Trim();
+        }
+
+        private async Task<object> GetPrescriptionTemplatesAsync(Dictionary<string, object>? arguments)
+        {
+            var query = _context.TblPrescriptionTemplates
+                .Include(t => t.Disease)
+                .Include(t => t.TblPrescriptionTemplateItems)
+                    .ThenInclude(i => i.Medicine)
+                .Where(t => t.DeleteFlag != true);
+
+            if (arguments != null)
+            {
+                if (arguments.TryGetValue("diseaseId", out var diseaseIdObj) && int.TryParse(diseaseIdObj.ToString(), out var diseaseId))
+                {
+                    query = query.Where(t => t.DiseaseId == diseaseId);
+                }
+                else if (arguments.TryGetValue("diseaseName", out var diseaseNameObj) && !string.IsNullOrWhiteSpace(diseaseNameObj.ToString()))
+                {
+                    var nameQuery = diseaseNameObj.ToString()!.ToLower().Trim();
+                    query = query.Where(t => t.Disease.Name.ToLower().Contains(nameQuery));
+                }
+            }
+
+            var templates = await query.OrderBy(t => t.Name).ToListAsync();
+            return templates.Select(t => new
+            {
+                templateId = t.Id,
+                name = t.Name,
+                diseaseId = t.DiseaseId,
+                diseaseName = t.Disease?.Name ?? "Unknown Disease",
+                items = t.TblPrescriptionTemplateItems
+                    .Where(i => i.DeleteFlag != true)
+                    .Select(i => new
+                    {
+                        medicineId = i.MedicineId,
+                        medicineName = i.Medicine?.Name ?? "Unknown Medicine",
+                        dosage = i.Dosage,
+                        days = i.Days,
+                        quantity = i.Quantity,
+                        instruction = i.Instruction
+                    }).ToList()
+            }).ToList();
+        }
+
+        private async Task<object> CreatePrescriptionTemplateAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null ||
+                !arguments.TryGetValue("name", out var nameObj) || string.IsNullOrWhiteSpace(nameObj.ToString()) ||
+                !arguments.TryGetValue("diseaseId", out var diseaseIdObj) || !int.TryParse(diseaseIdObj.ToString(), out var diseaseId) ||
+                !arguments.TryGetValue("items", out var itemsObj) || itemsObj == null)
+            {
+                return new { error = "Invalid or missing arguments. Required: name (string), diseaseId (int), items (array)." };
+            }
+
+            var diseaseExists = await _context.TblDiseases.AnyAsync(d => d.Id == diseaseId && d.DeleteFlag != true);
+            if (!diseaseExists)
+            {
+                return new { error = $"Disease with ID {diseaseId} not found." };
+            }
+
+            // Parse items list
+            var itemsList = new List<TblPrescriptionTemplateItem>();
+            try
+            {
+                var jsonStr = JsonSerializer.Serialize(itemsObj);
+                var items = JsonSerializer.Deserialize<List<TemplateItemDto>>(jsonStr);
+                if (items == null || items.Count == 0)
+                {
+                    return new { error = "At least one template item is required." };
+                }
+
+                var medicineIds = items.Select(i => i.MedicineId).ToList();
+                if (medicineIds.Count != medicineIds.Distinct().Count())
+                {
+                    return new { error = "A prescription template cannot contain duplicate medicines." };
+                }
+
+                foreach (var item in items)
+                {
+                    if (item.MedicineId <= 0)
+                    {
+                        return new { error = "medicineId is required for every template item." };
+                    }
+                    if (item.Quantity <= 0)
+                    {
+                        return new { error = "quantity must be greater than zero." };
+                    }
+                    if (item.Days <= 0)
+                    {
+                        return new { error = "days must be greater than zero." };
+                    }
+
+                    var medicineExists = await _context.TblMedicines.AnyAsync(m => m.MedicineId == item.MedicineId && m.DeleteFlag != true);
+                    if (!medicineExists)
+                    {
+                        return new { error = $"Medicine ID {item.MedicineId} not found." };
+                    }
+
+                    itemsList.Add(new TblPrescriptionTemplateItem
+                    {
+                        MedicineId = item.MedicineId,
+                        Dosage = item.Dosage ?? "",
+                        Days = item.Days,
+                        Quantity = item.Quantity,
+                        Instruction = item.Instruction ?? "",
+                        CreatedAt = DateTime.UtcNow,
+                        DeleteFlag = false
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return new { error = $"Error parsing items array: {ex.Message}" };
+            }
+
+            var newTemplate = new TblPrescriptionTemplate
+            {
+                Name = nameObj.ToString()!.Trim(),
+                DiseaseId = diseaseId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false,
+                TblPrescriptionTemplateItems = itemsList
+            };
+
+            _context.TblPrescriptionTemplates.Add(newTemplate);
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully created prescription template '{newTemplate.Name}'.",
+                templateId = newTemplate.Id,
+                diseaseId = newTemplate.DiseaseId,
+                itemsCount = newTemplate.TblPrescriptionTemplateItems.Count
+            };
+        }
+
+        private async Task<object> DeletePrescriptionTemplateAsync(Dictionary<string, object>? arguments)
+        {
+            if (arguments == null || !arguments.TryGetValue("templateId", out var idObj) || !int.TryParse(idObj.ToString(), out var templateId))
+            {
+                return new { error = "Invalid or missing templateId." };
+            }
+
+            var template = await _context.TblPrescriptionTemplates
+                .Include(t => t.TblPrescriptionTemplateItems)
+                .FirstOrDefaultAsync(t => t.Id == templateId && t.DeleteFlag != true);
+
+            if (template == null)
+            {
+                return new { error = $"Prescription template with ID {templateId} not found." };
+            }
+
+            template.DeleteFlag = true;
+            template.UpdatedAt = DateTime.UtcNow;
+
+            foreach (var item in template.TblPrescriptionTemplateItems)
+            {
+                item.DeleteFlag = true;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new
+            {
+                success = true,
+                message = $"Successfully deleted prescription template '{template.Name}' with ID {templateId}."
+            };
         }
     }
 }

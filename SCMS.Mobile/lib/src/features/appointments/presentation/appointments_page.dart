@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/home_widgets.dart';
 import '../../../shared/widgets/scms_app_shell.dart';
 import '../../auth/application/auth_controller.dart';
+import '../application/appointments_controller.dart';
+import '../domain/appointment_models.dart';
 
 class AppointmentsPage extends ConsumerStatefulWidget {
   const AppointmentsPage({super.key});
@@ -13,14 +16,20 @@ class AppointmentsPage extends ConsumerStatefulWidget {
 }
 
 class _AppointmentsPageState extends ConsumerState<AppointmentsPage> {
-  int _rangeIndex = 0;
-  int _statusIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final session = authState.hasValue ? authState.value : null;
-    final isStaff = session?.role == 'admin' || session?.role == 'doctor';
+    final isStaff = session?.role == 'owner' || session?.role == 'doctor' || session?.role == 'admin';
+
+    final state = ref.watch(appointmentsControllerProvider);
+    final notifier = ref.read(appointmentsControllerProvider.notifier);
+
+    final ranges = const ['Day', 'Week', 'Month'];
+    final statuses = const ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled'];
+
+    final rangeIndex = ranges.indexOf(state.selectedRange).clamp(0, 2);
+    final statusIndex = statuses.indexOf(state.selectedStatus).clamp(0, 4);
 
     return ScmsAppShell(
       title: isStaff ? 'Appointments' : 'Book & queue',
@@ -28,72 +37,101 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           if (isStaff)
-            _StaffAppointmentTools(rangeIndex: _rangeIndex)
+            _StaffAppointmentTools(
+              rangeIndex: rangeIndex,
+              onCallNext: () async {
+                try {
+                  await notifier.callNext();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Called next patient in queue')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              },
+            )
           else
-            const _PatientBookingPanel(),
+            _PatientBookingPanel(
+              onBook: (patientId, datetime, notes) async {
+                try {
+                  await notifier.book(patientId, datetime, notes: notes);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Appointment booked successfully!')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              },
+            ),
           const SizedBox(height: 18),
-          if (isStaff) ...[
-            _SegmentedRange(
-              selectedIndex: _rangeIndex,
-              onChanged: (index) => setState(() => _rangeIndex = index),
-              labels: const ['Day', 'Week', 'Month'],
-            ),
-            const SizedBox(height: 12),
-            _StatusFilters(
-              selectedIndex: _statusIndex,
-              onChanged: (index) => setState(() => _statusIndex = index),
-            ),
-            const SizedBox(height: 18),
-            const SectionHeader(title: 'Schedule queue'),
-            const _StaffAppointmentCard(
-              name: 'Aung Min',
-              time: '09:30 AM',
-              reason: 'Follow-up consultation',
-              status: 'Confirmed',
-              token: '#15',
-            ),
-            const _StaffAppointmentCard(
-              name: 'Mya Win',
-              time: '09:45 AM',
-              reason: 'Fever and cough',
-              status: 'Pending',
-              token: '#16',
-            ),
-            const _StaffAppointmentCard(
-              name: 'Nandar Aye',
-              time: '10:10 AM',
-              reason: 'Lab review',
-              status: 'Reschedule',
-              token: '#17',
-            ),
-          ] else ...[
-            const SectionHeader(title: 'Live queue'),
-            const _QueueCard(),
-            const SizedBox(height: 18),
-            const SectionHeader(title: 'Upcoming'),
-            const _PatientAppointmentCard(
-              doctor: 'Dr. Thandar',
-              patient: 'Aung Min',
-              date: 'Today, 10:20 AM',
-              reason: 'General consultation',
-              status: 'Confirmed',
-            ),
-            const _PatientAppointmentCard(
-              doctor: 'Dr. Kyaw',
-              patient: 'Daw Hla',
-              date: 'Jun 03, 02:00 PM',
-              reason: 'Follow-up review',
-              status: 'Pending',
-            ),
-            const SizedBox(height: 18),
-            const SectionHeader(title: 'History'),
-            const FeatureCard(
-              icon: Icons.history,
-              title: 'May 14 consultation',
-              subtitle: 'Completed - re-book with one tap when needed.',
-              trailing: Icon(Icons.replay),
-            ),
-          ],
+          _SegmentedRange(
+            selectedIndex: rangeIndex,
+            onChanged: (index) => notifier.changeRange(ranges[index]),
+            labels: ranges,
+          ),
+          const SizedBox(height: 12),
+          _StatusFilters(
+            selectedIndex: statusIndex,
+            onChanged: (index) => notifier.changeStatus(statuses[index]),
+            labels: statuses,
+          ),
+          const SizedBox(height: 18),
+          if (state.isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (state.errorMessage != null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                    const SizedBox(height: 12),
+                    Text('Error: ${state.errorMessage}'),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () => notifier.fetchAppointments(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (state.appointments.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Text('No appointments found for this selection'),
+              ),
+            )
+          else ...[
+            SectionHeader(title: isStaff ? 'Schedule queue' : 'Your appointments'),
+            for (final appointment in state.appointments) ...[
+              if (isStaff)
+                _StaffAppointmentCard(
+                  appointment: appointment,
+                  onApprove: () async {
+                    await notifier.updateStatus(appointment.id, 'confirmed');
+                  },
+                  onCancel: () async {
+                    await notifier.updateStatus(appointment.id, 'cancelled');
+                  },
+                )
+              else
+                _PatientAppointmentCard(
+                  appointment: appointment,
+                ),
+              const SizedBox(height: 10),
+            ],
+          ]
         ],
       ),
     );
@@ -101,9 +139,13 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> {
 }
 
 class _StaffAppointmentTools extends StatelessWidget {
-  const _StaffAppointmentTools({required this.rangeIndex});
+  const _StaffAppointmentTools({
+    required this.rangeIndex,
+    required this.onCallNext,
+  });
 
   final int rangeIndex;
+  final VoidCallback onCallNext;
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +162,10 @@ class _StaffAppointmentTools extends StatelessWidget {
                 const Spacer(),
                 Text(
                   rangeIndex == 0
-                      ? '18 visits'
+                      ? 'Daily Overview'
                       : rangeIndex == 1
-                      ? '94 visits'
-                      : '312 visits',
+                          ? 'Weekly Overview'
+                          : 'Monthly Overview',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
@@ -139,19 +181,9 @@ class _StaffAppointmentTools extends StatelessWidget {
               runSpacing: 10,
               children: [
                 QuickAction(
-                  icon: Icons.play_arrow,
-                  label: 'Start',
-                  onPressed: () {},
-                ),
-                QuickAction(
-                  icon: Icons.event_repeat,
-                  label: 'Reschedule',
-                  onPressed: () {},
-                ),
-                QuickAction(
                   icon: Icons.skip_next,
                   label: 'Call next',
-                  onPressed: () {},
+                  onPressed: onCallNext,
                 ),
               ],
             ),
@@ -162,8 +194,23 @@ class _StaffAppointmentTools extends StatelessWidget {
   }
 }
 
-class _PatientBookingPanel extends StatelessWidget {
-  const _PatientBookingPanel();
+class _PatientBookingPanel extends StatefulWidget {
+  const _PatientBookingPanel({required this.onBook});
+
+  final Function(int patientId, DateTime datetime, String? notes) onBook;
+
+  @override
+  State<_PatientBookingPanel> createState() => _PatientBookingPanelState();
+}
+
+class _PatientBookingPanelState extends State<_PatientBookingPanel> {
+  final _notesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,16 +227,16 @@ class _PatientBookingPanel extends StatelessWidget {
             Text(
               'Book an appointment',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: colors.onPrimaryContainer,
-                fontWeight: FontWeight.w800,
-              ),
+                    color: colors.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
             const SizedBox(height: 8),
             Text(
               'Choose a family member, share a brief reason, and get queue timing after confirmation.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colors.onPrimaryContainer.withValues(alpha: 0.78),
-              ),
+                    color: colors.onPrimaryContainer.withValues(alpha: 0.78),
+                  ),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -197,20 +244,70 @@ class _PatientBookingPanel extends StatelessWidget {
               runSpacing: 10,
               children: [
                 FilledButton.icon(
-                  onPressed: () {},
+                  onPressed: () => _showBookModal(context),
                   icon: const Icon(Icons.add),
                   label: const Text('New booking'),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.family_restroom),
-                  label: const Text('Select profile'),
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showBookModal(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 24,
+            left: 24,
+            right: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Book Appointment',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              // Simulating patient profile selection
+              const Text('Patient ID: 42 (Aung Min)'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Symptom/Reason',
+                  hintText: 'e.g. Fever, cough, follow-up',
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onBook(
+                    42, // Aung Min's seeded ID
+                    DateTime.now().add(const Duration(days: 1)), // Book for tomorrow
+                    _notesController.text.trim(),
+                  );
+                  _notesController.clear();
+                },
+                child: const Text('Confirm Booking'),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -240,15 +337,18 @@ class _SegmentedRange extends StatelessWidget {
 }
 
 class _StatusFilters extends StatelessWidget {
-  const _StatusFilters({required this.selectedIndex, required this.onChanged});
+  const _StatusFilters({
+    required this.selectedIndex,
+    required this.onChanged,
+    required this.labels,
+  });
 
   final int selectedIndex;
   final ValueChanged<int> onChanged;
+  final List<String> labels;
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled'];
-
     return SizedBox(
       height: 40,
       child: ListView.separated(
@@ -271,98 +371,59 @@ class _StatusFilters extends StatelessWidget {
 
 class _StaffAppointmentCard extends StatelessWidget {
   const _StaffAppointmentCard({
-    required this.name,
-    required this.time,
-    required this.reason,
-    required this.status,
-    required this.token,
+    required this.appointment,
+    required this.onApprove,
+    required this.onCancel,
   });
 
-  final String name;
-  final String time;
-  final String reason;
-  final String status;
-  final String token;
+  final AppointmentDetailsResponse appointment;
+  final VoidCallback onApprove;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final timeStr = DateFormat('hh:mm a').format(appointment.datetime);
+    final isPending = appointment.status.toLowerCase() == 'pending';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: FeatureCard(
         icon: Icons.event_note_outlined,
-        title: '$time - $name',
-        subtitle: '$reason - token $token',
+        title: '$timeStr - ${appointment.patientName}',
+        subtitle: '${appointment.notes ?? "No notes"} - token #${appointment.tokenNumber}',
         trailing: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             StatusPill(
-              label: status,
-              color: status == 'Pending'
+              label: appointment.status,
+              color: appointment.status.toLowerCase() == 'pending'
                   ? colors.tertiary
-                  : status == 'Reschedule'
-                  ? colors.error
-                  : colors.primary,
+                  : appointment.status.toLowerCase() == 'cancelled'
+                      ? colors.error
+                      : colors.primary,
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 4,
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  size: 20,
-                  color: colors.primary,
-                ),
-                Icon(Icons.close, size: 20, color: colors.error),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QueueCard extends StatelessWidget {
-  const _QueueCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.confirmation_number_outlined, color: colors.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Token #18',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const Spacer(),
-                const StatusPill(label: '3rd'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const ProgressStrip(
-              value: 0.64,
-              label:
-                  'Approx. 15 minutes. Audio alert will play when your token changes.',
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.keyboard_arrow_down),
-              label: const Text('Minimize queue'),
-            ),
+            if (isPending) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                children: [
+                  IconButton(
+                    onPressed: onApprove,
+                    icon: Icon(
+                      Icons.check_circle_outline,
+                      size: 20,
+                      color: colors.primary,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onCancel,
+                    icon: Icon(Icons.close, size: 20, color: colors.error),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -371,29 +432,25 @@ class _QueueCard extends StatelessWidget {
 }
 
 class _PatientAppointmentCard extends StatelessWidget {
-  const _PatientAppointmentCard({
-    required this.doctor,
-    required this.patient,
-    required this.date,
-    required this.reason,
-    required this.status,
-  });
+  const _PatientAppointmentCard({required this.appointment});
 
-  final String doctor;
-  final String patient;
-  final String date;
-  final String reason;
-  final String status;
+  final AppointmentDetailsResponse appointment;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final dateStr = DateFormat('MMM dd, hh:mm a').format(appointment.datetime);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: FeatureCard(
         icon: Icons.medical_services_outlined,
-        title: '$date - $doctor',
-        subtitle: '$patient - $reason',
-        trailing: StatusPill(label: status),
+        title: '$dateStr - ${appointment.clinicDoctorName}',
+        subtitle: '${appointment.patientName} - ${appointment.notes ?? "No notes"}',
+        trailing: StatusPill(
+          label: appointment.status,
+          color: appointment.status.toLowerCase() == 'confirmed' ? colors.primary : colors.tertiary,
+        ),
       ),
     );
   }

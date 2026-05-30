@@ -524,5 +524,129 @@ namespace SCMS.Domain.Tests.Mcp
             Assert.NotNull(updatedAppt);
             Assert.Equal("Routine check | Rescheduled from 08:00 AM", updatedAppt.Notes);
         }
+
+        [Fact]
+        public async Task CallToolAsync_RescheduleTodayAppointments_WithTimeOnlyAndRelative_ReschedulesSuccessfully()
+        {
+            // Arrange
+            var user = await CreateTestUserAsync("klaus@scms.demo");
+            var patient = new TblPatient
+            {
+                UserId = user.UserId,
+                Name = "Klaus Mikaelson",
+                MobileNo = "09979999999",
+                DateOfBirth = new DateOnly(1970, 1, 1),
+                Gender = "male",
+                Address = "{}",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false
+            };
+            _db.Context.TblPatients.Add(patient);
+            await _db.Context.SaveChangesAsync();
+
+            var todayDate = DateTime.UtcNow.Date;
+            var appointment = new TblAppointment
+            {
+                AppointmentCode = "APT-009-TEST",
+                PatientId = patient.PatientId,
+                Datetime = todayDate.AddHours(8), // 8:00 AM today
+                Status = "pending",
+                Notes = "Routine follow up",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Context.TblAppointments.Add(appointment);
+            await _db.Context.SaveChangesAsync();
+
+            // 1. Test with relative "today at 09:30"
+            var requestToday = new McpToolCallRequest
+            {
+                Name = "reschedule_today_appointments",
+                Arguments = new Dictionary<string, object>
+                {
+                    { "targetStartTime", "today at 09:30 AM" }
+                }
+            };
+            var resultToday = await _service.CallToolAsync(requestToday);
+            Assert.True(resultToday.IsSuccess);
+
+            var updatedAppt = _db.Context.TblAppointments.Find(appointment.Id);
+            Assert.NotNull(updatedAppt);
+            Assert.Equal(todayDate.AddHours(9).AddMinutes(30), updatedAppt.Datetime);
+
+            // 2. Test with simple time-only "10:30"
+            var requestTimeOnly = new McpToolCallRequest
+            {
+                Name = "reschedule_today_appointments",
+                Arguments = new Dictionary<string, object>
+                {
+                    { "targetStartTime", "10:30" }
+                }
+            };
+            var resultTimeOnly = await _service.CallToolAsync(requestTimeOnly);
+            Assert.True(resultTimeOnly.IsSuccess);
+
+            updatedAppt = _db.Context.TblAppointments.Find(appointment.Id);
+            Assert.NotNull(updatedAppt);
+            Assert.Equal(todayDate.AddHours(10).AddMinutes(30), updatedAppt.Datetime);
+        }
+
+        [Fact]
+        public async Task CallToolAsync_CancelAppointmentsInRange_WithRelativeTime_CancelsSuccessfully()
+        {
+            // Arrange
+            var user = await CreateTestUserAsync("elijah@scms.demo");
+            var patient = new TblPatient
+            {
+                UserId = user.UserId,
+                Name = "Elijah Mikaelson",
+                MobileNo = "09979998889",
+                DateOfBirth = new DateOnly(1972, 2, 2),
+                Gender = "male",
+                Address = "{}",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false
+            };
+            _db.Context.TblPatients.Add(patient);
+            await _db.Context.SaveChangesAsync();
+
+            var todayDate = DateTime.UtcNow.Date;
+            var appointment = new TblAppointment
+            {
+                AppointmentCode = "APT-010-TEST",
+                PatientId = patient.PatientId,
+                Datetime = todayDate.AddHours(14), // 2:00 PM today
+                Status = "pending",
+                Notes = "Routine check",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Context.TblAppointments.Add(appointment);
+            await _db.Context.SaveChangesAsync();
+
+            // Cancel with relative range "today at 13:00" to "today at 15:00"
+            var request = new McpToolCallRequest
+            {
+                Name = "cancel_appointments_in_range",
+                Arguments = new Dictionary<string, object>
+                {
+                    { "startTime", "today at 01:00 PM" },
+                    { "endTime", "today at 03:00 PM" },
+                    { "reason", "Klaus did it" }
+                }
+            };
+
+            // Act
+            var result = await _service.CallToolAsync(request);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            var updated = _db.Context.TblAppointments.Find(appointment.Id);
+            Assert.NotNull(updated);
+            Assert.Equal("cancelled", updated.Status);
+            Assert.Contains("Klaus did it", updated.Notes);
+        }
     }
 }

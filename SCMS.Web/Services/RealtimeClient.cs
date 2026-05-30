@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR.Client;
+using SCMS.Shared.Contracts.Notifications;
 
 namespace SCMS.Web.Services
 {
@@ -8,6 +9,7 @@ namespace SCMS.Web.Services
         private HubConnection? _queueConnection;
         private HubConnection? _notificationConnection;
         public event Action? NotificationsChanged;
+        public event Action<NotificationResponse>? OnNotificationReceived;
 
         public RealtimeClient(TokenStore tokenStore)
         {
@@ -42,11 +44,20 @@ namespace SCMS.Web.Services
                 .Build();
 
             _notificationConnection.On("NotificationsChanged", () => NotificationsChanged?.Invoke());
+            _notificationConnection.On<NotificationResponse>("ReceiveNotification", n => OnNotificationReceived?.Invoke(n));
 
             if (_notificationConnection.State == HubConnectionState.Disconnected)
             {
                 await _notificationConnection.StartAsync();
                 await _notificationConnection.SendAsync("WatchNotifications");
+            }
+        }
+
+        public async Task StopNotificationsAsync()
+        {
+            if (_notificationConnection != null && _notificationConnection.State != HubConnectionState.Disconnected)
+            {
+                await _notificationConnection.StopAsync();
             }
         }
 

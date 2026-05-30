@@ -165,7 +165,7 @@ namespace SCMS.Domain
                 "SCMS Admin",
                 "09979990001",
                 "admin@scms.demo",
-                "admin",
+                "owner",
                 now);
 
             var patientUser = await EnsureDemoUserAsync(
@@ -213,7 +213,6 @@ namespace SCMS.Domain
             DateTime now)
         {
             var user = await context.TblUsers
-                .Include(u => u.TblUserRoles)
                 .FirstOrDefaultAsync(u => u.Email == email);
 
             if (user == null)
@@ -232,14 +231,28 @@ namespace SCMS.Domain
                 await context.SaveChangesAsync();
             }
 
-            if (!user.TblUserRoles.Any(r => string.Equals(r.Role, role, StringComparison.OrdinalIgnoreCase)))
+            // Query the database directly — do NOT rely on navigation properties
+            // which may be stale or incomplete from earlier seeder operations.
+            var roleExists = await context.TblUserRoles
+                .AnyAsync(r => r.UserId == user.UserId
+                    && r.Role.ToLower() == role.ToLower());
+
+            if (!roleExists)
             {
-                context.TblUserRoles.Add(new TblUserRole
+                try
                 {
-                    UserId = user.UserId,
-                    Role = role
-                });
-                await context.SaveChangesAsync();
+                    context.TblUserRoles.Add(new TblUserRole
+                    {
+                        UserId = user.UserId,
+                        Role = role
+                    });
+                    await context.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    // UNIQUE constraint (user_id, role) already satisfied — safe to ignore
+                    context.ChangeTracker.Clear();
+                }
             }
 
             return user;

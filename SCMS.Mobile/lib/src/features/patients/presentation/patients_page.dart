@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/home_widgets.dart';
 import '../../../shared/widgets/scms_app_shell.dart';
 import '../../auth/application/auth_controller.dart';
+import '../application/patients_controller.dart';
+import '../domain/patient_models.dart';
 
 class PatientsPage extends ConsumerStatefulWidget {
   const PatientsPage({super.key});
@@ -13,39 +15,140 @@ class PatientsPage extends ConsumerStatefulWidget {
 }
 
 class _PatientsPageState extends ConsumerState<PatientsPage> {
-  int _selectedProfile = 0;
+  int? _selectedPatientId;
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final session = authState.hasValue ? authState.value : null;
-    final isStaff = session?.role == 'admin' || session?.role == 'doctor';
+    final isStaff = session?.role == 'owner' || session?.role == 'doctor' || session?.role == 'admin';
+
+    final patientsAsync = ref.watch(patientsListProvider);
 
     return ScmsAppShell(
       title: isStaff ? 'Patients & EMR' : 'Family records',
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          if (isStaff)
-            const _StaffPatientSearch()
-          else
-            _FamilyProfileSelector(
-              selectedIndex: _selectedProfile,
-              onSelected: (index) => setState(() => _selectedProfile = index),
+      child: patientsAsync.when(
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                const SizedBox(height: 12),
+                Text('Error loading patients: $err'),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(patientsListProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
             ),
-          const SizedBox(height: 18),
-          if (isStaff)
-            const _StaffPatientWorkspace()
-          else
-            const _PatientRecordsWorkspace(),
-        ],
+          ),
+        ),
+        data: (patientsList) {
+          if (patientsList.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No patient profiles found.'),
+              ),
+            );
+          }
+
+          // Default selection if not set
+          if (isStaff) {
+            final filtered = patientsList
+                .where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+                .toList();
+
+            _selectedPatientId ??= filtered.isNotEmpty ? filtered.first.patientId : null;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                _StaffPatientSearch(
+                  onSearchChanged: (query) {
+                    setState(() {
+                      _searchQuery = query;
+                      _selectedPatientId = null; // Reset selection to pick first filtered
+                    });
+                  },
+                ),
+                const SizedBox(height: 18),
+                if (filtered.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Text('No matching patients found'),
+                    ),
+                  )
+                else ...[
+                  const SectionHeader(title: 'Patient profiles found'),
+                  SizedBox(
+                    height: 50,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final p = filtered[index];
+                        final selected = _selectedPatientId == p.patientId;
+                        final colors = Theme.of(context).colorScheme;
+
+                        return ChoiceChip(
+                          label: Text(p.name),
+                          selected: selected,
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() => _selectedPatientId = p.patientId);
+                            }
+                          },
+                        );
+                      },
+                      separatorBuilder: (context, index) => const SizedBox(width: 8),
+                      itemCount: filtered.length,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (_selectedPatientId != null)
+                    _StaffPatientWorkspace(patientId: _selectedPatientId!),
+                ],
+              ],
+            );
+          } else {
+            // Patient view
+            _selectedPatientId ??= patientsList.first.patientId;
+            final selectedProfile =
+                patientsList.firstWhere((p) => p.patientId == _selectedPatientId, orElse: () => patientsList.first);
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                _FamilyProfileSelector(
+                  patientsList: patientsList,
+                  selectedId: _selectedPatientId!,
+                  onSelected: (id) => setState(() => _selectedPatientId = id),
+                ),
+                const SizedBox(height: 18),
+                _PatientRecordsWorkspace(profile: selectedProfile),
+              ],
+            );
+          }
+        },
       ),
     );
   }
 }
 
 class _StaffPatientSearch extends StatelessWidget {
-  const _StaffPatientSearch();
+  const _StaffPatientSearch({required this.onSearchChanged});
+
+  final ValueChanged<String> onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -53,26 +156,11 @@ class _StaffPatientSearch extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
-          decoration: InputDecoration(
-            hintText: 'Search patients, phone, or patient ID',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: IconButton(
-              tooltip: 'Filter',
-              onPressed: () {},
-              icon: const Icon(Icons.tune),
-            ),
+          onChanged: onSearchChanged,
+          decoration: const InputDecoration(
+            hintText: 'Search patients by name...',
+            prefixIcon: Icon(Icons.search),
           ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: const [
-            StatusPill(label: 'Allergies'),
-            StatusPill(label: 'Follow-up due'),
-            StatusPill(label: 'Lab pending'),
-            StatusPill(label: 'Chronic care'),
-          ],
         ),
       ],
     );
@@ -81,51 +169,43 @@ class _StaffPatientSearch extends StatelessWidget {
 
 class _FamilyProfileSelector extends StatelessWidget {
   const _FamilyProfileSelector({
-    required this.selectedIndex,
+    required this.patientsList,
+    required this.selectedId,
     required this.onSelected,
   });
 
-  final int selectedIndex;
+  final List<PatientProfileResponse> patientsList;
+  final int selectedId;
   final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final profiles = const [
-      ('Aung Min', 'Self', Icons.account_circle_outlined),
-      ('Daw Hla', 'Parent', Icons.elderly_woman_outlined),
-      ('May Thu', 'Child', Icons.child_care_outlined),
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Family profiles', actionLabel: 'Add'),
+        const SectionHeader(title: 'Family profiles'),
         SizedBox(
-          height: 126,
+          height: 120,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemBuilder: (context, index) {
-              final profile = profiles[index];
-              final selected = selectedIndex == index;
+              final p = patientsList[index];
+              final selected = selectedId == p.patientId;
               final colors = Theme.of(context).colorScheme;
 
               return SizedBox(
                 width: 156,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  onTap: () => onSelected(index),
+                  onTap: () => onSelected(p.patientId),
                   child: Card(
                     color: selected
                         ? colors.primaryContainer
-                        : colors.surfaceContainerHighest.withValues(
-                            alpha: 0.55,
-                          ),
+                        : colors.surfaceContainerHighest.withValues(alpha: 0.55),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
-                        color: selected
-                            ? colors.primary
-                            : colors.outlineVariant,
+                        color: selected ? colors.primary : colors.outlineVariant,
                       ),
                     ),
                     child: Padding(
@@ -134,19 +214,20 @@ class _FamilyProfileSelector extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
-                            profile.$3,
-                            color: selected
-                                ? colors.onPrimaryContainer
-                                : colors.onSurfaceVariant,
+                            p.gender?.toLowerCase() == 'female'
+                                ? Icons.elderly_woman_outlined
+                                : Icons.account_circle_outlined,
+                            color: selected ? colors.onPrimaryContainer : colors.onSurfaceVariant,
                           ),
                           const Spacer(),
                           Text(
-                            profile.$1,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                            p.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 4),
-                          Text(profile.$2),
+                          Text(p.gender ?? 'Unknown'),
                         ],
                       ),
                     ),
@@ -155,7 +236,7 @@ class _FamilyProfileSelector extends StatelessWidget {
               );
             },
             separatorBuilder: (context, index) => const SizedBox(width: 10),
-            itemCount: profiles.length,
+            itemCount: patientsList.length,
           ),
         ),
       ],
@@ -163,132 +244,115 @@ class _FamilyProfileSelector extends StatelessWidget {
   }
 }
 
-class _StaffPatientWorkspace extends StatelessWidget {
-  const _StaffPatientWorkspace();
+class _StaffPatientWorkspace extends ConsumerWidget {
+  const _StaffPatientWorkspace({required this.patientId});
+
+  final int patientId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
+
+    final detailAsync = ref.watch(patientDetailProvider(patientId));
+    final historyAsync = ref.watch(patientHistoryProvider(patientId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Selected patient'),
-        const FeatureCard(
-          icon: Icons.person_outline,
-          title: 'Aung Min - P00042',
-          subtitle: 'Male, 34 - last visit May 27 - token #18',
-          trailing: StatusPill(label: 'In queue'),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.1,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            MetricCard(
-              icon: Icons.monitor_heart_outlined,
-              label: 'BP',
-              value: '124/82',
-              helper: 'Last recorded',
-              tint: colors.primary,
-            ),
-            MetricCard(
-              icon: Icons.device_thermostat_outlined,
-              label: 'Temp',
-              value: '37.1 C',
-              helper: 'Normal range',
-              tint: colors.secondary,
-            ),
-            MetricCard(
-              icon: Icons.bloodtype_outlined,
-              label: 'SpO2',
-              value: '98%',
-              helper: 'Stable',
-              tint: colors.tertiary,
-            ),
-            MetricCard(
-              icon: Icons.scale_outlined,
-              label: 'BMI',
-              value: '23.8',
-              helper: 'Healthy',
-              tint: colors.primary,
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'Clinical actions'),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            QuickAction(
-              icon: Icons.play_circle_outline,
-              label: 'Start consult',
-              onPressed: () {},
-            ),
-            QuickAction(
-              icon: Icons.medication_outlined,
-              label: 'Prescribe',
-              onPressed: () {},
-            ),
-            QuickAction(
-              icon: Icons.description_outlined,
-              label: 'Referral draft',
-              onPressed: () {},
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'Medical history'),
-        FeatureCard(
-          icon: Icons.warning_amber,
-          title: 'Allergy warning',
-          subtitle:
-              'Penicillin allergy recorded. Show warnings while prescribing.',
-          trailing: StatusPill(
-            label: 'Important',
-            color: colors.error,
-            icon: Icons.priority_high,
+        detailAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, s) => Text('Error loading detail: $err'),
+          data: (p) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionHeader(title: 'Selected patient'),
+              FeatureCard(
+                icon: Icons.person_outline,
+                title: '${p.name} (${p.gender ?? "Unknown"})',
+                subtitle: 'DOB: ${p.dateOfBirth ?? "Unknown"} | Blood: ${p.bloodType ?? "N/A"}',
+                trailing: StatusPill(label: p.mobileNo ?? 'No Phone'),
+              ),
+              const SizedBox(height: 16),
+              if (p.allergies != null && p.allergies!.isNotEmpty) ...[
+                FeatureCard(
+                  icon: Icons.warning_amber,
+                  title: 'Allergy warning',
+                  subtitle: p.allergies!,
+                  trailing: StatusPill(
+                    label: 'Important',
+                    color: colors.error,
+                    icon: Icons.priority_high,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Address details', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      Text(p.actualAddress ?? 'No address recorded'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
         ),
-        const SizedBox(height: 10),
-        const FeatureCard(
-          icon: Icons.timeline,
-          title: 'Visit timeline',
-          subtitle: 'Past visits, diagnoses, prescriptions, and lab requests.',
-          trailing: Icon(Icons.chevron_right),
-        ),
-        const SizedBox(height: 10),
-        const FeatureCard(
-          icon: Icons.family_restroom,
-          title: 'Family and chronic history',
-          subtitle: 'Hypertension in family history. No surgeries recorded.',
-          trailing: Icon(Icons.chevron_right),
+        const SectionHeader(title: 'Medical timeline history'),
+        historyAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, s) => Text('Error loading history: $err'),
+          data: (history) {
+            if (history.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text('No historical visits found.'),
+              );
+            }
+
+            return Column(
+              children: [
+                for (final item in history) ...[
+                  FeatureCard(
+                    icon: Icons.history,
+                    title: 'Visit: ${item['diseaseName'] ?? "General Consultation"}',
+                    subtitle: 'Diagnosed at ${item['createdAt'] != null ? DateFormat('MMM dd, yyyy').format(DateTime.parse(item['createdAt'])) : "Unknown date"}',
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class _PatientRecordsWorkspace extends StatelessWidget {
-  const _PatientRecordsWorkspace();
+class _PatientRecordsWorkspace extends ConsumerWidget {
+  const _PatientRecordsWorkspace({required this.profile});
+
+  final PatientProfileResponse profile;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
+
+    final historyAsync = ref.watch(patientHistoryProvider(profile.patientId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader(title: 'Record summary'),
         Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -299,25 +363,19 @@ class _PatientRecordsWorkspace extends StatelessWidget {
                     Icon(Icons.summarize_outlined, color: colors.primary),
                     const SizedBox(width: 8),
                     Text(
-                      'Medical summary',
+                      'Medical details summary',
                       style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Download summary',
-                      onPressed: () {},
-                      icon: const Icon(Icons.download_outlined),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
-                const Wrap(
+                Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    StatusPill(label: 'No chronic disease'),
-                    StatusPill(label: 'Penicillin allergy'),
-                    StatusPill(label: 'Vaccines updated'),
+                    StatusPill(label: 'Allergies: ${profile.allergies ?? "None recorded"}'),
+                    StatusPill(label: 'Chronics: ${profile.chronicConditions ?? "None recorded"}'),
+                    StatusPill(label: 'Surgeries: ${profile.pastSurgeries ?? "None recorded"}'),
                   ],
                 ),
               ],
@@ -325,37 +383,35 @@ class _PatientRecordsWorkspace extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        const SectionHeader(title: 'Downloads'),
-        const FeatureCard(
-          icon: Icons.medication_outlined,
-          title: 'Prescriptions',
-          subtitle: '4 PDF prescriptions available.',
-          trailing: Icon(Icons.download_outlined),
-        ),
-        const SizedBox(height: 10),
-        const FeatureCard(
-          icon: Icons.receipt_long_outlined,
-          title: 'Invoices',
-          subtitle: '2 paid invoices and 1 pending payment approval.',
-          trailing: Icon(Icons.download_outlined),
-        ),
-        const SizedBox(height: 10),
-        const FeatureCard(
-          icon: Icons.science_outlined,
-          title: 'Lab reports',
-          subtitle: 'Latest CBC report from May 27.',
-          trailing: Icon(Icons.download_outlined),
-        ),
-        const SizedBox(height: 18),
-        const SectionHeader(title: 'Follow-up care'),
-        const FeatureCard(
-          icon: Icons.event_repeat,
-          title: 'Review due Jun 10',
-          subtitle:
-              'Doctor recommended a follow-up visit after medicine course.',
-          trailing: StatusPill(label: 'Reminder'),
+        const SectionHeader(title: 'Clinical timeline history'),
+        historyAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, s) => Text('Error loading history: $err'),
+          data: (history) {
+            if (history.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text('No historical visits found.'),
+              );
+            }
+
+            return Column(
+              children: [
+                for (final item in history) ...[
+                  FeatureCard(
+                    icon: Icons.event_note_outlined,
+                    title: item['diseaseName'] ?? 'General Consultation',
+                    subtitle: 'Prescribed course of ${item['items'] != null ? (item['items'] as List).length : 0} items',
+                    trailing: const Icon(Icons.download_outlined),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
+

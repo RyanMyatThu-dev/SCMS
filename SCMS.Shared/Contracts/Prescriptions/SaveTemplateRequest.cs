@@ -4,6 +4,7 @@ namespace SCMS.Shared.Contracts.Prescriptions
 {
     public class SaveTemplateRequest
     {
+        public int? Id { get; set; }
         public string Name { get; set; } = null!;
         public int DiseaseId { get; set; }
         public List<TemplateItemDto> Items { get; set; } = new();

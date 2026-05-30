@@ -17,7 +17,7 @@
         </SelectOptions>
     </Select>
     <Button OnClick="Load">Refresh</Button>
-    <AuthorizeView Roles="admin,doctor">
+    <AuthorizeView Roles="owner">
         <Authorized>
             <Button Type="@ButtonType.Primary" OnClick="CallNext">Call next</Button>
         </Authorized>
@@ -39,7 +39,7 @@
     </Column>
     <Column TData="string" Title="Reason">@context.Notes</Column>
     <ActionColumn Title="Actions">
-        <AuthorizeView Roles="admin,doctor">
+        <AuthorizeView Roles="owner">
             <Authorized Context="authContext">
                 <Space>
                     <SpaceItem>

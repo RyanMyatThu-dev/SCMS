@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import Swal from "sweetalert2";
 import scmsApi from "../../services/scmsApi";
 
 const PRIMARY = "#0052CC";
 const PRIMARY_LIGHT = "#EBF2FF";
-const SUCCESS = "#027A48";
 const DANGER = "#D92D20";
 const BG = "#F6F8FB";
 const CARD = "#FFFFFF";
@@ -23,21 +23,24 @@ const emptyForm = {
   allergies: "",
   chronicConditions: "",
 };
+
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.items)) return data.data.items;
   if (Array.isArray(data?.items)) return data.items;
   if (Array.isArray(data?.result)) return data.result;
+  if (Array.isArray(data?.value)) return data.value;
   return [];
 };
 
-const getPatientId = (p) => p.patientId || p.patient_id || p.id;
+const getPatientId = (p) => p?.patientId || p?.patient_id || p?.id;
 
 export default function Patients() {
   const outlet = useOutletContext();
   const lang = outlet?.lang || localStorage.getItem("lang") || "en";
-  const [detailPatient, setDetailPatient] = useState(null);
 
+  const [detailPatient, setDetailPatient] = useState(null);
   const [patients, setPatients] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [step, setStep] = useState(0);
@@ -52,7 +55,7 @@ export default function Patients() {
       lang === "mm"
         ? "လူနာအသစ်ထည့်ရန်နှင့် လူနာစာရင်းများကို စီမံရန်"
         : "Create new patients and manage patient records",
-
+    newPatient: lang === "mm" ? "လူနာအသစ်" : "New Patient",
     personal: lang === "mm" ? "ကိုယ်ရေးအချက်အလက်" : "Personal",
     contact: lang === "mm" ? "ဆက်သွယ်ရန်" : "Contact",
     medical: lang === "mm" ? "ကျန်းမာရေးအချက်အလက်" : "Medical",
@@ -60,16 +63,47 @@ export default function Patients() {
     name: lang === "mm" ? "အမည်" : "Name",
     mobile: lang === "mm" ? "ဖုန်းနံပါတ်" : "Mobile No",
     email: lang === "mm" ? "အီးမေးလ်" : "Email",
-    dob: lang === "mm" ? "မွေးနေ့" : "Date of Birth",
+    dob: lang === "mm" ? "အသက်" : "Age",
     gender: lang === "mm" ? "ကျား/မ" : "Gender",
     blood: lang === "mm" ? "သွေးအမျိုးအစား" : "Blood Type",
     address: lang === "mm" ? "လိပ်စာ" : "Address",
+    allergies: lang === "mm" ? "ဓာတ်မတည့်မှုများ" : "Allergies",
+    chronic: lang === "mm" ? "နာတာရှည်ရောဂါများ" : "Chronic Conditions",
     next: lang === "mm" ? "ရှေ့သို့" : "Next",
     back: lang === "mm" ? "နောက်သို့" : "Back",
     create: lang === "mm" ? "လူနာဖန်တီးမည်" : "Create Patient",
     list: lang === "mm" ? "လူနာစာရင်း" : "Patient List",
     search: lang === "mm" ? "လူနာအမည်ဖြင့်ရှာပါ..." : "Search patients...",
     empty: lang === "mm" ? "လူနာမတွေ့ပါ" : "No patients found",
+  };
+
+  const showRequired = (message) => {
+    Swal.fire({
+      icon: "warning",
+      title: lang === "mm" ? "လိုအပ်သောအချက်အလက်" : "Required Field",
+      text: message,
+      confirmButtonText: "OK",
+      confirmButtonColor: PRIMARY,
+    });
+  };
+
+  const showSuccess = (message) => {
+    Swal.fire({
+      icon: "success",
+      title: lang === "mm" ? "အောင်မြင်ပါသည်" : "Success",
+      text: message,
+      timer: 1600,
+      showConfirmButton: false,
+    });
+  };
+
+  const showError = (message) => {
+    Swal.fire({
+      icon: "error",
+      title: lang === "mm" ? "Error ဖြစ်နေပါသည်" : "Error",
+      text: message,
+      confirmButtonColor: DANGER,
+    });
   };
 
   const loadPatients = async () => {
@@ -79,6 +113,12 @@ export default function Patients() {
       setPatients(toArray(data));
     } catch (error) {
       console.error("Patients load error:", error);
+      showError(
+        error?.response?.data?.message ||
+          (lang === "mm"
+            ? "လူနာစာရင်း မတင်နိုင်ပါ"
+            : "Failed to load patients"),
+      );
     } finally {
       setLoading(false);
     }
@@ -103,21 +143,77 @@ export default function Patients() {
     }));
   };
 
+  const validateStep = () => {
+    if (step === 0) {
+      if (!form.name.trim()) {
+        showRequired(
+          lang === "mm" ? "အမည် ထည့်ပါ" : "Please enter patient name",
+        );
+        return false;
+      }
+
+      if (!form.dateOfBirth) {
+        showRequired(
+          lang === "mm" ? "မွေးသက္ကရာဇ် ထည့်ပါ" : "Please select date of birth",
+        );
+        return false;
+      }
+
+      if (!form.gender) {
+        showRequired(lang === "mm" ? "ကျား/မ ရွေးပါ" : "Please select gender");
+        return false;
+      }
+    }
+
+    if (step === 1) {
+      if (!form.mobileNo.trim()) {
+        showRequired(
+          lang === "mm" ? "ဖုန်းနံပါတ် ထည့်ပါ" : "Please enter mobile number",
+        );
+        return false;
+      }
+
+      if (!form.email.trim()) {
+        showRequired(lang === "mm" ? "အီးမေးလ် ထည့်ပါ" : "Please enter email");
+        return false;
+      }
+
+      if (!form.address.trim()) {
+        showRequired(lang === "mm" ? "လိပ်စာ ထည့်ပါ" : "Please enter address");
+        return false;
+      }
+    }
+
+    if (step === 2) {
+      if (!form.bloodType) {
+        showRequired(
+          lang === "mm" ? "သွေးအမျိုးအစား ရွေးပါ" : "Please select blood type",
+        );
+        return false;
+      }
+
+      if (!form.allergies.trim()) {
+        showRequired(
+          lang === "mm" ? "ဓာတ်မတည့်မှု ထည့်ပါ" : "Please enter allergies",
+        );
+        return false;
+      }
+
+      if (!form.chronicConditions.trim()) {
+        showRequired(
+          lang === "mm"
+            ? "နာတာရှည်ရောဂါများ ထည့်ပါ"
+            : "Please enter chronic conditions",
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const nextStep = () => {
-    if (step === 0 && !form.name) {
-      alert(lang === "mm" ? "အမည်ထည့်ပါ" : "Please enter patient name");
-      return;
-    }
-
-    if (step === 1 && !form.mobileNo && !form.email) {
-      alert(
-        lang === "mm"
-          ? "ဖုန်းနံပါတ် သို့မဟုတ် email တစ်ခုထည့်ပါ"
-          : "Please enter mobile number or email",
-      );
-      return;
-    }
-
+    if (!validateStep()) return;
     setStep((prev) => Math.min(prev + 1, 3));
   };
 
@@ -131,27 +227,41 @@ export default function Patients() {
   };
 
   const createPatient = async () => {
+    if (!validateStep()) return;
+
     try {
       setSaving(true);
 
       const payload = {
-        name: form.name,
-        mobileNo: form.mobileNo,
-        email: form.email,
+        name: form.name.trim(),
+        mobileNo: form.mobileNo.trim(),
+        email: form.email.trim(),
         dateOfBirth: form.dateOfBirth || null,
         gender: form.gender,
         bloodType: form.bloodType,
-        address: form.address,
-        allergies: form.allergies,
-        chronicConditions: form.chronicConditions,
+        address: form.address.trim(),
+        allergies: form.allergies.trim(),
+        chronicConditions: form.chronicConditions.trim(),
       };
 
       await scmsApi.patients.create(payload);
+
+      showSuccess(
+        lang === "mm"
+          ? "လူနာအသစ် ဖန်တီးပြီးပါပြီ"
+          : "Patient created successfully",
+      );
+
       resetWizard();
       await loadPatients();
     } catch (error) {
       console.error("Create patient error:", error);
-      alert("Patient create failed. Please check backend request body.");
+      showError(
+        error?.response?.data?.message ||
+          (lang === "mm"
+            ? "လူနာအသစ် ဖန်တီးမှု မအောင်မြင်ပါ"
+            : "Patient create failed. Please check backend request body."),
+      );
     } finally {
       setSaving(false);
     }
@@ -166,14 +276,7 @@ export default function Patients() {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "420px 1fr",
-          gap: 18,
-          alignItems: "start",
-        }}
-      >
+      <div style={mainGrid}>
         <section style={cardStyle}>
           <h2 style={sectionTitle}>{t.newPatient}</h2>
 
@@ -186,7 +289,6 @@ export default function Patients() {
                       height: 8,
                       borderRadius: 999,
                       background: index <= step ? PRIMARY : BORDER,
-                      transition: "0.2s ease",
                     }}
                   />
                   <div
@@ -207,13 +309,13 @@ export default function Patients() {
           {step === 0 && (
             <div style={formGrid}>
               <Input
-                label={t.name}
+                label={`${t.name} *`}
                 name="name"
                 value={form.name}
                 onChange={handleChange}
               />
               <Input
-                label={t.dob}
+                label={`${t.dob} *`}
                 type="date"
                 name="dateOfBirth"
                 value={form.dateOfBirth}
@@ -221,7 +323,7 @@ export default function Patients() {
               />
 
               <label style={labelStyle}>
-                {t.gender}
+                {t.gender} *
                 <select
                   name="gender"
                   value={form.gender}
@@ -240,20 +342,21 @@ export default function Patients() {
           {step === 1 && (
             <div style={formGrid}>
               <Input
-                label={t.mobile}
+                label={`${t.mobile} *`}
                 name="mobileNo"
                 value={form.mobileNo}
                 onChange={handleChange}
               />
               <Input
-                label={t.email}
+                label={`${t.email} *`}
                 type="email"
                 name="email"
                 value={form.email}
                 onChange={handleChange}
               />
+
               <label style={labelStyle}>
-                {t.address}
+                {t.address} *
                 <textarea
                   name="address"
                   value={form.address}
@@ -268,7 +371,7 @@ export default function Patients() {
           {step === 2 && (
             <div style={formGrid}>
               <label style={labelStyle}>
-                {t.blood}
+                {t.blood} *
                 <select
                   name="bloodType"
                   value={form.bloodType}
@@ -287,78 +390,40 @@ export default function Patients() {
               </label>
 
               <label style={labelStyle}>
-                {lang === "mm" ? "ဓာတ်မတည့်မှုများ" : "Allergies"}
+                {t.allergies} *
                 <textarea
                   name="allergies"
                   value={form.allergies}
                   onChange={handleChange}
                   rows={3}
                   style={{ ...inputStyle, resize: "vertical" }}
-                  placeholder="Penicillin, seafood, dust..."
                 />
               </label>
 
               <label style={labelStyle}>
-                {lang === "mm" ? "နာတာရှည်ရောဂါများ" : "Chronic Conditions"}
+                {t.chronic} *
                 <textarea
                   name="chronicConditions"
                   value={form.chronicConditions}
                   onChange={handleChange}
                   rows={3}
                   style={{ ...inputStyle, resize: "vertical" }}
-                  placeholder="Diabetes, hypertension..."
                 />
               </label>
             </div>
           )}
+
           {step === 3 && (
             <div style={formGrid}>
-              <Review
-                label={lang === "mm" ? "အမည်" : "Name"}
-                value={form.name || "-"}
-              />
-
-              <Review
-                label={lang === "mm" ? "ဖုန်းနံပါတ်" : "Mobile Number"}
-                value={form.mobileNo || "-"}
-              />
-
-              <Review
-                label={lang === "mm" ? "အီးမေးလ်" : "Email"}
-                value={form.email || "-"}
-              />
-
-              <Review
-                label={lang === "mm" ? "ကျား / မ" : "Gender"}
-                value={form.gender || "-"}
-              />
-
-              <Review
-                label={lang === "mm" ? "သွေးအမျိုးအစား" : "Blood Type"}
-                value={form.bloodType || "-"}
-              />
-
-              <Review
-                label={lang === "mm" ? "လိပ်စာ" : "Address"}
-                value={form.address || "-"}
-              />
-
-              <Review
-                label={lang === "mm" ? "ဓာတ်မတည့်မှုများ" : "Allergies"}
-                value={form.allergies || "-"}
-              />
-
-              <Review
-                label={
-                  lang === "mm" ? "နာတာရှည်ရောဂါများ" : "Chronic Conditions"
-                }
-                value={form.chronicConditions || "-"}
-              />
-
-              <Review
-                label={lang === "mm" ? "မွေးသက္ကရာဇ်" : "Date of Birth"}
-                value={form.dateOfBirth || "-"}
-              />
+              <Review label={t.name} value={form.name || "-"} />
+              <Review label={t.mobile} value={form.mobileNo || "-"} />
+              <Review label={t.email} value={form.email || "-"} />
+              <Review label={t.gender} value={form.gender || "-"} />
+              <Review label={t.blood} value={form.bloodType || "-"} />
+              <Review label={t.address} value={form.address || "-"} />
+              <Review label={t.allergies} value={form.allergies || "-"} />
+              <Review label={t.chronic} value={form.chronicConditions || "-"} />
+              <Review label={t.dob} value={form.dateOfBirth || "-"} />
             </div>
           )}
 
@@ -421,69 +486,12 @@ export default function Patients() {
               ))}
             </div>
           )}
-
-          {selected && (
-            <div style={{ ...cardStyle, marginTop: 18 }}>
-              <h2 style={sectionTitle}>
-                {lang === "mm" ? "လူနာအသေးစိတ်" : "Patient Details"}
-              </h2>
-
-              <div
-                style={{
-                  marginTop: 14,
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 12,
-                }}
-              >
-                <Info label={t.name} value={selected.name || "-"} />
-                <Info
-                  label={t.mobile}
-                  value={selected.mobileNo || selected.mobile_no || "-"}
-                />
-                <Info label={t.email} value={selected.email || "-"} />
-                <Info label={t.gender} value={selected.gender || "-"} />
-                <Info
-                  label={t.blood}
-                  value={selected.bloodType || selected.blood_type || "-"}
-                />
-                <Info
-                  label={t.dob}
-                  value={selected.dateOfBirth || selected.date_of_birth || "-"}
-                />
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <Info label={t.address} value={selected.address || "-"} />
-              </div>
-            </div>
-          )}
         </section>
       </div>
+
       {detailPatient && (
-        <div
-          onClick={() => setDetailPatient(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.45)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 9999,
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 700,
-              background: "#fff",
-              borderRadius: 20,
-              padding: 24,
-            }}
-          >
+        <div onClick={() => setDetailPatient(null)} style={modalOverlay}>
+          <div onClick={(e) => e.stopPropagation()} style={modalBox}>
             <div
               style={{
                 display: "flex",
@@ -492,59 +500,34 @@ export default function Patients() {
               }}
             >
               <h2>{lang === "mm" ? "လူနာအသေးစိတ်" : "Patient Details"}</h2>
-
-              <button
-                onClick={() => setDetailPatient(null)}
-                style={{
-                  border: 0,
-                  background: "#F2F4F7",
-                  borderRadius: 8,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                }}
-              >
-                ✕
+              <button onClick={() => setDetailPatient(null)} style={closeBtn}>
+                X
               </button>
             </div>
-            <div style={{ display: "grid", gap: 12 }}>
-              <Info
-                label={lang === "mm" ? "အမည်" : "Name"}
-                value={detailPatient.name || "-"}
-              />
 
+            <div style={{ display: "grid", gap: 12 }}>
+              <Info label={t.name} value={detailPatient.name || "-"} />
               <Info
-                label={lang === "mm" ? "ဖုန်းနံပါတ်" : "Mobile"}
+                label={t.mobile}
                 value={detailPatient.mobileNo || detailPatient.mobile_no || "-"}
               />
-
+              <Info label={t.email} value={detailPatient.email || "-"} />
+              <Info label={t.gender} value={detailPatient.gender || "-"} />
               <Info
-                label={lang === "mm" ? "အီးမေးလ်" : "Email"}
-                value={detailPatient.email || "-"}
-              />
-
-              <Info
-                label={lang === "mm" ? "သွေးအမျိုးအစား" : "Blood Type"}
+                label={t.blood}
                 value={
                   detailPatient.bloodType || detailPatient.blood_type || "-"
                 }
               />
-
               <Info
-                label={lang === "mm" ? "ဓာတ်မတည့်မှုများ" : "Allergies"}
+                label={t.allergies}
                 value={detailPatient.allergies || "-"}
               />
-
               <Info
-                label={
-                  lang === "mm" ? "နာတာရှည်ရောဂါများ" : "Chronic Conditions"
-                }
+                label={t.chronic}
                 value={detailPatient.chronicConditions || "-"}
               />
-
-              <Info
-                label={lang === "mm" ? "လိပ်စာ" : "Address"}
-                value={detailPatient.address || "-"}
-              />
+              <Info label={t.address} value={detailPatient.address || "-"} />
             </div>
           </div>
         </div>
@@ -571,25 +554,8 @@ function PatientCard({ patient, selected, onClick }) {
     <article
       onClick={onClick}
       style={{
-        background: CARD,
+        ...patientCard,
         border: `1px solid ${active ? PRIMARY : BORDER}`,
-        borderRadius: 18,
-        padding: 18,
-        cursor: "pointer",
-        boxShadow: active
-          ? "0 12px 28px rgba(0,82,204,0.14)"
-          : "0 1px 2px rgba(16,24,40,0.04)",
-        transition: "0.18s ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-3px)";
-        e.currentTarget.style.boxShadow = "0 14px 28px rgba(16,24,40,0.08)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow = active
-          ? "0 12px 28px rgba(0,82,204,0.14)"
-          : "0 1px 2px rgba(16,24,40,0.04)";
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -618,14 +584,7 @@ function Input({ label, ...props }) {
 }
 
 function Review({ label, value }) {
-  return (
-    <div style={infoBox}>
-      <span style={{ color: MUTED, fontSize: 12, fontWeight: 800 }}>
-        {label}
-      </span>
-      <strong style={{ color: TEXT }}>{value}</strong>
-    </div>
-  );
+  return <Info label={label} value={value} />;
 }
 
 function Info({ label, value }) {
@@ -642,43 +601,29 @@ function Info({ label, value }) {
 const pageHeader = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 16,
   marginBottom: 22,
 };
-
 const titleStyle = {
   color: TEXT,
   fontSize: 30,
   fontWeight: 800,
   letterSpacing: "-0.04em",
 };
-
-const subtitleStyle = {
-  color: MUTED,
-  marginTop: 6,
-  fontSize: 14,
+const subtitleStyle = { color: MUTED, marginTop: 6, fontSize: 14 };
+const mainGrid = {
+  display: "grid",
+  gridTemplateColumns: "420px 1fr",
+  gap: 18,
+  alignItems: "start",
 };
-
 const cardStyle = {
   background: CARD,
   border: `1px solid ${BORDER}`,
   borderRadius: 18,
   padding: 18,
-  boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
 };
-
-const sectionTitle = {
-  fontSize: 18,
-  fontWeight: 800,
-  color: TEXT,
-};
-
-const formGrid = {
-  display: "grid",
-  gap: 12,
-};
-
+const sectionTitle = { fontSize: 18, fontWeight: 800, color: TEXT };
+const formGrid = { display: "grid", gap: 12 };
 const labelStyle = {
   display: "grid",
   gap: 7,
@@ -686,7 +631,6 @@ const labelStyle = {
   fontSize: 13,
   fontWeight: 800,
 };
-
 const inputStyle = {
   width: "100%",
   border: `1px solid ${BORDER}`,
@@ -696,7 +640,6 @@ const inputStyle = {
   fontSize: 14,
   background: CARD,
 };
-
 const primaryBtn = {
   border: 0,
   background: PRIMARY,
@@ -706,7 +649,6 @@ const primaryBtn = {
   fontWeight: 800,
   cursor: "pointer",
 };
-
 const outlineBtn = {
   border: `1px solid ${BORDER}`,
   background: CARD,
@@ -716,7 +658,6 @@ const outlineBtn = {
   fontWeight: 800,
   cursor: "pointer",
 };
-
 const infoBox = {
   border: `1px solid ${BORDER}`,
   background: BG,
@@ -724,23 +665,25 @@ const infoBox = {
   padding: 14,
   display: "grid",
   gap: 4,
-  color: MUTED,
-  fontSize: 13,
 };
-
 const listHeader = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   marginBottom: 16,
 };
-
 const patientGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
   gap: 16,
 };
-
+const patientCard = {
+  background: CARD,
+  borderRadius: 18,
+  padding: 18,
+  cursor: "pointer",
+  boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
+};
 const avatarStyle = {
   width: 46,
   height: 46,
@@ -751,9 +694,7 @@ const avatarStyle = {
   alignItems: "center",
   justifyContent: "center",
   fontWeight: 800,
-  flexShrink: 0,
 };
-
 const pillStyle = {
   background: PRIMARY_LIGHT,
   color: PRIMARY,
@@ -762,7 +703,6 @@ const pillStyle = {
   fontSize: 12,
   fontWeight: 800,
 };
-
 const emptyStyle = {
   background: CARD,
   border: `1px solid ${BORDER}`,
@@ -770,4 +710,28 @@ const emptyStyle = {
   padding: 30,
   color: MUTED,
   textAlign: "center",
+};
+const modalOverlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(15,23,42,0.45)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 9999,
+  padding: 20,
+};
+const modalBox = {
+  width: "100%",
+  maxWidth: 700,
+  background: CARD,
+  borderRadius: 20,
+  padding: 24,
+};
+const closeBtn = {
+  border: 0,
+  background: "#F2F4F7",
+  borderRadius: 8,
+  padding: "8px 12px",
+  cursor: "pointer",
 };

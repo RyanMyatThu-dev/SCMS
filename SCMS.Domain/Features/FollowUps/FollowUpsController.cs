@@ -30,7 +30,7 @@ namespace SCMS.Domain.Features.FollowUps
         }
 
         [HttpPost]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
         public async Task<IActionResult> CreateFollowUp([FromBody] FollowUpRequest request)
         {
             var result = await _followUpService.CreateFollowUpAsync(request);
@@ -38,7 +38,7 @@ namespace SCMS.Domain.Features.FollowUps
         }
 
         [HttpPost("{id}/complete")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "owner")]
 
         public async Task<IActionResult> CompleteFollowUp(int id)
         {

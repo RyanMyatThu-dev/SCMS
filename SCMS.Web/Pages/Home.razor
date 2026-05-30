@@ -16,6 +16,6 @@
             return;
         }
 
-        Navigation.NavigateTo(state.User.IsInRole("admin") || state.User.IsInRole("doctor") ? "/doctor" : "/patient");
+        Navigation.NavigateTo(state.User.IsInRole("owner") ? "/doctor" : "/patient");
     }
 }

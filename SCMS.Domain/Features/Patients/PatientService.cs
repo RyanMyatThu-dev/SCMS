@@ -577,7 +577,7 @@ namespace SCMS.Domain.Features.Patients
             if (ownsPatient) return true;
 
             return await _context.TblUserRoles
-                .AnyAsync(r => r.UserId == userId && (r.Role.ToLower() == "admin" || r.Role.ToLower() == "doctor"));
+                .AnyAsync(r => r.UserId == userId && r.Role.ToLower() == "owner");
         }
     }
 }

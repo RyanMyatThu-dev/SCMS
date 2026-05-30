@@ -8,7 +8,7 @@ using SCMS.Shared.Contracts.Reports;
 namespace SCMS.Domain.Features.Documents
 {
     [ApiController]
-    [Authorize(Roles = "admin,doctor")]
+    [Authorize(Roles = "owner")]
     [Route("api/[controller]")]
     public class ReportsController : ControllerBase
     {

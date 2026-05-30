@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
-import NotFound from "./pages/NotFound";
-import PatientPortal from "./pages/PatientPortal";
 
 import AdminLayout from "./features/admin/components/AdminLayout";
 import AdminDashboard from "./features/admin/components/AdminDashboard";
@@ -18,15 +16,14 @@ import Notification from "./features/noti/Notification";
 import Medicines from "./features/medicines/Medicines";
 import Disease from "./features/disease/Disease";
 import Documents from "./features/document/Documents";
+import Setting from "./features/sestting/Setting";
+import Reports from "./features/reports/Reports";
+
+import NotFound from "./pages/NotFound";
 
 const SplashScreen = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-    <div className="animate-bounce h-16 w-16 bg-indigo-600 text-white font-black text-2xl rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-4">
-      S
-    </div>
-    <h1 className="text-xl font-bold text-gray-800 tracking-wider animate-pulse">
-      SCMS PORTAL LOADING...
-    </h1>
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <h1 className="text-2xl font-bold text-slate-700">SCMS Loading...</h1>
   </div>
 );
 
@@ -36,6 +33,7 @@ function App() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     setIsAuthenticated(Boolean(token));
 
     const timer = setTimeout(() => {
@@ -67,16 +65,30 @@ function App() {
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
+
         <Route path="dashboard" element={<AdminDashboard />} />
+
         <Route path="patients" element={<Patients />} />
+
         <Route path="appointments" element={<Appointments />} />
+
         <Route path="prescriptions" element={<Prescriptions />} />
+
         <Route path="followups" element={<FollowUps />} />
+
         <Route path="payments" element={<Payments />} />
+
         <Route path="notifications" element={<Notification />} />
+
         <Route path="medicines" element={<Medicines />} />
+
         <Route path="diseases" element={<Disease />} />
+
         <Route path="documents" element={<Documents />} />
+
+        <Route path="settings" element={<Setting />} />
+
+        <Route path="reports" element={<Reports />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

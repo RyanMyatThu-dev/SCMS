@@ -32,17 +32,25 @@ namespace SCMS.Domain
                 await context.SaveChangesAsync();
             }
 
-            if (!await context.TblUserRoles.AnyAsync(r => r.Id == 10001))
+            if (!await context.TblUserRoles.AnyAsync(r => r.UserId == 10001))
             {
-                context.TblUserRoles.AddRange(
-                    Role(10001, 10001, "admin"),
-                    Role(10002, 10002, "admin"),
-                    Role(10003, 10003, "user"),
-                    Role(10004, 10004, "user"),
-                    Role(10005, 10005, "user"),
-                    Role(10006, 10006, "user"),
-                    Role(10007, 10007, "admin"));
-                await context.SaveChangesAsync();
+                try
+                {
+                    context.TblUserRoles.AddRange(
+                        Role(10001, 10001, "owner"),
+                        Role(10002, 10002, "owner"),
+                        Role(10003, 10003, "user"),
+                        Role(10004, 10004, "user"),
+                        Role(10005, 10005, "user"),
+                        Role(10006, 10006, "user"),
+                        Role(10007, 10007, "owner"));
+                    await context.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    // Roles already exist — clear tracker and continue
+                    context.ChangeTracker.Clear();
+                }
             }
 
             if (!await context.TblPatients.AnyAsync(p => p.PatientId == 10001))

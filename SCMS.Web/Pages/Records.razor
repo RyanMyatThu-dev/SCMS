@@ -65,6 +65,27 @@
         </div>
     </div>
     <div>
+        <h2>Frequently Prescribed Medications</h2>
+        @if (frequentPatientMedicines.Count == 0)
+        {
+            <article class="item-card"><p style="color: var(--text-muted, #667085); margin: 0;">No medications prescribed yet.</p></article>
+        }
+        else
+        {
+            <div class="list-stack" style="margin-bottom: 24px;">
+                @foreach (var med in frequentPatientMedicines)
+                {
+                    <article class="item-card" style="display: flex; justify-content: space-between; align-items: center; border-left: 4px solid var(--accent, #0052CC); padding: 12px 16px;">
+                        <div>
+                            <strong style="font-size: 15px; color: var(--text-main, #1D2939);">@med.MedicineName</strong>
+                            <span style="font-size: 12px; color: var(--text-muted, #667085); display: block; margin-top: 4px;">Top historical medication</span>
+                        </div>
+                        <span style="background: #E0F2FE; color: #0369A1; padding: 4px 10px; border-radius: 999px; font-weight: bold; font-size: 12px;">@med.Count times</span>
+                    </article>
+                }
+            </div>
+        }
+
         <h2>Downloads</h2>
         <div class="list-stack">
             @foreach (var rx in prescriptions)
@@ -89,6 +110,7 @@
     private MedicalSummaryResponse? summary;
     private string? downloadMessage;
     private string? summaryHtml;
+    private List<(string MedicineName, int Count)> frequentPatientMedicines = new();
 
     [SupplyParameterFromQuery]
     public int? PatientId { get; set; }
@@ -114,6 +136,14 @@
         prescriptions.Clear();
         prescriptions.AddRange(rx.Data);
         summaryHtml = null;
+
+        frequentPatientMedicines = prescriptions
+            .SelectMany(p => p.Items)
+            .GroupBy(i => i.MedicineName)
+            .Select(g => (MedicineName: g.Key, Count: g.Count()))
+            .OrderByDescending(x => x.Count)
+            .Take(5)
+            .ToList();
     }
 
     private async Task DownloadAsync(string relativePath, string fileName)
