@@ -23,6 +23,8 @@ public partial class TblMedicine
 
     public bool? DeleteFlag { get; set; }
 
+    public string? ImageId { get; set; }
+
     public virtual TblMedicineCategory? Category { get; set; }
 
     public virtual ICollection<TblMedicineBatch> TblMedicineBatches { get; set; } = new List<TblMedicineBatch>();

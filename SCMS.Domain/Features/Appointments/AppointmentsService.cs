@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Data.Sqlite;
+// using Microsoft.Data.Sqlite;
 using SCMS.Database.Models;
 using SCMS.Shared.Contracts.Appointments;
 using SCMS.Shared;
@@ -103,7 +103,7 @@ namespace SCMS.Domain.Features.Appointments
                     await _context.SaveChangesAsync();
                     break; // Success — exit retry loop
                 }
-                catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqliteEx && sqliteEx.SqliteErrorCode == 19)
+                catch (DbUpdateException ex) // Postgres unique constraint check or generic fallback
                 {
                     // UNIQUE constraint still failed (extremely rare with suffix, but handle anyway)
                     _context.Entry(appointment).State = Microsoft.EntityFrameworkCore.EntityState.Detached;

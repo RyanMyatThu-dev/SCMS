@@ -140,10 +140,11 @@ app.UseExceptionHandler(errorApp =>
 
 
 
-await app.Services.EnsureScmsDatabaseCreatedAsync(
-    app.Configuration,
-    app.Logger
-);
+//using (var scope = app.Services.CreateScope())
+//{
+//    var seeder = scope.ServiceProvider.GetRequiredService<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
+//    await seeder.Seed1YearDataAsync();
+//}
 
 
 

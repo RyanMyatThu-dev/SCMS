@@ -5,11 +5,11 @@ namespace SCMS.Shared.Contracts.Reports
 {
     public class FollowUpReportRequest
     {
-        /// <summary>"daily", "weekly", "monthly", or "all"</summary>
-        public string ReportType { get; set; } = "all";
+        /// <summary>The start date for the report period.</summary>
+        public DateTime? StartDate { get; set; }
 
-        /// <summary>The target date (used to derive the period). Ignored if "all".</summary>
-        public DateTime? Date { get; set; }
+        /// <summary>The end date for the report period (inclusive). If null, same as StartDate (single day).</summary>
+        public DateTime? EndDate { get; set; }
         
         /// <summary>"pending", "completed", or "all"</summary>
         public string Status { get; set; } = "all";

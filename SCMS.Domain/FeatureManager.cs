@@ -54,6 +54,7 @@ namespace SCMS.Domain
             services.AddScoped<PrescriptionService>();
             services.AddScoped<PhotoService>();
             services.AddScoped<McpService>();
+            services.AddScoped<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
             services.AddHostedService<InventoryMonitorService>();
 
              // Cloudinary configuration
@@ -246,21 +247,8 @@ namespace SCMS.Domain
 
         private static void ConfigureDatabaseProvider(DbContextOptionsBuilder options, IConfiguration configuration)
         {
-            if (IsSqliteProvider(configuration))
-            {
-                var connectionString = GetConnectionString(configuration, "SqliteConnection", "Data Source=scms.local.db");
-                options.UseSqlite(connectionString);
-                return;
-            }
-
-            if (IsPostgreSqlProvider(configuration))
-            {
-                var connectionString = GetConnectionString(configuration, "PostgreSqlConnection", null);
-                options.UseNpgsql(connectionString);
-                return;
-            }
-
-            throw new InvalidOperationException("Unsupported Database:Provider. Use 'Sqlite' or 'PostgreSql'.");
+            var connectionString = GetConnectionString(configuration, "PostgreSqlConnection", null);
+            options.UseNpgsql(connectionString);
         }
 
         private static string GetConnectionString(IConfiguration configuration, string namedConnection, string? fallback)

@@ -48,19 +48,57 @@
     </div>
 
     <div class="report-card">
+        <h3>Prescriptions</h3>
+        <p>List of all prescriptions with medicine counts and patient details.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/prescriptions/pdf", "prescription-report.pdf")'>Download PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
         <h3>Follow-ups</h3>
         <p>Pending, completed, and overdue follow-up tracking.</p>
+        <div class="report-inputs">
+            <div class="input-group">
+                <label>Start Date</label>
+                <input type="date" @bind="followUpStartDate" />
+            </div>
+            <div class="input-group">
+                <label>End Date (optional)</label>
+                <input type="date" @bind="followUpEndDate" />
+            </div>
+        </div>
         <div class="actions">
-            <button class="button" @onclick='() => Download("api/reports/follow-ups/pdf", "follow-up-report-all.pdf")'>All Time PDF</button>
-            <button class="button" @onclick='() => Download("api/reports/follow-ups/pdf?reportType=monthly", "follow-up-report-monthly.pdf")'>Monthly PDF</button>
+            <button class="button" @onclick="DownloadFollowUpReport">Download PDF</button>
+            <button class="button button-secondary" @onclick="DownloadFollowUpAll">All Time PDF</button>
         </div>
     </div>
 
     <div class="report-card">
         <h3>Business Summary</h3>
         <p>Monthly high-level overview of patients, income, and activities.</p>
+        <div class="report-inputs">
+            <div class="input-group">
+                <label>Month</label>
+                <select @bind="businessMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(m)</option>
+                    }
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Year</label>
+                <select @bind="businessYear">
+                    @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 5; y--)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+            </div>
+        </div>
         <div class="actions">
-            <button class="button" @onclick='() => Download("api/reports/business-summary/pdf", "business-summary.pdf")'>This Month PDF</button>
+            <button class="button" @onclick="DownloadBusinessSummary">Download PDF</button>
         </div>
     </div>
 </div>
@@ -74,6 +112,10 @@
 
 @code {
     private bool isDownloading = false;
+    private DateTime? followUpStartDate;
+    private DateTime? followUpEndDate;
+    private int businessMonth = DateTime.Now.Month;
+    private int businessYear = DateTime.Now.Year;
 
     private async Task Download(string url, string filename)
     {
@@ -84,6 +126,31 @@
 
         isDownloading = false;
         StateHasChanged();
+    }
+
+    private async Task DownloadFollowUpReport()
+    {
+        var url = "api/reports/follow-ups/pdf";
+        var parts = new List<string>();
+        if (followUpStartDate.HasValue)
+            parts.Add($"startDate={followUpStartDate.Value:yyyy-MM-dd}");
+        if (followUpEndDate.HasValue)
+            parts.Add($"endDate={followUpEndDate.Value:yyyy-MM-dd}");
+        if (parts.Count > 0)
+            url += "?" + string.Join("&", parts);
+
+        await Download(url, "follow-up-report.pdf");
+    }
+
+    private async Task DownloadFollowUpAll()
+    {
+        await Download("api/reports/follow-ups/pdf", "follow-up-report-all.pdf");
+    }
+
+    private async Task DownloadBusinessSummary()
+    {
+        var url = $"api/reports/business-summary/pdf?month={businessMonth}&year={businessYear}";
+        await Download(url, $"business-summary-{businessYear}-{businessMonth:D2}.pdf");
     }
 }
 
@@ -111,9 +178,39 @@
     }
     .report-card p {
         color: #666;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
         flex-grow: 1;
         font-size: 0.95rem;
+    }
+    .report-inputs {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    .input-group {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+    .input-group label {
+        font-size: 0.8rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    .input-group input,
+    .input-group select {
+        padding: 0.4rem 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        background: #fafafa;
+    }
+    .input-group input:focus,
+    .input-group select:focus {
+        outline: none;
+        border-color: #4a90d9;
+        background: white;
     }
     .report-card .actions {
         display: flex;
@@ -130,10 +227,15 @@
         font-size: 0.9rem;
         border: 1px solid #ccc;
         transition: all 0.2s;
+        cursor: pointer;
     }
     .report-card .button:hover {
         background: #e4e4e4;
         border-color: #bbb;
+    }
+    .report-card .button-secondary {
+        background: transparent;
+        border-style: dashed;
     }
     .download-overlay {
         position: fixed;
@@ -148,3 +250,4 @@
         font-weight: 500;
     }
 </style>
+

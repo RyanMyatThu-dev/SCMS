@@ -307,44 +307,38 @@ namespace SCMS.Domain.Features.Documents
         /// </summary>
         public async Task<Result<FollowUpReportResponse>> GetFollowUpReportAsync(FollowUpReportRequest request)
         {
-            var reportType = (request.ReportType ?? "all").ToLower().Trim();
             var statusFilter = (request.Status ?? "all").ToLower().Trim();
-            var baseDate = request.Date?.Date ?? DateTime.UtcNow.Date;
 
-            DateTime periodStart = DateTime.MinValue;
-            DateTime? periodEnd = null;
-            string title;
+            DateTime? periodStart = request.StartDate?.Date;
+            DateTime? periodEnd = request.EndDate?.Date.AddDays(1); // inclusive end
 
-            switch (reportType)
+            // If only StartDate provided (single day)
+            if (periodStart.HasValue && !request.EndDate.HasValue)
             {
-                case "daily":
-                    periodStart = baseDate;
-                    periodEnd = baseDate.AddDays(1);
-                    title = $"Daily Follow-Up Report ({baseDate:dd-MM-yyyy})";
-                    break;
-                case "weekly":
-                    int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-                    periodStart = baseDate.AddDays(-diff);
-                    periodEnd = periodStart.AddDays(7);
-                    title = $"Weekly Follow-Up Report ({periodStart:dd-MM-yyyy} to {periodEnd.Value.AddDays(-1):dd-MM-yyyy})";
-                    break;
-                case "monthly":
-                    periodStart = new DateTime(baseDate.Year, baseDate.Month, 1);
-                    periodEnd = periodStart.AddMonths(1);
-                    title = $"Monthly Follow-Up Report ({periodStart:yyyy MMMM})";
-                    break;
-                default: // all
-                    title = "All Follow-Ups Report";
-                    break;
+                periodEnd = periodStart.Value.AddDays(1);
+            }
+
+            string title;
+            if (periodStart.HasValue && request.EndDate.HasValue && request.EndDate.Value.Date != request.StartDate!.Value.Date)
+            {
+                title = $"Follow-Up Report ({periodStart.Value:dd-MM-yyyy} to {request.EndDate.Value:dd-MM-yyyy})";
+            }
+            else if (periodStart.HasValue)
+            {
+                title = $"Follow-Up Report ({periodStart.Value:dd-MM-yyyy})";
+            }
+            else
+            {
+                title = "All Follow-Ups Report";
             }
 
             var query = _context.TblFollowUps
                 .Include(f => f.Patient)
                 .Where(f => f.DeleteFlag != true);
 
-            if (periodEnd.HasValue)
+            if (periodStart.HasValue && periodEnd.HasValue)
             {
-                query = query.Where(f => f.DueAt >= periodStart && f.DueAt < periodEnd.Value);
+                query = query.Where(f => f.DueAt >= periodStart.Value && f.DueAt < periodEnd.Value);
             }
 
             if (statusFilter != "all")
@@ -378,8 +372,8 @@ namespace SCMS.Domain.Features.Documents
             var response = new FollowUpReportResponse
             {
                 ReportTitle = title,
-                PeriodStart = periodStart,
-                PeriodEnd = periodEnd?.AddDays(-1),
+                PeriodStart = periodStart ?? DateTime.MinValue,
+                PeriodEnd = request.EndDate?.Date ?? (periodStart.HasValue ? periodStart.Value : (DateTime?)null),
                 GeneratedAt = now,
                 TotalFollowUps = items.Count,
                 PendingCount = items.Count(i => i.Status == "pending"),
@@ -396,8 +390,10 @@ namespace SCMS.Domain.Features.Documents
         /// </summary>
         public async Task<Result<BusinessSummaryReportResponse>> GetBusinessSummaryReportAsync(BusinessSummaryReportRequest request)
         {
-            var baseDate = request.Date?.Date ?? DateTime.UtcNow.Date;
-            var periodStart = new DateTime(baseDate.Year, baseDate.Month, 1);
+            var now = DateTime.UtcNow;
+            int month = request.Month ?? now.Month;
+            int year = request.Year ?? now.Year;
+            var periodStart = new DateTime(year, month, 1);
             var periodEnd = periodStart.AddMonths(1);
 
             // 1. Total Patients (all-time active) vs New Patients (this month)
@@ -436,6 +432,41 @@ namespace SCMS.Domain.Features.Documents
             };
 
             return Result<BusinessSummaryReportResponse>.Success(response);
+        }
+
+        public async Task<Result<PrescriptionReportResponse>> GetPrescriptionReportAsync()
+        {
+            var prescriptions = await _context.TblPrescriptions
+                .Include(p => p.Patient)
+                .Include(p => p.Appointment)
+                .Include(p => p.Disease)
+                .Include(p => p.TblPrescriptionItems)
+                .Where(p => p.DeleteFlag != true)
+                .OrderByDescending(p => p.Id)
+                .ToListAsync();
+
+            var items = prescriptions.Select(p => new PrescriptionReportItemDto
+            {
+                Id = p.Id,
+                PatientName = p.Patient?.Name ?? "Unknown",
+                AppointmentCode = p.Appointment?.AppointmentCode ?? "-",
+                DiseaseName = p.Disease?.Name,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+                MedicineCount = p.TblPrescriptionItems.Count,
+                TotalQuantity = p.TblPrescriptionItems.Sum(i => i.Quantity)
+            }).ToList();
+
+            var response = new PrescriptionReportResponse
+            {
+                ReportTitle = "Prescription Report",
+                GeneratedAt = DateTime.UtcNow,
+                TotalPrescriptions = items.Count,
+                TotalMedicines = items.Sum(i => i.MedicineCount),
+                DistinctPatients = items.Select(i => i.PatientName).Distinct().Count(),
+                Items = items
+            };
+
+            return Result<PrescriptionReportResponse>.Success(response);
         }
 
         private static string CapFirst(string? s)
