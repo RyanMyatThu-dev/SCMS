@@ -1,0 +1,46 @@
+@inject ApiClient Api
+@implements IDisposable
+
+@if (queue != null)
+{
+    <div class="queue-strip">
+        <span>@queue.QueueMessage</span>
+        <strong>@queue.EstimatedWaitTimeMinutes min</strong>
+        <div class="progress"><span style="width:@queue.ProgressBarPercentage%"></span></div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int AppointmentId { get; set; }
+
+    private AppointmentQueueStatusResponse? queue;
+    private PeriodicTimer? timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+        timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        _ = PollAsync();
+    }
+
+    private async Task PollAsync()
+    {
+        while (timer != null && await timer.WaitForNextTickAsync())
+        {
+            await Load();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task Load()
+    {
+        var result = await Api.QueueStatusAsync(AppointmentId);
+        queue = result.Data;
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

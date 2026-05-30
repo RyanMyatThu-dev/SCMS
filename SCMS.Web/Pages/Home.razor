@@ -1,0 +1,21 @@
+@page "/"
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<section class="empty-state">
+    <h1>ကုမယ်</h1>
+</section>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        Navigation.NavigateTo(state.User.IsInRole("owner") ? "/doctor" : "/patient");
+    }
+}

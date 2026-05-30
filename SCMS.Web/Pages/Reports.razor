@@ -1,0 +1,253 @@
+@page "/reports"
+@attribute [Authorize(Roles = "owner")]
+@inject ApiClient Api
+
+<PageTitle>Reports</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Reports</h1>
+        <p>Download various PDF reports for clinic operations.</p>
+    </div>
+</section>
+
+<div class="reports-grid">
+    <div class="report-card">
+        <h3>Appointments</h3>
+        <p>Daily or weekly overview of all appointments.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/appointments/pdf?reportType=daily", "appointment-report-daily.pdf")'>Daily PDF</button>
+            <button class="button" @onclick='() => Download("api/reports/appointments/pdf?reportType=weekly", "appointment-report-weekly.pdf")'>Weekly PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Revenue</h3>
+        <p>Income breakdown by payment method.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/revenue/pdf?reportType=daily", "revenue-report-daily.pdf")'>Daily PDF</button>
+            <button class="button" @onclick='() => Download("api/reports/revenue/pdf?reportType=weekly", "revenue-report-weekly.pdf")'>Weekly PDF</button>
+            <button class="button" @onclick='() => Download("api/reports/revenue/pdf?reportType=monthly", "revenue-report-monthly.pdf")'>Monthly PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Patient List</h3>
+        <p>Directory of all active patients with demographics.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/patients/pdf", "patient-list-report.pdf")'>Download PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Medicine Stock</h3>
+        <p>Inventory summary including low stock and expired batches.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/medicine-stock/pdf", "medicine-stock-report.pdf")'>Download PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Prescriptions</h3>
+        <p>List of all prescriptions with medicine counts and patient details.</p>
+        <div class="actions">
+            <button class="button" @onclick='() => Download("api/reports/prescriptions/pdf", "prescription-report.pdf")'>Download PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Follow-ups</h3>
+        <p>Pending, completed, and overdue follow-up tracking.</p>
+        <div class="report-inputs">
+            <div class="input-group">
+                <label>Start Date</label>
+                <input type="date" @bind="followUpStartDate" />
+            </div>
+            <div class="input-group">
+                <label>End Date (optional)</label>
+                <input type="date" @bind="followUpEndDate" />
+            </div>
+        </div>
+        <div class="actions">
+            <button class="button" @onclick="DownloadFollowUpReport">Download PDF</button>
+            <button class="button button-secondary" @onclick="DownloadFollowUpAll">All Time PDF</button>
+        </div>
+    </div>
+
+    <div class="report-card">
+        <h3>Business Summary</h3>
+        <p>Monthly high-level overview of patients, income, and activities.</p>
+        <div class="report-inputs">
+            <div class="input-group">
+                <label>Month</label>
+                <select @bind="businessMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(m)</option>
+                    }
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Year</label>
+                <select @bind="businessYear">
+                    @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 5; y--)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="actions">
+            <button class="button" @onclick="DownloadBusinessSummary">Download PDF</button>
+        </div>
+    </div>
+</div>
+
+@if (isDownloading)
+{
+    <div class="download-overlay">
+        <p>Preparing PDF... Please wait.</p>
+    </div>
+}
+
+@code {
+    private bool isDownloading = false;
+    private DateTime? followUpStartDate;
+    private DateTime? followUpEndDate;
+    private int businessMonth = DateTime.Now.Month;
+    private int businessYear = DateTime.Now.Year;
+
+    private async Task Download(string url, string filename)
+    {
+        isDownloading = true;
+        StateHasChanged();
+
+        await Api.DownloadFileAsync(url, filename);
+
+        isDownloading = false;
+        StateHasChanged();
+    }
+
+    private async Task DownloadFollowUpReport()
+    {
+        var url = "api/reports/follow-ups/pdf";
+        var parts = new List<string>();
+        if (followUpStartDate.HasValue)
+            parts.Add($"startDate={followUpStartDate.Value:yyyy-MM-dd}");
+        if (followUpEndDate.HasValue)
+            parts.Add($"endDate={followUpEndDate.Value:yyyy-MM-dd}");
+        if (parts.Count > 0)
+            url += "?" + string.Join("&", parts);
+
+        await Download(url, "follow-up-report.pdf");
+    }
+
+    private async Task DownloadFollowUpAll()
+    {
+        await Download("api/reports/follow-ups/pdf", "follow-up-report-all.pdf");
+    }
+
+    private async Task DownloadBusinessSummary()
+    {
+        var url = $"api/reports/business-summary/pdf?month={businessMonth}&year={businessYear}";
+        await Download(url, $"business-summary-{businessYear}-{businessMonth:D2}.pdf");
+    }
+}
+
+<style>
+    .reports-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+    .report-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .report-card h3 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+        color: #1a1a1a;
+        font-size: 1.25rem;
+    }
+    .report-card p {
+        color: #666;
+        margin-bottom: 1rem;
+        flex-grow: 1;
+        font-size: 0.95rem;
+    }
+    .report-inputs {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    .input-group {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+    .input-group label {
+        font-size: 0.8rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    .input-group input,
+    .input-group select {
+        padding: 0.4rem 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        background: #fafafa;
+    }
+    .input-group input:focus,
+    .input-group select:focus {
+        outline: none;
+        border-color: #4a90d9;
+        background: white;
+    }
+    .report-card .actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .report-card .button {
+        display: inline-block;
+        background: #f0f0f0;
+        color: #333;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        border: 1px solid #ccc;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .report-card .button:hover {
+        background: #e4e4e4;
+        border-color: #bbb;
+    }
+    .report-card .button-secondary {
+        background: transparent;
+        border-style: dashed;
+    }
+    .download-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-size: 1.25rem;
+        color: #333;
+        font-weight: 500;
+    }
+</style>
+

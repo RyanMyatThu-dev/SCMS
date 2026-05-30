@@ -1,0 +1,395 @@
+@page "/medicine"
+@attribute [Authorize(Roles = "owner")]
+@inject ApiClient Api
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+
+<PageTitle>Medicine</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>Medicine</h1>
+        <p>Create and maintain medicine master records with optional product images.</p>
+    </div>
+    <div class="toolbar">
+        <input class="field compact" placeholder="Search medicine" @bind="query" @bind:after="Load" />
+        <button class="secondary" @onclick="Load">Search</button>
+        <button class="primary" @onclick="OpenCreate">New medicine</button>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <Alert Type="@AlertKind" Message="@message" ShowIcon="true" Closable OnClose="ClearMessage" Style="margin-bottom: 16px;" />
+}
+
+<section class="table-surface">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 84px;">Image</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Unit price</th>
+                <th>Stock</th>
+                <th>Description</th>
+                <th style="width: 150px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (isLoading)
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="loading-card">
+                            <div class="loading-pulse"><span></span><span></span><span></span></div>
+                            <p>Loading medicines...</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+            else if (medicines.Count == 0)
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">No medicine master records found.</div>
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var medicine in medicines)
+                {
+                    <tr>
+                        <td>
+                            <div style="width: 58px; height: 58px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #f5f7f7; display: grid; place-items: center;">
+                                @if (!string.IsNullOrWhiteSpace(medicine.ImageUrl))
+                                {
+                                    <img src="@medicine.ImageUrl" alt="@medicine.Name" style="width: 100%; height: 100%; object-fit: cover;" />
+                                }
+                                else
+                                {
+                                    <Icon Type="picture" Style="color: var(--muted); font-size: 20px;" />
+                                }
+                            </div>
+                        </td>
+                        <td><strong>@medicine.Name</strong></td>
+                        <td>@(medicine.CategoryName ?? "-")</td>
+                        <td>@medicine.UnitPrice.ToString("N2")</td>
+                        <td>@medicine.TotalStock.ToString("N0")</td>
+                        <td style="max-width: 320px;">@medicine.Description</td>
+                        <td class="actions">
+                            <Space>
+                                <SpaceItem>
+                                    <Button Size="@ButtonSize.Small" OnClick="() => OpenEdit(medicine)">Edit</Button>
+                                </SpaceItem>
+                                <SpaceItem>
+                                    <Popconfirm Title="Delete this medicine master record?" OkText="Delete" CancelText="Cancel" OnConfirm="() => Delete(medicine.MedicineId)">
+                                        <Button Danger Size="@ButtonSize.Small">Delete</Button>
+                                    </Popconfirm>
+                                </SpaceItem>
+                            </Space>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</section>
+
+@if (showEditor)
+{
+    <div style="position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: grid; place-items: center; padding: 24px;">
+        <div style="width: min(680px, 100%); max-height: calc(100vh - 48px); overflow: auto; background: #fff; border-radius: 8px; border: 1px solid var(--line); box-shadow: 0 12px 32px rgba(0,0,0,.18);">
+            <div class="split" style="align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--line);">
+                <h2 style="margin: 0;">@(isEditing ? "Edit medicine" : "Create medicine")</h2>
+                <button type="button" class="ghost" @onclick="CloseEditor" style="min-height: 32px;">Close</button>
+            </div>
+            <div style="padding: 22px;">
+                <EditForm Model="form" OnValidSubmit="Save">
+                    <DataAnnotationsValidator />
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <Alert Type="@AlertType.Error" Message="@formError" ShowIcon="true" Style="margin-bottom: 16px;" />
+                    }
+
+                    <div class="form-grid">
+                        <div>
+                            <label>Name</label>
+                            <InputText class="field" @bind-Value="form.Name" />
+                            <ValidationMessage For="@(() => form.Name)" />
+                        </div>
+                        <div>
+                            <label>Category</label>
+                            <select class="field" @bind="form.CategoryId">
+                                <option value="">No category</option>
+                                @foreach (var category in categories)
+                                {
+                                    <option value="@category.Id">@category.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid" style="margin-top: 10px;">
+                        <div>
+                            <label>Unit price</label>
+                            <Microsoft.AspNetCore.Components.Forms.InputNumber class="field" @bind-Value="form.UnitPrice" />
+                            <ValidationMessage For="@(() => form.UnitPrice)" />
+                        </div>
+                        <div>
+                            <label>Image</label>
+                            <div style="position: relative; min-height: 38px; border: 1px dashed var(--line); border-radius: 6px; padding: 8px 10px; background: #fafafa;">
+                                <InputFile OnChange="OnFileSelected" accept="image/*" style="position: absolute; inset: 0; opacity: 0; cursor: pointer;" />
+                                <span>@(string.IsNullOrWhiteSpace(selectedFileName) ? "Choose image file" : selectedFileName)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <label>Description</label>
+                    <InputTextArea class="field" @bind-Value="form.Description" />
+
+                    <div style="margin-top: 16px; display: flex; gap: 14px; align-items: center;">
+                        <div style="width: 96px; height: 96px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #f5f7f7; display: grid; place-items: center;">
+                            @if (!string.IsNullOrWhiteSpace(imagePreviewUrl))
+                            {
+                                <img src="@imagePreviewUrl" alt="Selected image preview" style="width: 100%; height: 100%; object-fit: cover;" />
+                            }
+                            else if (!string.IsNullOrWhiteSpace(form.ExistingImageUrl) && !form.RemoveImage)
+                            {
+                                <img src="@form.ExistingImageUrl" alt="Current medicine image" style="width: 100%; height: 100%; object-fit: cover;" />
+                            }
+                            else
+                            {
+                                <Icon Type="picture" Style="font-size: 26px; color: var(--muted);" />
+                            }
+                        </div>
+                        <div style="display: grid; gap: 8px;">
+                            @if (!string.IsNullOrWhiteSpace(form.ExistingImageUrl) && !form.RemoveImage)
+                            {
+                                <label style="display: inline-flex; gap: 8px; align-items: center; margin: 0;">
+                                    <InputCheckbox @bind-Value="form.RemoveImage" />
+                                    Remove current image
+                                </label>
+                            }
+                            <span style="color: var(--muted); font-size: 13px;">PNG or JPG, up to 5 MB.</span>
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--line); margin-top: 22px; padding-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="secondary" @onclick="CloseEditor">Cancel</button>
+                        <button type="submit" class="primary" disabled="@isSaving">@(isSaving ? "Saving..." : "Save medicine")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const long MaxImageBytes = 5 * 1024 * 1024;
+
+    private readonly List<MedicineSearchResponse> medicines = new();
+    private readonly List<MedicineCategoryResponse> categories = new();
+    private MedicineFormModel form = new();
+    private string? query;
+    private string? message;
+    private string? formError;
+    private string? selectedFileName;
+    private string? selectedContentType;
+    private byte[]? selectedImageBytes;
+    private string? imagePreviewUrl;
+    private bool isLoading;
+    private bool isSaving;
+    private bool showEditor;
+    private bool isEditing;
+    private int editingMedicineId;
+
+    private AlertType AlertKind => IsError(message) ? AlertType.Error : AlertType.Success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+        await Load();
+    }
+
+    private async Task LoadCategories()
+    {
+        var result = await Api.GetMedicineCategoriesAsync();
+        categories.Clear();
+        if (result.IsSuccess && result.Data != null)
+        {
+            categories.AddRange(result.Data);
+        }
+    }
+
+    private async Task Load()
+    {
+        isLoading = true;
+        var result = await Api.SearchMedicinesAsync(query, pageSize: 100);
+        medicines.Clear();
+        if (result.IsSuccess)
+        {
+            medicines.AddRange(result.Data);
+            message = null;
+        }
+        else
+        {
+            message = result.Message;
+        }
+        isLoading = false;
+    }
+
+    private void OpenCreate()
+    {
+        isEditing = false;
+        editingMedicineId = 0;
+        form = new MedicineFormModel();
+        ResetImageSelection();
+        formError = null;
+        showEditor = true;
+    }
+
+    private void OpenEdit(MedicineSearchResponse medicine)
+    {
+        isEditing = true;
+        editingMedicineId = medicine.MedicineId;
+        form = new MedicineFormModel
+        {
+            Name = medicine.Name,
+            Description = medicine.Description,
+            CategoryId = medicine.CategoryId,
+            UnitPrice = medicine.UnitPrice,
+            ExistingImageUrl = medicine.ImageUrl
+        };
+        ResetImageSelection();
+        formError = null;
+        showEditor = true;
+    }
+
+    private void CloseEditor()
+    {
+        showEditor = false;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        if (file.Size > MaxImageBytes)
+        {
+            formError = "Image size cannot exceed 5 MB.";
+            ResetImageSelection();
+            return;
+        }
+
+        selectedFileName = file.Name;
+        selectedContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType;
+
+        using var stream = file.OpenReadStream(MaxImageBytes);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory);
+        selectedImageBytes = memory.ToArray();
+        imagePreviewUrl = $"data:{selectedContentType};base64,{Convert.ToBase64String(selectedImageBytes)}";
+        form.RemoveImage = false;
+    }
+
+    private async Task Save()
+    {
+        formError = null;
+        isSaving = true;
+
+        Result<MedicineSearchResponse> result;
+        if (isEditing)
+        {
+            result = await Api.UpdateMedicineAsync(
+                editingMedicineId,
+                new UpdateMedicineRequest
+                {
+                    Name = form.Name,
+                    Description = form.Description,
+                    CategoryId = form.CategoryId,
+                    UnitPrice = form.UnitPrice,
+                    RemoveImage = form.RemoveImage
+                },
+                selectedImageBytes,
+                selectedFileName,
+                selectedContentType);
+        }
+        else
+        {
+            result = await Api.CreateMedicineAsync(
+                new CreateMedicineRequest
+                {
+                    Name = form.Name,
+                    Description = form.Description,
+                    CategoryId = form.CategoryId,
+                    UnitPrice = form.UnitPrice
+                },
+                selectedImageBytes,
+                selectedFileName,
+                selectedContentType);
+        }
+
+        isSaving = false;
+        if (result.IsSuccess)
+        {
+            showEditor = false;
+            message = result.Message;
+            await Load();
+            message = result.Message;
+        }
+        else
+        {
+            formError = result.Message;
+        }
+    }
+
+    private async Task Delete(int id)
+    {
+        var result = await Api.DeleteMedicineAsync(id);
+        message = result.Message;
+        if (result.IsSuccess)
+        {
+            await Load();
+            message = result.Message;
+        }
+    }
+
+    private void ResetImageSelection()
+    {
+        selectedFileName = null;
+        selectedContentType = null;
+        selectedImageBytes = null;
+        imagePreviewUrl = null;
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+    }
+
+    private static bool IsError(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+            && (value.Contains("error", StringComparison.OrdinalIgnoreCase)
+                || value.Contains("failed", StringComparison.OrdinalIgnoreCase)
+                || value.Contains("cannot", StringComparison.OrdinalIgnoreCase));
+
+    public class MedicineFormModel
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(255, ErrorMessage = "Name cannot exceed 255 characters.")]
+        public string Name { get; set; } = string.Empty;
+
+        public int? CategoryId { get; set; }
+
+        public string? Description { get; set; }
+
+        [Range(0, 999999999, ErrorMessage = "Unit price cannot be negative.")]
+        public decimal UnitPrice { get; set; }
+
+        public bool RemoveImage { get; set; }
+
+        public string? ExistingImageUrl { get; set; }
+    }
+}

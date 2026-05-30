@@ -1,0 +1,104 @@
+@page "/patient"
+@page "/patient/dashboard"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Patient Dashboard</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>My dashboard</h1>
+        <p>Family records, appointments, queue token, prescriptions, and balances.</p>
+    </div>
+    <a class="primary" href="book">Book appointment</a>
+</section>
+
+@if (dashboard == null)
+{
+    <LoadingIndicator Message="Loading dashboard..." />
+}
+else
+{
+    <section class="metric-grid">
+        <div class="metric"><span>Profiles</span><strong>@dashboard.PatientProfiles.Count</strong></div>
+        <div class="metric"><span>Upcoming</span><strong>@dashboard.UpcomingAppointments.Count</strong></div>
+        <div class="metric"><span>Prescriptions</span><strong>@dashboard.PrescriptionHistory.Count</strong></div>
+        <div class="metric warning"><span>Balances</span><strong>@dashboard.OutstandingBalances.Count</strong></div>
+    </section>
+
+    <section class="two-column">
+        <div>
+            <h2>Family cards</h2>
+            <div class="card-grid">
+                @foreach (var patient in dashboard.PatientProfiles)
+                {
+                    <a class="person-card" href="@($"records?patientId={patient.PatientId}")">
+                        <strong>@patient.Name</strong>
+                        <span>@patient.BloodType - @patient.Gender</span>
+                    </a>
+                }
+            </div>
+        </div>
+        <div>
+            <h2>Upcoming queue</h2>
+            <div class="list-stack">
+                @foreach (var appt in dashboard.UpcomingAppointments)
+                {
+                    <article class="item-card">
+                        <strong>Token @appt.TokenNumber - @appt.PatientName</strong>
+                        <span>@appt.Datetime.ToString("MMM dd, hh:mm tt") - @appt.Status</span>
+                        <QueueStatus AppointmentId="appt.Id" />
+                    </article>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="two-column" style="margin-top: 2rem;">
+        <div>
+            <h2>Recent prescriptions</h2>
+            <div class="list-stack">
+                @foreach (var pres in dashboard.PrescriptionHistory.Take(5))
+                {
+                    <article class="item-card">
+                        <strong>@pres.PatientName</strong>
+                        <span>@pres.CreatedAt.ToString("MMM dd, yyyy") - @pres.DiseaseName</span>
+                        <a href="@($"prescriptions/{pres.Id}")">View</a>
+                    </article>
+                }
+                @if (!dashboard.PrescriptionHistory.Any())
+                {
+                    <p class="text-muted">No recent prescriptions.</p>
+                }
+            </div>
+        </div>
+        <div>
+            <h2>Outstanding balances</h2>
+            <div class="list-stack">
+                @foreach (var bal in dashboard.OutstandingBalances)
+                {
+                    <article class="item-card warning">
+                        <strong>@bal.AppointmentCode</strong>
+                        <span>Amount: @bal.Amount.ToString("C")</span>
+                        <p>Status: @bal.PaymentStatus</p>
+                        <a href="@($"payments/{bal.Id}")">Pay now</a>
+                    </article>
+                }
+                @if (!dashboard.OutstandingBalances.Any())
+                {
+                    <p class="text-muted">No outstanding balances.</p>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    private PatientDashboardResponse? dashboard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.PatientDashboardAsync();
+        dashboard = result.Data;
+    }
+}

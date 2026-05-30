@@ -1,0 +1,88 @@
+@page "/patients"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>@PageTitleText</PageTitle>
+
+<section class="workspace-header">
+    <div>
+        <h1>@Heading</h1>
+        <p>@Description</p>
+    </div>
+    <button class="secondary" @onclick="Load">Refresh</button>
+</section>
+
+<section class="two-column">
+    <div>
+        <h2>@AddHeading</h2>
+        <EditForm Model="form" OnValidSubmit="Save">
+            <label>Name</label><InputText class="field" @bind-Value="form.Name" />
+            <label>Mobile</label><InputText class="field" @bind-Value="form.MobileNo" />
+            <label>Email</label><InputText class="field" @bind-Value="form.Email" />
+            <label>Gender</label><InputText class="field" @bind-Value="form.Gender" />
+            <label>Blood type</label><InputText class="field" @bind-Value="form.BloodType" />
+            <label>Address</label><InputTextArea class="field" @bind-Value="form.ActualAddress" />
+            <label>Allergies</label><InputTextArea class="field" @bind-Value="form.Allergies" />
+            <label>Chronic conditions</label><InputTextArea class="field" @bind-Value="form.ChronicConditions" />
+            <button class="primary" type="submit">Save</button>
+        </EditForm>
+    </div>
+    <div>
+        <h2>@ListHeading</h2>
+        <div class="card-grid">
+            @foreach (var patient in patients)
+            {
+                <a class="person-card" href="@($"records?patientId={patient.PatientId}")">
+                    <strong>@patient.Name</strong>
+                    <span>@patient.MobileNo - @patient.BloodType</span>
+                </a>
+            }
+        </div>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <p class="status">@message</p>
+}
+
+@code {
+    private readonly List<PatientProfileResponse> patients = new();
+    private PatientProfileRequest form = new();
+    private string? message;
+    private bool isStaff;
+
+    private string PageTitleText => isStaff ? "Patients" : "Family Profiles";
+    private string Heading => isStaff ? "Patients" : "Family profiles";
+    private string Description => isStaff
+        ? "Clinic patient records and medical summaries."
+        : "Manage patient records under one account.";
+    private string AddHeading => isStaff ? "Add patient" : "Add profile";
+    private string ListHeading => isStaff ? "Patients" : "Profiles";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isStaff = authState.User.IsInRole("owner");
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        var result = await Api.PatientProfilesAsync();
+        patients.Clear();
+        patients.AddRange(result.Data);
+    }
+
+    private async Task Save()
+    {
+        var result = await Api.AddPatientProfileAsync(form);
+        message = result.Message;
+        if (result.IsSuccess)
+        {
+            form = new PatientProfileRequest();
+            await Load();
+        }
+    }
+}

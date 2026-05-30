@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,9 +6,20 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+	<ItemGroup>
+		<PackageReference Include="CloudinaryDotNet" Version="1.29.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+
+	</ItemGroup>
+	
   <ItemGroup>
-    <ProjectReference Include="..\SCMS.Database\SCMS.Database.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\SCMS.Shared\SCMS.Shared.csproj" />
+    <ProjectReference Include="..\SCMS.Database\SCMS.Database.csproj" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Folder Include="Features\Photo\" />
   </ItemGroup>
 
 </Project>

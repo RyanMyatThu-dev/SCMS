@@ -1,0 +1,122 @@
+@page "/appointments"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Appointments</PageTitle>
+
+<PageHeader Title="Appointments" Subtitle="Calendar queue with status actions." />
+
+<div style="margin-bottom: 16px; display: flex; gap: 8px;">
+    <Select TItem="string" TItemValue="string" @bind-Value="statusFilter" DefaultValue="@("")" Style="width: 120px;">
+        <SelectOptions>
+            <SelectOption TItemValue="string" TItem="string" Value="@("")" Label="All" />
+            <SelectOption TItemValue="string" TItem="string" Value="@("pending")" Label="Pending" />
+            <SelectOption TItemValue="string" TItem="string" Value="@("confirmed")" Label="Confirmed" />
+            <SelectOption TItemValue="string" TItem="string" Value="@("completed")" Label="Completed" />
+            <SelectOption TItemValue="string" TItem="string" Value="@("cancelled")" Label="Cancelled" />
+        </SelectOptions>
+    </Select>
+    <Button OnClick="Load">Refresh</Button>
+    <AuthorizeView Roles="owner">
+        <Authorized>
+            <Button Type="@ButtonType.Primary" OnClick="CallNext">Call next</Button>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+<RadioGroup @bind-Value="mode" @bind-Value:after="Load" Style="margin-bottom: 16px;">
+    <Radio RadioButton Value="@("day")">Day</Radio>
+    <Radio RadioButton Value="@("week")">Week</Radio>
+    <Radio RadioButton Value="@("month")">Month</Radio>
+</RadioGroup>
+
+<Table TItem="AppointmentDetailsResponse" DataSource="appointments">
+    <Column TData="string" Title="Token">@context.TokenNumber</Column>
+    <Column TData="string" Title="Patient">@context.PatientName</Column>
+    <Column TData="string" Title="Time">@context.Datetime.ToString("MMM dd, hh:mm tt")</Column>
+    <Column TData="string" Title="Status">
+        <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
+    </Column>
+    <Column TData="string" Title="Reason">@context.Notes</Column>
+    <ActionColumn Title="Actions">
+        <AuthorizeView Roles="owner">
+            <Authorized Context="authContext">
+                <Space>
+                    <SpaceItem>
+                        <a href="@($"consultation/{context.Id}")">
+                            <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small">EMR</Button>
+                        </a>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <Dropdown>
+                            <Overlay>
+                                <Menu>
+                                    <MenuItem OnClick="() => UpdateStatus(context.Id, Confirmed)">Confirm</MenuItem>
+                                    <MenuItem OnClick="() => UpdateStatus(context.Id, Completed)">Complete</MenuItem>
+                                    <MenuItem Danger OnClick="() => UpdateStatus(context.Id, Cancelled)">Cancel</MenuItem>
+                                </Menu>
+                            </Overlay>
+                            <ChildContent>
+                                <Button Size="@ButtonSize.Small">Update Status</Button>
+                            </ChildContent>
+                        </Dropdown>
+                    </SpaceItem>
+                </Space>
+            </Authorized>
+        </AuthorizeView>
+    </ActionColumn>
+</Table>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <Alert Type="@AlertType.Info" Message="@message" ShowIcon="true" Closable />
+}
+
+@code {
+    private const string Confirmed = "confirmed";
+    private const string Cancelled = "cancelled";
+    private const string Completed = "completed";
+    private readonly List<AppointmentDetailsResponse> appointments = new();
+    private string mode = "day";
+    private string? statusFilter = "";
+    private string? message;
+
+    protected override Task OnInitializedAsync() => Load();
+
+    private async Task Load()
+    {
+        var start = DateTime.UtcNow.Date;
+        var end = mode switch
+        {
+            "week" => start.AddDays(7),
+            "month" => start.AddMonths(1),
+            _ => start.AddDays(1)
+        };
+        var result = await Api.AppointmentsAsync(start, end, statusFilter);
+        appointments.Clear();
+        appointments.AddRange(result.Data);
+        message = result.IsSuccess ? null : result.Message;
+    }
+
+    private async Task UpdateStatus(int id, string status)
+    {
+        var result = await Api.UpdateAppointmentStatusAsync(id, status);
+        message = result.Message;
+        await Load();
+    }
+
+    private async Task CallNext()
+    {
+        var result = await Api.CallNextPatientAsync();
+        message = result.Message;
+        await Load();
+    }
+
+    private string GetStatusColor(string status) => status switch {
+        "pending" => "orange",
+        "confirmed" => "blue",
+        "completed" => "green",
+        "cancelled" => "red",
+        _ => "default"
+    };
+}

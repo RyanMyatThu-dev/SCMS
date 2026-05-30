@@ -1,0 +1,42 @@
+<Menu Theme="MenuTheme.Dark" Mode="MenuMode.Inline">
+    <AuthorizeView Context="authState">
+        <Authorized>
+            @if (IsStaff(authState.User))
+            {
+                <MenuItem RouterLink="doctor" RouterMatch="NavLinkMatch.All">Dashboard</MenuItem>
+                <MenuItem RouterLink="appointments">Appointments</MenuItem>
+                <MenuItem RouterLink="patients">Patients</MenuItem>
+                <MenuItem RouterLink="consultation">Consultation</MenuItem>
+                <MenuItem RouterLink="follow-ups">Follow-ups</MenuItem>
+                <MenuItem RouterLink="medicine">Medicine</MenuItem>
+                <MenuItem RouterLink="inventory">Inventory</MenuItem>
+                <MenuItem RouterLink="inventory/batches">Batches</MenuItem>
+                <MenuItem RouterLink="payments">Payments</MenuItem>
+                <MenuItem RouterLink="billing">Billing</MenuItem>
+                <MenuItem RouterLink="diseases">Diseases</MenuItem>
+                <MenuItem RouterLink="notifications">Notifications</MenuItem>
+                <MenuItem RouterLink="reports">Reports</MenuItem>
+                <MenuItem RouterLink="ai-assistant">🤖 AI Assistant (MCP)</MenuItem>
+            }
+            else
+            {
+                <MenuItem RouterLink="patient">My dashboard</MenuItem>
+                <MenuItem RouterLink="patients">Family</MenuItem>
+                <MenuItem RouterLink="book">Book</MenuItem>
+                <MenuItem RouterLink="billing">Billing</MenuItem>
+                <MenuItem RouterLink="records">Records</MenuItem>
+                <MenuItem RouterLink="follow-ups">Follow-ups</MenuItem>
+                <MenuItem RouterLink="notifications">Notifications</MenuItem>
+            }
+        </Authorized>
+        <NotAuthorized>
+            <MenuItem RouterLink="login">Login</MenuItem>
+            <MenuItem RouterLink="register">Register</MenuItem>
+        </NotAuthorized>
+    </AuthorizeView>
+</Menu>
+
+@code {
+    private static bool IsStaff(System.Security.Claims.ClaimsPrincipal user)
+        => user.IsInRole("owner");
+}
