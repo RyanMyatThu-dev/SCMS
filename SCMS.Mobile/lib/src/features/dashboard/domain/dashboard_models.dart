@@ -1,3 +1,6 @@
+import '../../appointments/domain/appointment_models.dart';
+import '../../patients/domain/patient_models.dart';
+
 class UpcomingPatientDto {
   const UpcomingPatientDto({
     required this.id,
@@ -103,6 +106,108 @@ class UnpaidInvoiceDto {
   final String paymentMethod;
 }
 
+class PrescriptionItemResponse {
+  const PrescriptionItemResponse({
+    required this.id,
+    required this.medicineName,
+    required this.dosage,
+    required this.days,
+    required this.quantity,
+    required this.instruction,
+  });
+
+  factory PrescriptionItemResponse.fromJson(Map<String, dynamic> json) {
+    return PrescriptionItemResponse(
+      id: json['id'] as int? ?? 0,
+      medicineName: json['medicineName'] as String? ?? '',
+      dosage: json['dosage'] as String? ?? '',
+      days: json['days'] as int? ?? 0,
+      quantity: json['quantity'] as int? ?? 0,
+      instruction: json['instruction'] as String? ?? '',
+    );
+  }
+
+  final int id;
+  final String medicineName;
+  final String dosage;
+  final int days;
+  final int quantity;
+  final String instruction;
+}
+
+class PrescriptionResponse {
+  const PrescriptionResponse({
+    required this.id,
+    required this.appointmentId,
+    required this.appointmentCode,
+    required this.patientId,
+    required this.patientName,
+    required this.diseaseId,
+    this.diseaseName,
+    required this.weightKg,
+    required this.bloodPressureSystolic,
+    required this.bloodPressureDiastolic,
+    this.notes,
+    this.temperatureC,
+    this.pulseBpm,
+    this.spo2Percent,
+    this.heightCm,
+    this.bmi,
+    this.labTestRequests,
+    required this.items,
+    required this.createdAt,
+  });
+
+  factory PrescriptionResponse.fromJson(Map<String, dynamic> json) {
+    return PrescriptionResponse(
+      id: json['id'] as int? ?? 0,
+      appointmentId: json['appointmentId'] as int? ?? 0,
+      appointmentCode: json['appointmentCode'] as String? ?? '',
+      patientId: json['patientId'] as int? ?? 0,
+      patientName: json['patientName'] as String? ?? '',
+      diseaseId: json['diseaseId'] as int? ?? 0,
+      diseaseName: json['diseaseName'] as String?,
+      weightKg: (json['weightKg'] as num?)?.toDouble() ?? 0.0,
+      bloodPressureSystolic: json['bloodPressureSystolic'] as int? ?? 0,
+      bloodPressureDiastolic: json['bloodPressureDiastolic'] as int? ?? 0,
+      notes: json['notes'] as String?,
+      temperatureC: (json['temperatureC'] as num?)?.toDouble(),
+      pulseBpm: json['pulseBpm'] as int?,
+      spo2Percent: json['spo2Percent'] as int?,
+      heightCm: (json['heightCm'] as num?)?.toDouble(),
+      bmi: (json['bmi'] as num?)?.toDouble(),
+      labTestRequests: json['labTestRequests'] as String?,
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => PrescriptionItemResponse.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+    );
+  }
+
+  final int id;
+  final int appointmentId;
+  final String appointmentCode;
+  final int patientId;
+  final String patientName;
+  final int diseaseId;
+  final String? diseaseName;
+  final double weightKg;
+  final int bloodPressureSystolic;
+  final int bloodPressureDiastolic;
+  final String? notes;
+  final double? temperatureC;
+  final int? pulseBpm;
+  final int? spo2Percent;
+  final double? heightCm;
+  final double? bmi;
+  final String? labTestRequests;
+  final List<PrescriptionItemResponse> items;
+  final DateTime createdAt;
+}
+
 class PatientDashboardResponse {
   const PatientDashboardResponse({
     required this.patientProfiles,
@@ -113,9 +218,18 @@ class PatientDashboardResponse {
 
   factory PatientDashboardResponse.fromJson(Map<String, dynamic> json) {
     return PatientDashboardResponse(
-      patientProfiles: (json['patientProfiles'] as List<dynamic>?) ?? [],
-      upcomingAppointments: (json['upcomingAppointments'] as List<dynamic>?) ?? [],
-      prescriptionHistory: (json['prescriptionHistory'] as List<dynamic>?) ?? [],
+      patientProfiles: (json['patientProfiles'] as List<dynamic>?)
+              ?.map((e) => PatientProfileResponse.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      upcomingAppointments: (json['upcomingAppointments'] as List<dynamic>?)
+              ?.map((e) => AppointmentDetailsResponse.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      prescriptionHistory: (json['prescriptionHistory'] as List<dynamic>?)
+              ?.map((e) => PrescriptionResponse.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       outstandingBalances: (json['outstandingBalances'] as List<dynamic>?)
               ?.map((e) => UnpaidInvoiceDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -123,10 +237,8 @@ class PatientDashboardResponse {
     );
   }
 
-  // To keep it simple, we use dynamic/List since we can display records directly,
-  // but if needed we can parse them into PatientProfileResponse, etc.
-  final List<dynamic> patientProfiles;
-  final List<dynamic> upcomingAppointments;
-  final List<dynamic> prescriptionHistory;
-  final List<dynamic> outstandingBalances;
+  final List<PatientProfileResponse> patientProfiles;
+  final List<AppointmentDetailsResponse> upcomingAppointments;
+  final List<PrescriptionResponse> prescriptionHistory;
+  final List<UnpaidInvoiceDto> outstandingBalances;
 }
