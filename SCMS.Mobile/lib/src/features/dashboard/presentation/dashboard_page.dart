@@ -227,7 +227,7 @@ class _PatientDashboard extends ConsumerWidget {
   Color _getStatusColor(String status) {
     final s = status.toLowerCase();
     if (s == 'completed' || s == 'paid' || s == 'success') {
-      return Colors.emerald;
+      return const Color(0xFF10B981);
     }
     if (s == 'approved' || s == 'confirmed' || s == 'active') {
       return Colors.indigo;
@@ -672,7 +672,7 @@ class _PatientDashboard extends ConsumerWidget {
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
                   child: Center(
-                    child: Text('All balances are clear! Thank you.', style: TextStyle(color: Colors.emerald, fontWeight: FontWeight.black)),
+                    child: Text('All balances are clear! Thank you.', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w900)),
                   ),
                 ),
               )
