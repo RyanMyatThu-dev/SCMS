@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   CalendarDays,
-  Search,
   Plus,
   RefreshCcw,
   LayoutGrid,
@@ -24,12 +23,14 @@ import {
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
 import PaginationControls from "../components/PaginationControls";
+import SearchForm from "../components/SearchForm";
 import {
   appointmentsApi,
   patientsApi,
   diseasesApi,
   medicinesApi,
   prescriptionsApi,
+  followUpsApi,
   downloadBlob
 } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
@@ -46,6 +47,7 @@ const toArray = (data) => {
 
 export default function AppointmentsPage() {
   const { t } = useLanguage();
+  const pageSize = 8;
   const [appointments, setAppointments] = useState([]);
   const [viewMode, setViewMode] = useState("table"); // "table" or "card"
   const [loading, setLoading] = useState(false);
@@ -494,25 +496,14 @@ export default function AppointmentsPage() {
 
       {/* Advanced Filters */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-            <input
-              className="scms-input scms-input-icon w-full pr-28"
-              value={patientSearch}
-              onChange={(e) => setPatientSearch(e.target.value)}
-              placeholder="Search by patient name..."
-            />
-            <button
-              type="submit"
-              onClick={handleSearchSubmit}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0 z-10 btn-no-scale"
-            >
-              <Search size={14} />
-              Search
-            </button>
-          </div>
-        </form>
+        <SearchForm
+          value={patientSearch}
+          onChange={(e) => setPatientSearch(e.target.value)}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search by patient name..."
+          submitLabel={t.search}
+          className="w-full max-w-2xl flex-1"
+        />
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Date Filter Buttons */}
@@ -564,6 +555,7 @@ export default function AppointmentsPage() {
             <table className="table table-zebra w-full">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Appointment Code</th>
                   <th>Patient Name</th>
                   <th>Appointment Date</th>
@@ -573,12 +565,15 @@ export default function AppointmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((appt) => (
+                {appointments.map((appt, index) => {
+                  const rowNo = ((page - 1) * pageSize) + index + 1;
+                  return (
                   <tr
                     key={appt.appointmentId || appt.id}
                     onClick={() => { setSelectedAppt(appt); setDetailOpen(true); }}
                     className="hover:bg-slate-50/70 cursor-pointer transition"
                   >
+                    <td className="font-black text-xs text-scms-muted">{rowNo}</td>
                     <td className="font-extrabold text-scms-primary font-mono text-sm">{appt.appointmentCode}</td>
                     <td className="font-extrabold text-scms-text">{appt.patientName || appt.patient?.name || appt.patientId}</td>
                     <td className="font-semibold">{formatDate(appt.datetime)}</td>
@@ -619,22 +614,26 @@ export default function AppointmentsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       ) : (
         /* CARD VIEW */
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {appointments.map((appt) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
+            {appointments.map((appt, index) => {
+              const rowNo = ((page - 1) * pageSize) + index + 1;
+              return (
             <div
               key={appt.appointmentId || appt.id}
               onClick={() => { setSelectedAppt(appt); setDetailOpen(true); }}
-              className="bg-white border border-scms-border hover:border-indigo-600 rounded-2xl p-5 hover:shadow-md cursor-pointer transition flex flex-col justify-between"
+              className="bg-white border border-scms-border hover:border-indigo-600 rounded-2xl p-5 hover:shadow-md cursor-pointer transition flex flex-col justify-between min-h-[186px] h-full"
             >
               <div>
                 <div className="flex justify-between items-center gap-2">
+                  <span className="text-[11px] font-black text-scms-text">No. {rowNo}</span>
                   <span className="text-xs font-black text-indigo-600 font-mono">{appt.appointmentCode}</span>
                   <span className={`text-[9px] font-black border px-2 py-0.5 rounded-full ${getStatusClass(appt.status)}`}>
                     {String(appt.status).toUpperCase()}
@@ -672,7 +671,8 @@ export default function AppointmentsPage() {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -872,7 +872,7 @@ export default function AppointmentsPage() {
                       value={selectedDiseaseId}
                       onChange={(e) => setSelectedDiseaseId(e.target.value)}
                     >
-                      <option value="">-- Choose Disease reference (Optional) --</option>
+                      <option value="">Select Disease</option>
                       {diseases.map(d => (
                         <option key={d.id || d.diseaseId} value={d.id || d.diseaseId}>
                           {d.name}
@@ -962,7 +962,7 @@ export default function AppointmentsPage() {
                       value={selectedMedicineId}
                       onChange={(e) => setSelectedMedicineId(e.target.value)}
                     >
-                      <option value="">-- Select medicine to add --</option>
+                      <option value="">Select Medicine to Add</option>
                       {medicines.filter(m => (m.totalStock ?? m.stock ?? 0) > 0).map(m => (
                         <option key={m.medicineId} value={m.medicineId}>
                           {m.name} (Stock: {m.totalStock ?? m.stock ?? 0})

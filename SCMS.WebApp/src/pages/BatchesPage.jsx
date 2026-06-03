@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
 import {
   Layers,
-  Search,
   Plus,
   RefreshCcw,
   LayoutGrid,
   List,
-  ChevronLeft,
-  ChevronRight,
   BellRing,
   Edit,
   Trash2,
@@ -22,6 +19,7 @@ import {
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
+import SearchForm from "../components/SearchForm";
 import { medicinesApi } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -84,6 +82,7 @@ const getDaysRemaining = (expiryDate) => {
 export default function BatchesPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const pageSize = 10;
 
   const [batches, setBatches] = useState([]);
   const [medicines, setMedicines] = useState([]);
@@ -308,24 +307,14 @@ export default function BatchesPage() {
 
       {/* Advanced Filters */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-            <input
-              className="scms-input scms-input-icon w-full pr-28"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search batches by batch number, supplier, or brand..."
-            />
-            <button
-              type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0"
-            >
-              <Search size={14} />
-              Search
-            </button>
-          </div>
-        </form>
+        <SearchForm
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search batches by batch number, supplier, or brand..."
+          submitLabel={t.search}
+          className="w-full max-w-2xl flex-1"
+        />
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Medicine Specific Filter */}
@@ -379,6 +368,7 @@ export default function BatchesPage() {
             <table className="table table-zebra w-full">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Visual</th>
                   <th>Batch Number</th>
                   <th>Medicine</th>
@@ -390,10 +380,12 @@ export default function BatchesPage() {
                 </tr>
               </thead>
               <tbody>
-                {batches.map((batch) => {
+                {batches.map((batch, index) => {
+                  const rowNo = ((page - 1) * pageSize) + index + 1;
                   const m = medicines.find(med => String(med.medicineId || med.id) === String(batch.medicineId || batch.medId));
                   return (
                     <tr key={batch.id || batch.batchId} className="hover:bg-slate-50/70 transition">
+                      <td className="font-black text-xs text-scms-muted">{rowNo}</td>
                       <td>
                         {/* Zoom preview visual */}
                         <div className="relative group w-10 h-10 shrink-0 cursor-zoom-in">
@@ -474,7 +466,8 @@ export default function BatchesPage() {
       ) : (
         /* CARD VIEW */
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {batches.map((batch) => {
+          {batches.map((batch, index) => {
+            const rowNo = ((page - 1) * pageSize) + index + 1;
             const m = medicines.find(med => String(med.medicineId || med.id) === String(batch.medicineId || batch.medId));
             return (
               <div
@@ -483,6 +476,7 @@ export default function BatchesPage() {
               >
                 <div>
                   <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs font-black text-scms-muted">No. {rowNo}</span>
                     <span className="text-xs font-black text-indigo-600 font-mono">Batch #{batch.batchNo}</span>
                     <span className={`text-[9px] font-black border px-2.5 py-0.5 rounded-full ${
                       String(batch.status).toLowerCase() === "active" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
@@ -590,11 +584,13 @@ export default function BatchesPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block sm:col-span-2">
-                <span className="mb-1 block text-xs font-black text-scms-text">Selected Medicine *</span>
+                <span className="mb-1 block text-xs font-black text-scms-text">
+                  Selected Medicine <span className="scms-required">*</span>
+                </span>
                 <select
                   required
                   disabled={!!editingBatch}
-                  className="select select-bordered h-11 rounded-xl text-sm w-full bg-white border-slate-300"
+                  className="select select-bordered h-11 rounded-xl text-sm w-full bg-white border-slate-300 scms-select-no-arrow"
                   value={form.medId}
                   onChange={(e) => setForm(p => ({ ...p, medId: e.target.value }))}
                 >
@@ -605,7 +601,9 @@ export default function BatchesPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-scms-text">Batch Number *</span>
+                <span className="mb-1 block text-xs font-black text-scms-text">
+                  Batch Number <span className="scms-required">*</span>
+                </span>
                 <input
                   required
                   placeholder="e.g. BATCH-2026A"
@@ -616,7 +614,9 @@ export default function BatchesPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-scms-text">Quantity *</span>
+                <span className="mb-1 block text-xs font-black text-scms-text">
+                  Quantity <span className="scms-required">*</span>
+                </span>
                 <input
                   type="number"
                   required
@@ -629,7 +629,9 @@ export default function BatchesPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-scms-text">Manufacture Date *</span>
+                <span className="mb-1 block text-xs font-black text-scms-text">
+                  Manufacture Date <span className="scms-required">*</span>
+                </span>
                 <DateInput
                   required
                   className="input input-bordered h-11 rounded-xl text-xs w-full font-mono"
@@ -639,7 +641,9 @@ export default function BatchesPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-scms-text">Expiry Date *</span>
+                <span className="mb-1 block text-xs font-black text-scms-text">
+                  Expiry Date <span className="scms-required">*</span>
+                </span>
                 <DateInput
                   required
                   className="input input-bordered h-11 rounded-xl text-xs w-full font-mono text-rose-700"
@@ -761,9 +765,10 @@ export default function BatchesPage() {
 
             <button
               onClick={() => setAlertsOpen(false)}
-              className="scms-btn-outline w-full h-11 shrink-0 font-extrabold text-sm"
+              className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center shrink-0"
+              aria-label="Close Alerts"
             >
-              Close Alerts
+              <X size={18} />
             </button>
           </div>
         </div>

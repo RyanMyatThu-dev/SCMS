@@ -1,30 +1,28 @@
 import { useState, useEffect } from "react";
 import {
   Users,
-  Search,
   Plus,
   RefreshCcw,
   LayoutGrid,
   List,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   Trash2,
   Droplet,
   Download,
-  X,
   User,
   Activity,
   HeartHandshake
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
+import SearchForm from "../components/SearchForm";
 import { patientsApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError, showSuccess, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
 
 export default function PatientsPage() {
   const { t } = useLanguage();
+  const pageSize = 8;
   const [patients, setPatients] = useState([]);
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("table"); // "table" or "card"
@@ -224,86 +222,44 @@ export default function PatientsPage() {
 
       {/* Search & Layout Toggles */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-            <input
-              className="scms-input scms-input-icon w-full pr-36 pl-11"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (e.target.value === "") {
-                  setPage(1);
-                  patientsApi.list({ pageNumber: 1, pageSize: 8 }).then(res => {
-                    if (res) {
-                      setPatients(res.data || []);
-                      if (res.pagination) {
-                        setTotalPages(res.pagination.totalPages || 1);
-                        setTotalCount(res.pagination.totalCount || 0);
-                      }
-                    }
-                  });
+        <SearchForm
+          value={query}
+          onSubmit={handleSearchSubmit}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (e.target.value === "") {
+              setPage(1);
+              patientsApi.list({ pageNumber: 1, pageSize: 8 }).then(res => {
+                if (res) {
+                  setPatients(res.data || []);
+                  if (res.pagination) {
+                    setTotalPages(res.pagination.totalPages || 1);
+                    setTotalCount(res.pagination.totalCount || 0);
+                  }
                 }
-              }}
-              placeholder="Search by name, email, or mobile..."
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  setPage(1);
-                  patientsApi.list({ pageNumber: 1, pageSize: 8 }).then(res => {
-                    if (res) {
-                      setPatients(res.data || []);
-                      if (res.pagination) {
-                        setTotalPages(res.pagination.totalPages || 1);
-                        setTotalCount(res.pagination.totalCount || 0);
-                      }
-                    }
-                  });
-                }}
-                className="absolute right-28 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition"
-              >
-                <X size={16} />
-              </button>
-            )}
-            <button
-              type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0 btn-no-scale"
-            >
-              <Search size={14} />
-              Search
-            </button>
-          </div>
-        </form>
+              });
+            }
+          }}
+          onClear={() => {
+            setQuery("");
+            setPage(1);
+            patientsApi.list({ pageNumber: 1, pageSize: 8 }).then(res => {
+              if (res) {
+                setPatients(res.data || []);
+                if (res.pagination) {
+                  setTotalPages(res.pagination.totalPages || 1);
+                  setTotalCount(res.pagination.totalCount || 0);
+                }
+              }
+            });
+          }}
+          clearable
+          placeholder="Search by name, email, or mobile..."
+          submitLabel={t.search}
+          className="w-full max-w-2xl flex-1"
+        />
 
         <div className="flex items-center gap-4">
-          {/* Top-Level Compact Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-scms-border p-1 rounded-xl">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1 || loading}
-                className="btn btn-xs btn-ghost p-1 h-7 w-7 rounded-lg text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:pointer-events-none"
-                title="Previous page"
-              >
-                <ChevronLeft size={15} />
-              </button>
-              <span className="text-xs font-black text-scms-text px-1">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages || loading}
-                className="btn btn-xs btn-ghost p-1 h-7 w-7 rounded-lg text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:pointer-events-none"
-                title="Next page"
-              >
-                <ChevronRight size={15} />
-              </button>
-            </div>
-          )}
-
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
             <button
               onClick={() => setViewMode("table")}
@@ -340,6 +296,7 @@ export default function PatientsPage() {
             <table className="table table-zebra w-full">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Patient No.</th>
                   <th>Patient Name</th>
                   <th>Age (Yrs)</th>
@@ -350,12 +307,15 @@ export default function PatientsPage() {
                 </tr>
               </thead>
               <tbody>
-                {patients.map((p) => (
+                {patients.map((p, index) => {
+                  const rowNo = ((page - 1) * pageSize) + index + 1;
+                  return (
                   <tr
                     key={p.patientId || p.id}
                     onClick={() => openDetail(p)}
                     className="hover:bg-slate-50/70 cursor-pointer transition"
                   >
+                    <td className="font-black text-xs text-scms-muted">{rowNo}</td>
                     <td className="font-mono text-xs text-scms-primary font-bold">
                       {formatPatientNo(p.patientId || p.id)}
                     </td>
@@ -407,7 +367,8 @@ export default function PatientsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -415,7 +376,9 @@ export default function PatientsPage() {
       ) : (
         /* CARD VIEW */
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {patients.map((p) => (
+          {patients.map((p, index) => {
+            const rowNo = ((page - 1) * pageSize) + index + 1;
+            return (
             <div
               key={p.patientId || p.id}
               onClick={() => openDetail(p)}
@@ -428,6 +391,7 @@ export default function PatientsPage() {
                   </div>
                   <div className="truncate">
                     <h4 className="font-black text-scms-text truncate text-sm">{p.name}</h4>
+                    <span className="text-[11px] font-black text-scms-muted">No. {rowNo}</span>
                     <span className="text-xs font-black text-scms-primary font-mono">{formatPatientNo(p.patientId || p.id)}</span>
                     <span className="block text-[11px] font-semibold text-scms-muted mt-0.5">{calculateAge(p.dateOfBirth)} Years Old</span>
                   </div>
@@ -479,7 +443,8 @@ export default function PatientsPage() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -770,9 +735,9 @@ export default function PatientsPage() {
               </button>
               <button
                 onClick={() => setDetailOpen(false)}
-                className="scms-btn-outline h-10 text-xs font-black"
+                className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center"
               >
-                Close View
+                <X size={16} />
               </button>
             </div>
           </div>

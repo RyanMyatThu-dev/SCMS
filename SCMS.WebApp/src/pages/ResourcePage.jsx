@@ -1,8 +1,9 @@
-import { Download, Edit, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { Download, Edit, Plus, RefreshCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "../components/DataTable";
 import PageHeader from "../components/PageHeader";
 import RecordModal from "../components/RecordModal";
+import SearchForm from "../components/SearchForm";
 import { useLanguage } from "../context/LanguageContext";
 import { downloadBlob } from "../services/scmsApi";
 import { showAlert, showConfirm, showError } from "../services/dialogs";
@@ -151,15 +152,19 @@ export default function ResourcePage({ config }) {
       />
 
       <div className="scms-card p-4">
-        <label className="relative block max-w-xl">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-          <input className="scms-input scms-input-icon w-full" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} />
-        </label>
+        <SearchForm
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t.search}
+          showButton={false}
+          className="w-full max-w-2xl"
+        />
       </div>
 
       <DataTable
         rows={visibleRows}
         columns={config.columns}
+        showIndex
         loading={loading}
         actions={(row) => (
           <div className="flex justify-end gap-2">

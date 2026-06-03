@@ -1,10 +1,9 @@
 import {
-  Activity,
-  ArrowLeft,
   BarChart3,
   Bell,
   CalendarDays,
   CreditCard,
+  Activity,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -19,7 +18,6 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
-import { BrandLogoIcon } from "./BrandLogo";
 
 const navItems = [
   { to: "/app/dashboard", key: "dashboard", icon: LayoutDashboard },
@@ -60,16 +58,15 @@ export default function AppShell() {
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-[84px]" : "lg:w-[268px]"}`}
       >
-        <div className={`mb-5 flex items-start justify-between gap-3 rounded-2xl bg-scms-primary text-white transition-all ${collapsed ? "p-2" : "p-4"}`}>
-          <div className="flex gap-3 items-center">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white shrink-0 shadow-sm">
-              <BrandLogoIcon size={26} />
-            </div>
-            {!collapsed && (
+        <div className={`mb-5 rounded-2xl bg-scms-primary text-white transition-all ${collapsed ? "p-2 justify-center" : "p-4"} flex`}>
+          <div className={`flex items-center ${collapsed ? "justify-center w-full" : "items-center gap-3"}`}>
+            {!collapsed ? (
               <div className="animate-fadeIn">
                 <div className="text-lg font-black">{t.appName}</div>
                 <div className="text-xs font-semibold text-white/80 leading-none mt-0.5">{t.appSubtitle}</div>
               </div>
+            ) : (
+              <span className="text-xs font-black tracking-[0.18em] text-white/90">SCMS</span>
             )}
           </div>
           <button className="btn btn-ghost btn-sm btn-square text-white lg:hidden" onClick={() => setOpen(false)} aria-label="Close">
@@ -122,9 +119,6 @@ export default function AppShell() {
               </button>
               <button className="btn btn-ghost btn-square hidden lg:flex rounded-xl" onClick={() => setCollapsed(!collapsed)} aria-label="Toggle Sidebar">
                 <Menu size={20} />
-              </button>
-              <button className="btn btn-ghost btn-sm btn-square rounded-xl text-scms-muted hover:text-scms-text hover:bg-slate-50" onClick={() => navigate(-1)} aria-label="Go Back">
-                <ArrowLeft size={20} />
               </button>
             </div>
             

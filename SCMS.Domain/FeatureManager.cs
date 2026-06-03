@@ -81,7 +81,12 @@ namespace SCMS.Domain
 
         public static async Task EnsureScmsDatabaseCreatedAsync(this IServiceProvider services, IConfiguration configuration, ILogger logger)
         {
-            if (!IsSqliteProvider(configuration) || configuration.GetValue("Database:EnsureCreated", true) == false)
+            if (!ShouldInitializeDatabase(configuration))
+            {
+                return;
+            }
+
+            if (configuration.GetValue("Database:EnsureCreated", true) == false)
             {
                 return;
             }
@@ -89,10 +94,14 @@ namespace SCMS.Domain
             using var scope = services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await context.Database.EnsureCreatedAsync();
-            await EnsureSqliteSchemaCompatibilityAsync(context, logger);
+            if (IsSqliteProvider(configuration))
+            {
+                await EnsureSqliteSchemaCompatibilityAsync(context, logger);
+            }
+
             await SqliteRealWorldSeeder.SeedAsync(context, configuration);
             await SeedSqliteDemoUsersAsync(context, configuration);
-            logger.LogInformation("SQLite database is ready.");
+            logger.LogInformation("Database initialization completed.");
         }
 
         private static async Task EnsureSqliteSchemaCompatibilityAsync(AppDbContext context, ILogger logger)
@@ -260,6 +269,13 @@ namespace SCMS.Domain
 
         private static void ConfigureDatabaseProvider(DbContextOptionsBuilder options, IConfiguration configuration)
         {
+            if (IsInMemoryProvider(configuration))
+            {
+                var databaseName = configuration.GetValue<string>("Database:InMemoryDatabaseName") ?? "ScmsMemoryDb";
+                options.UseInMemoryDatabase(databaseName);
+                return;
+            }
+
             if (IsSqliteProvider(configuration))
             {
                 var connectionString = GetConnectionString(configuration, "SqliteConnection", "Data Source=scms.local.db");
@@ -274,7 +290,7 @@ namespace SCMS.Domain
                 return;
             }
 
-            throw new InvalidOperationException("Unsupported Database:Provider. Use 'Sqlite' or 'PostgreSql'.");
+            throw new InvalidOperationException("Unsupported Database:Provider. Use 'InMemory', 'Sqlite' or 'PostgreSql'.");
         }
 
         private static string GetConnectionString(IConfiguration configuration, string namedConnection, string? fallback)
@@ -293,18 +309,34 @@ namespace SCMS.Domain
 
         private static bool IsSqliteProvider(IConfiguration configuration)
         {
-            var provider = configuration["Database:Provider"] ?? "Sqlite";
+            var provider = GetDatabaseProvider(configuration);
             return string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(provider, "SQLite", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsPostgreSqlProvider(IConfiguration configuration)
         {
-            var provider = configuration["Database:Provider"] ?? "Sqlite";
+            var provider = GetDatabaseProvider(configuration);
             return string.Equals(provider, "PostgreSql", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(provider, "PostgreSQL", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(provider, "Postgres", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(provider, "Npgsql", StringComparison.OrdinalIgnoreCase);
         }
+
+        private static bool IsInMemoryProvider(IConfiguration configuration)
+        {
+            var provider = GetDatabaseProvider(configuration);
+            return string.Equals(provider, "InMemory", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(provider, "Memory", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(provider, "MemoryDb", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool ShouldInitializeDatabase(IConfiguration configuration)
+        {
+            return IsInMemoryProvider(configuration) || IsSqliteProvider(configuration);
+        }
+
+        private static string GetDatabaseProvider(IConfiguration configuration)
+            => configuration["Database:Provider"] ?? "InMemory";
     }
 }
