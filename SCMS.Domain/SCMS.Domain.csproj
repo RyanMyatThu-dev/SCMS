@@ -11,13 +11,13 @@
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 
 	</ItemGroup>
-	
+
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\SCMS.Shared\SCMS.Shared.csproj" />
     <ProjectReference Include="..\SCMS.Database\SCMS.Database.csproj" />
   </ItemGroup>
-	
+
   <ItemGroup>
     <Folder Include="Features\Photo\" />
   </ItemGroup>
