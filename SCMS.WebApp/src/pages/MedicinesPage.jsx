@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Pill,
-  Search,
   Plus,
   RefreshCcw,
   LayoutGrid,
@@ -9,15 +8,15 @@ import {
   ShieldAlert,
   Edit,
   Trash2,
-  Image as ImageIcon,
-  Folder,
   Layers,
+  Upload,
   Sparkles,
   AlertTriangle,
   X
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
+import SearchForm from "../components/SearchForm";
 import { medicinesApi } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -34,6 +33,7 @@ const toArray = (data) => {
 export default function MedicinesPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const pageSize = 10;
   
   const [medicines, setMedicines] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -234,31 +234,20 @@ export default function MedicinesPage() {
 
       {/* Advanced Filters */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-            <input
-              className="scms-input scms-input-icon w-full pr-28"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search medicine catalog..."
-            />
-            <button
-              type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0"
-            >
-              <Search size={14} />
-              Search
-            </button>
-          </div>
-        </form>
+        <SearchForm
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search medicine catalog..."
+          submitLabel={t.search}
+          className="w-full max-w-2xl flex-1"
+        />
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Category Filter */}
           <div className="relative w-full sm:w-56">
-            <Folder className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <select
-              className="select select-bordered h-11 pl-10 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
+              className="select select-bordered h-11 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
               value={selectedCategoryId}
               onChange={(e) => { setSelectedCategoryId(e.target.value); setPage(1); }}
             >
@@ -305,6 +294,7 @@ export default function MedicinesPage() {
             <table className="table table-zebra w-full">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Visual</th>
                   <th>Medicine Name</th>
                   <th>Category</th>
@@ -315,10 +305,12 @@ export default function MedicinesPage() {
                 </tr>
               </thead>
               <tbody>
-                {medicines.map((med) => {
+                {medicines.map((med, index) => {
+                  const rowNo = ((page - 1) * pageSize) + index + 1;
                   const hasAlert = med.hasLowStockWarning || med.hasNearExpiryWarning;
                   return (
                     <tr key={med.medicineId || med.id} className="hover:bg-slate-50/70 transition">
+                      <td className="font-black text-xs text-scms-muted">{rowNo}</td>
                       <td>
                         <div className="relative group w-12 h-12 shrink-0 cursor-zoom-in">
                           {/* Small thumbnail wrapper that clips scale-up */}
@@ -410,7 +402,8 @@ export default function MedicinesPage() {
       ) : (
         /* GRID CARDS VIEW */
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {medicines.map((med) => {
+          {medicines.map((med, index) => {
+            const rowNo = ((page - 1) * pageSize) + index + 1;
             const hasAlert = med.hasLowStockWarning || med.hasNearExpiryWarning;
             return (
               <div
@@ -419,6 +412,7 @@ export default function MedicinesPage() {
               >
                 <div>
                   <div className="flex gap-4">
+                    <span className="text-[10px] font-black text-scms-muted">No. {rowNo}</span>
                     {/* Zoomable Image Container */}
                     <div className="relative group w-20 h-20 shrink-0 cursor-zoom-in">
                       {/* Small thumbnail wrapper that clips scale-up */}
@@ -543,7 +537,9 @@ export default function MedicinesPage() {
 
             <div className="space-y-4">
               <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">Medicine Name *</span>
+                <span className="mb-2 block text-xs font-black text-scms-text">
+                  Medicine Name <span className="scms-required">*</span>
+                </span>
                 <input
                   required
                   placeholder="e.g. Paracetamol 500mg"
@@ -554,7 +550,9 @@ export default function MedicinesPage() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">Unit Price (MMK) *</span>
+                <span className="mb-2 block text-xs font-black text-scms-text">
+                  Unit Price (MMK) <span className="scms-required">*</span>
+                </span>
                 <input
                   type="number"
                   required
@@ -593,11 +591,22 @@ export default function MedicinesPage() {
               <label className="block">
                 <span className="mb-2 block text-xs font-black text-scms-text">Upload Medicine Image</span>
                 <input
+                  id="medicine-image-upload"
                   type="file"
                   accept="image/*"
                   onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                  className="file-input file-input-bordered rounded-xl w-full text-xs h-11 bg-white border-slate-300"
+                  className="hidden"
                 />
+                <label
+                  htmlFor="medicine-image-upload"
+                  className="scms-btn-outline h-11 flex items-center justify-center gap-2"
+                >
+                  <Upload size={16} />
+                  Attach Image
+                  {imageFile && (
+                    <span className="ml-auto max-w-[170px] truncate text-left text-scms-muted">{imageFile.name}</span>
+                  )}
+                </label>
               </label>
             </div>
 

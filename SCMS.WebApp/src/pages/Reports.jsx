@@ -221,6 +221,7 @@ export default function Reports() {
             <table className="table table-zebra w-full font-sans">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Report Metric / Record Key</th>
                   <th>Aggregated Value / Summary</th>
                   <th className="text-right">Actions</th>
@@ -238,11 +239,12 @@ export default function Reports() {
                     <tr
                       key={index}
                       onClick={() => openPreview(row)}
-                      className="hover:bg-slate-50/70 cursor-pointer transition text-xs"
-                    >
-                      <td className="font-extrabold text-scms-text">
+                    className="hover:bg-slate-50/70 cursor-pointer transition text-xs"
+                  >
+                      <td className="font-black text-xs text-scms-muted">{index + 1}</td>
+                    <td className="font-extrabold text-scms-text">
                         {formatDate(metric)}
-                      </td>
+                    </td>
                       <td className="font-semibold text-scms-muted max-w-sm truncate">
                         {typeof val === "object" ? "JSON details" : formatDate(val)}
                       </td>
@@ -324,9 +326,10 @@ export default function Reports() {
               </button>
               <button
                 onClick={() => setPreviewOpen(false)}
-                className="scms-btn-outline h-10 text-xs font-black"
+                className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center"
+                aria-label="Close Preview"
               >
-                Close Preview
+                <X size={16} />
               </button>
             </div>
           </div>

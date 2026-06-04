@@ -6,7 +6,15 @@ const getValue = (row, key) => {
   return key.split(".").reduce((value, part) => value?.[part], row);
 };
 
-export default function DataTable({ columns, rows, actions, loading, onRowClick }) {
+export default function DataTable({
+  columns,
+  rows,
+  actions,
+  loading,
+  onRowClick,
+  showIndex = false,
+  indexOffset = 0,
+}) {
   if (loading) {
     return (
       <div className="scms-card p-5">
@@ -27,10 +35,11 @@ export default function DataTable({ columns, rows, actions, loading, onRowClick 
       <div className="overflow-x-auto">
         <table className="table table-zebra">
           <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
-            <tr>
-              {columns.map((column) => (
-                <th key={column.label}>{column.label}</th>
-              ))}
+                <tr>
+                  {showIndex && <th>No.</th>}
+                  {columns.map((column) => (
+                    <th key={column.label}>{column.label}</th>
+                  ))}
               {actions && <th className="text-right">Actions</th>}
             </tr>
           </thead>
@@ -41,6 +50,11 @@ export default function DataTable({ columns, rows, actions, loading, onRowClick 
                 onClick={() => onRowClick && onRowClick(row)}
                 className={onRowClick ? "cursor-pointer hover:bg-slate-50 transition-colors" : ""}
               >
+                {showIndex && (
+                  <td className="text-sm font-black text-scms-muted">
+                    {indexOffset + index + 1}
+                  </td>
+                )}
                 {columns.map((column) => {
                   const value = getValue(row, column.key);
                   return (

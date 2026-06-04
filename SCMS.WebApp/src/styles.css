@@ -63,9 +63,67 @@ textarea {
   line-height: 1.5 !important;
 }
 
-/* Disable active scaling on search buttons to prevent one-tap delays or bouncing targets */
-.btn-no-scale:active {
-  transform: translateY(-50%) scale(1) !important;
+/* Standardize button sizes and remove jitter-like transforms/offsets */
+.btn {
+  @apply rounded-xl h-11 min-h-11;
+}
+
+.btn:active,
+.btn:focus:active {
+  transform: translateY(0) scale(1) !important;
+}
+
+.btn,
+.btn:hover,
+.btn:active,
+.btn:focus-visible,
+.btn:focus,
+.btn.btn-sm,
+.btn.btn-xs {
+  height: 2.75rem !important;
+  min-height: 2.75rem !important;
+  min-width: auto;
+  transform: translateY(0) scale(1) !important;
+}
+
+.btn:hover {
+  transition: transform 0.15s ease;
+}
+
+.scms-search-input {
+  @apply scms-input;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  border-style: solid !important;
+}
+
+.scms-search-input,
+.scms-search-input:focus,
+.scms-search-input:focus-visible {
+  outline: none;
+  box-shadow: none !important;
+  border-style: solid !important;
+}
+
+.scms-search-action,
+.scms-search-action:hover,
+.scms-search-action:focus,
+.scms-search-action:focus-visible,
+.scms-search-action:active {
+  height: 3rem !important;
+  min-height: 3rem !important;
+}
+
+.scms-select-no-arrow {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+}
+
+.scms-required {
+  color: #ef4444;
 }
 
 /* Disable spin-buttons globally for number inputs to prevent overlapping/distorting toggles */
@@ -76,6 +134,12 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+.scms-input:focus,
+.scms-select:focus,
+.scms-textarea:focus {
+  outline: none;
 }
 
 .scms-card {

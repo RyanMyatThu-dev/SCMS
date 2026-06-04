@@ -66,8 +66,11 @@ export default function RecordModal({ title, fields, form, onChange, onClose, on
           </div>
         </form>
       </div>
-      <button className="modal-backdrop bg-[rgba(15,23,42,0.45)]" onClick={onClose}>
-        {t.close}
+      <button
+        className="modal-backdrop bg-[rgba(15,23,42,0.45)]"
+        aria-label={t.close}
+        onClick={onClose}
+      >
       </button>
     </div>
   );

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Activity,
-  Search,
   Plus,
   RefreshCcw,
   LayoutGrid,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
+import SearchForm from "../components/SearchForm";
 import { diseasesApi, prescriptionsApi, medicinesApi } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -31,6 +31,7 @@ const toArray = (data) => {
 
 export default function DiseasesPage() {
   const { t } = useLanguage();
+  const pageSize = 10;
 
   const [diseases, setDiseases] = useState([]);
   const [medicines, setMedicines] = useState([]);
@@ -289,24 +290,14 @@ export default function DiseasesPage() {
 
       {/* Advanced Filters */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-            <input
-              className="scms-input scms-input-icon w-full pr-28"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search diseases catalog..."
-            />
-            <button
-              type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0"
-            >
-              <Search size={14} />
-              Search
-            </button>
-          </div>
-        </form>
+        <SearchForm
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search diseases catalog..."
+          submitLabel={t.search}
+          className="w-full max-w-2xl flex-1"
+        />
 
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
           <button
@@ -343,18 +334,22 @@ export default function DiseasesPage() {
             <table className="table table-zebra w-full font-sans">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Disease Name</th>
                   <th>Clinical Description</th>
                   <th className="text-right">Templates & Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {diseases.map((d) => (
+                {diseases.map((d, index) => {
+                  const rowNo = ((page - 1) * pageSize) + index + 1;
+                  return (
                   <tr
                     key={d.diseaseId || d.id}
                     onClick={() => handleOpenTemplates(d)}
                     className="hover:bg-slate-50/70 cursor-pointer transition"
                   >
+                    <td className="font-black text-xs text-scms-muted">{rowNo}</td>
                     <td className="font-extrabold text-scms-text text-sm">
                       {d.name || d.diseaseName}
                     </td>
@@ -386,7 +381,8 @@ export default function DiseasesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -394,7 +390,9 @@ export default function DiseasesPage() {
       ) : (
         /* GRID CARDS VIEW */
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {diseases.map((d) => (
+          {diseases.map((d, index) => {
+            const rowNo = ((page - 1) * pageSize) + index + 1;
+            return (
             <div
               key={d.diseaseId || d.id}
               onClick={() => handleOpenTemplates(d)}
@@ -404,6 +402,7 @@ export default function DiseasesPage() {
                 <div className="grid h-10 w-10 place-items-center bg-scms-primaryLight text-scms-primary rounded-2xl">
                   <Activity size={20} />
                 </div>
+                <span className="mt-2 inline-block text-[10px] font-black text-scms-muted">No. {rowNo}</span>
                 <h4 className="font-black text-scms-text text-md mt-4">{d.name || d.diseaseName}</h4>
                 <p className="text-xs text-scms-muted line-clamp-3 mt-2 font-medium leading-relaxed">
                   {d.description || "No clinical description available for this catalog entry."}
@@ -435,7 +434,8 @@ export default function DiseasesPage() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 
@@ -471,7 +471,9 @@ export default function DiseasesPage() {
 
             <div className="space-y-4">
               <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">Disease/Diagnosis Name *</span>
+                <span className="mb-2 block text-xs font-black text-scms-text">
+                  Disease/Diagnosis Name <span className="scms-required">*</span>
+                </span>
                 <input
                   required
                   placeholder="e.g. Essential Hypertension"
@@ -581,7 +583,9 @@ export default function DiseasesPage() {
                   </h4>
 
                   <label className="block">
-                    <span className="mb-2 block text-xs font-black text-slate-600">Template Name *</span>
+                    <span className="mb-2 block text-xs font-black text-slate-600">
+                      Template Name <span className="scms-required">*</span>
+                    </span>
                     <input
                       required
                       placeholder="e.g. Standard 5-day Hypertension block"
@@ -597,9 +601,11 @@ export default function DiseasesPage() {
                     
                     <div className="grid gap-3 sm:grid-cols-2 text-xs">
                       <label className="block sm:col-span-2">
-                        <span className="mb-1 block font-bold text-slate-500">Medicine *</span>
+                        <span className="mb-1 block font-bold text-slate-500">
+                          Medicine <span className="scms-required">*</span>
+                        </span>
                         <select
-                          className="select select-bordered h-9 rounded-lg text-xs w-full bg-white border-slate-300"
+                          className="select select-bordered h-9 rounded-lg text-xs w-full bg-white border-slate-300 scms-select-no-arrow"
                           value={selectedMedicineId}
                           onChange={(e) => setSelectedMedicineId(e.target.value)}
                         >
@@ -638,7 +644,9 @@ export default function DiseasesPage() {
                       </label>
 
                       <label className="block">
-                        <span className="mb-1 block font-bold text-slate-500">Days *</span>
+                        <span className="mb-1 block font-bold text-slate-500">
+                          Days <span className="scms-required">*</span>
+                        </span>
                         <input
                           type="number"
                           min="1"
@@ -653,7 +661,9 @@ export default function DiseasesPage() {
                       </label>
 
                       <label className="block">
-                        <span className="mb-1 block font-bold text-slate-500">Quantity *</span>
+                        <span className="mb-1 block font-bold text-slate-500">
+                          Quantity <span className="scms-required">*</span>
+                        </span>
                         <input
                           type="number"
                           min="1"
@@ -727,9 +737,10 @@ export default function DiseasesPage() {
               <button
                 type="button"
                 onClick={() => setTemplateDrawerOpen(false)}
-                className="scms-btn-outline px-6 h-10 text-xs font-black"
+                className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center"
+                aria-label="Close Template Workspace"
               >
-                Close Workspace
+                <X size={16} />
               </button>
             </div>
 

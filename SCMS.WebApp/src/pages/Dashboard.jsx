@@ -26,6 +26,7 @@ const getLocalDateStr = (dateObj) => {
 export default function Dashboard() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const pageSize = 5;
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     todayPatients: 0,
@@ -185,6 +186,8 @@ export default function Dashboard() {
           <DataTable
             loading={loading}
             rows={appointments}
+            showIndex
+            indexOffset={(page - 1) * pageSize}
             onRowClick={(row) => {
               setSelectedAppt(row);
               setDetailOpen(true);
@@ -255,6 +258,7 @@ export default function Dashboard() {
 
                 return (
                   <div key={alert.id || index} className={`p-4 rounded-2xl border transition ${cardBg} space-y-2`}>
+                    <span className="text-[10px] font-black text-slate-500">No. {index + 1}</span>
                     <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                       <span className={`text-[10px] font-black border px-2 py-0.5 rounded-full uppercase ${badgeStyle}`}>
                         {alert.alertType || "Alert"}

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   FileText,
-  Search,
   RefreshCcw,
   LayoutGrid,
   List,
@@ -18,6 +17,7 @@ import {
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
 import PaginationControls from "../components/PaginationControls";
+import SearchForm from "../components/SearchForm";
 import { prescriptionsApi, patientsApi, diseasesApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -33,6 +33,7 @@ const toArray = (data) => {
 
 export default function PrescriptionsPage() {
   const { t } = useLanguage();
+  const pageSize = 10;
 
   const [prescriptions, setPrescriptions] = useState([]);
   const [diseases, setDiseases] = useState([]);
@@ -158,24 +159,14 @@ export default function PrescriptionsPage() {
 
       {/* Advanced Filters */}
       <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-            <input
-              className="scms-input scms-input-icon w-full pr-28"
-              value={patientSearch}
-              onChange={(e) => setPatientSearch(e.target.value)}
-              placeholder="Search by patient name..."
-            />
-            <button
-              type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0"
-            >
-              <Search size={14} />
-              Search
-            </button>
-          </div>
-        </form>
+        <SearchForm
+          value={patientSearch}
+          onChange={(e) => setPatientSearch(e.target.value)}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search by patient name..."
+          submitLabel={t.search}
+          className="w-full max-w-2xl flex-1"
+        />
 
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           {/* Disease filter */}
@@ -239,6 +230,7 @@ export default function PrescriptionsPage() {
             <table className="table table-zebra w-full font-sans">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Prescription Code</th>
                   <th>Patient Name</th>
                   <th>Diagnosed Disease</th>
@@ -248,12 +240,15 @@ export default function PrescriptionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {prescriptions.map((rx) => (
+                {prescriptions.map((rx, index) => {
+                  const rowNo = ((page - 1) * pageSize) + index + 1;
+                  return (
                   <tr
                     key={rx.id || rx.prescriptionId}
                     onClick={() => openDetail(rx)}
                     className="hover:bg-slate-50/70 cursor-pointer transition"
                   >
+                    <td className="font-black text-xs text-scms-muted">{rowNo}</td>
                     <td className="font-extrabold text-scms-primary font-mono text-sm">
                       RX-{rx.id || rx.prescriptionId}
                     </td>
@@ -291,7 +286,8 @@ export default function PrescriptionsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -299,7 +295,9 @@ export default function PrescriptionsPage() {
       ) : (
         /* GRID CARDS VIEW */
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {prescriptions.map((rx) => (
+          {prescriptions.map((rx, index) => {
+            const rowNo = ((page - 1) * pageSize) + index + 1;
+            return (
             <div
               key={rx.id || rx.prescriptionId}
               onClick={() => openDetail(rx)}
@@ -307,6 +305,7 @@ export default function PrescriptionsPage() {
             >
               <div>
                 <div className="flex justify-between items-center gap-2">
+                  <span className="text-xs font-black text-scms-muted">No. {rowNo}</span>
                   <span className="text-xs font-black text-indigo-600 font-mono">RX-{rx.id || rx.prescriptionId}</span>
                   <span className="text-[10px] text-scms-muted font-bold flex items-center gap-1">
                     <Calendar size={12} />
@@ -358,7 +357,8 @@ export default function PrescriptionsPage() {
                 </button>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 
@@ -484,9 +484,9 @@ export default function PrescriptionsPage() {
                 </button>
                 <button
                   onClick={() => setDetailOpen(false)}
-                  className="scms-btn-outline h-10 text-xs font-black"
+                  className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center"
                 >
-                  Close View
+                  <X size={16} />
                 </button>
               </div>
             </div>

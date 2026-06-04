@@ -113,6 +113,8 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
+
 
 
 app.UseExceptionHandler(errorApp =>

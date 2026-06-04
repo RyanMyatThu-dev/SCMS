@@ -1,6 +1,10 @@
 import axios from "axios";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7072/api";
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL || "https://localhost:7072/";
+const baseWithoutTrailingSlash = configuredApiBase.replace(/\/+$/, "");
+export const API_BASE_URL = baseWithoutTrailingSlash.endsWith("/api")
+  ? baseWithoutTrailingSlash
+  : `${baseWithoutTrailingSlash}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

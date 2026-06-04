@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
 import {
   CreditCard,
-  Search,
   RefreshCcw,
   LayoutGrid,
   List,
-  ChevronLeft,
-  ChevronRight,
   Download,
   CheckCircle,
   FileText,
@@ -19,6 +16,7 @@ import {
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
+import SearchForm from "../components/SearchForm";
 import { paymentsApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -33,6 +31,7 @@ const toArray = (data) => {
 
 export default function PaymentsPage() {
   const { t } = useLanguage();
+  const pageSize = 10;
 
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -162,24 +161,14 @@ export default function PaymentsPage() {
 
       {/* Advanced Filters */}
       <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full max-w-xl">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-scms-muted" size={18} />
-            <input
-              className="scms-input scms-input-icon w-full pr-28"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by patient name or appointment code..."
-            />
-            <button
-              type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white rounded-lg h-9 font-extrabold px-4 flex items-center gap-1.5 border-0"
-            >
-              <Search size={14} />
-              Search
-            </button>
-          </div>
-        </form>
+        <SearchForm
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search by patient name or appointment code..."
+          submitLabel={t.search}
+          className="w-full max-w-2xl flex-1"
+        />
 
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           {/* Status dropdown */}
@@ -243,6 +232,7 @@ export default function PaymentsPage() {
             <table className="table table-zebra w-full font-sans">
               <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
                 <tr>
+                  <th>No.</th>
                   <th>Invoice ID</th>
                   <th>Patient Name</th>
                   <th>Appointment</th>
@@ -253,16 +243,18 @@ export default function PaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => {
+                {payments.map((p, index) => {
                   const pId = p.id || p.paymentId;
                   const status = p.paymentStatus || p.status;
                   const isPending = String(status).toLowerCase() === "pending";
+                  const rowNo = ((page - 1) * pageSize) + index + 1;
                   return (
                     <tr
                       key={pId}
                       onClick={() => openDetail(p)}
                       className="hover:bg-slate-50/70 cursor-pointer transition"
                     >
+                      <td className="font-black text-xs text-scms-muted">{rowNo}</td>
                       <td className="font-extrabold text-mono text-scms-primary text-sm">
                         INV-{pId}
                       </td>
@@ -315,10 +307,11 @@ export default function PaymentsPage() {
       ) : (
         /* GRID CARDS VIEW */
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {payments.map((p) => {
+          {payments.map((p, index) => {
             const pId = p.id || p.paymentId;
             const status = p.paymentStatus || p.status;
             const isPending = String(status).toLowerCase() === "pending";
+            const rowNo = ((page - 1) * pageSize) + index + 1;
             return (
               <div
                 key={pId}
@@ -327,6 +320,7 @@ export default function PaymentsPage() {
               >
                 <div>
                   <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs font-black text-scms-muted">No. {rowNo}</span>
                     <span className="text-xs font-black text-indigo-600 font-mono">INV-{pId}</span>
                     <span className={`text-[9px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(status)}`}>
                       {String(status).toUpperCase()}
@@ -510,9 +504,10 @@ export default function PaymentsPage() {
               </button>
               <button
                 onClick={() => setDetailOpen(false)}
-                className="scms-btn-outline h-10 text-xs font-black animate-scaleIn"
+                className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center animate-scaleIn"
+                aria-label="Close Invoice"
               >
-                Close Invoice
+                <X size={16} />
               </button>
             </div>
           </div>
