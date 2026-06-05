@@ -70,7 +70,7 @@ builder.Services
                 ClockSkew = TimeSpan.FromMinutes(1)
             };
 
-       
+
 
         options.Events = new JwtBearerEvents
         {
@@ -134,15 +134,6 @@ app.UseExceptionHandler(errorApp =>
         );
     });
 });
-
-
-
-//using (var scope = app.Services.CreateScope())
-//{
-//    var seeder = scope.ServiceProvider.GetRequiredService<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
-//    await seeder.Seed1YearDataAsync();
-//}
-
 
 
 app.UseHttpsRedirection();
