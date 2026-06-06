@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
 using SCMS.Domain;
 using SCMS.Domain.Realtime;
@@ -99,7 +100,33 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 
 
@@ -110,7 +137,10 @@ if (app.Environment.IsDevelopment())
 {
     app.MapSwagger("/openapi/{documentName}.json");
 
-    app.MapScalarApiReference();
+    app.MapScalarApiReference(options =>
+    {
+        options.AddPreferredSecuritySchemes(new[] { "Bearer" });
+    });
 }
 
 await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);

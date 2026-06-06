@@ -210,7 +210,7 @@ namespace SCMS.Domain.Features.Prescriptions
                     // Warn if batch is nearing expiry (within 30 days)
                     if (batch.ExpiryDate <= today.AddDays(30))
                     {
-                        warnings.Add($"[EXPIRY WARNING] Batch '{batch.BatchNo}' of '{med.Name}' is nearing expiry ({batch.ExpiryDate:yyyy-MM-dd}).");
+                        warnings.Add($"[EXPIRY WARNING] Batch '{batch.BatchNo}' of '{med.Name}' is nearing expiry ({batch.ExpiryDate.ToString(Common.FormatHelper.DateFormat)}).");
                     }
 
                     var pItem = new TblPrescriptionItem

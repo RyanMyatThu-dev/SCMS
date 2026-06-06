@@ -152,7 +152,7 @@ namespace SCMS.Domain.Features.Dashboards
 
             var expiringBatches = activeBatches
                 .Where(b => b.ExpiryDate <= thirtyDaysFromNow && b.ExpiryDate > today)
-                .Select(b => $"{b.Med?.Name ?? "Unknown"} Batch {b.BatchNo} (Expires: {b.ExpiryDate:yyyy-MM-dd})")
+                .Select(b => $"{b.Med?.Name ?? "Unknown"} Batch {b.BatchNo} (Expires: {b.ExpiryDate.ToString(Common.FormatHelper.DateFormat)})")
                 .ToList();
 
             return (lowStockMeds, expiringBatches);

@@ -19,6 +19,11 @@ namespace SCMS.Domain.Features.Documents
         private const string ClinicContact = "";
         private const string Confidential = "This document is confidential and intended for the named recipient only.";
 
+        // ── Formatting constants ───────────────────────────────────────
+        private static readonly string DateFormat = Common.FormatHelper.DateFormat;
+        private static readonly string DateTimeFormat = DateFormat + " HH:mm";
+        private static readonly string DayDateFormat = "dddd, " + DateFormat;
+
         // ── Page geometry ──────────────────────────────────────────────
         private const float PageW = 595f;
         private const float PageH = 842f;
@@ -65,7 +70,7 @@ namespace SCMS.Domain.Features.Documents
             y = DrawClinicHeader(b, y, "MEDICAL SUMMARY");
 
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {DateTime.UtcNow:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {DateTime.UtcNow.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Personal Info ──────────────────────────────────────────
@@ -73,7 +78,7 @@ namespace SCMS.Domain.Features.Documents
             var infoRows = new List<string[]>
             {
                 new[] { "Full Name", s.PatientName },
-                new[] { "Date of Birth", s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("dd-MM-yyyy") : "-" },
+                new[] { "Date of Birth", s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString(DateFormat) : "-" },
                 new[] { "Gender", s.Gender ?? "Not Specified" },
                 new[] { "Blood Type", s.BloodType ?? "Not Specified" }
             };
@@ -99,7 +104,7 @@ namespace SCMS.Domain.Features.Documents
             var vitalsWidths = new[] { 90f, 60f, 65f, 55f, 55f, 50f, 55f, ContentW - 430f };
             var vitalsRows = s.VitalsHistory.Select(v => new[]
             {
-                v.Date.ToString("dd-MM-yyyy HH:mm"),
+                v.Date.ToString(DateTimeFormat),
                 v.WeightKg?.ToString("F1") ?? "-",
                 v.BloodPressureSystolic.HasValue && v.BloodPressureDiastolic.HasValue
                     ? $"{v.BloodPressureSystolic}/{v.BloodPressureDiastolic}" : "-",
@@ -124,7 +129,7 @@ namespace SCMS.Domain.Features.Documents
             var rxRows = s.ActivePrescriptions.Select(rx => new[]
             {
                 $"RX-{rx.PrescriptionId:D5}",
-                rx.Date.ToString("dd-MM-yyyy"),
+                rx.Date.ToString(DateFormat),
                 rx.DiseaseName,
                 string.Join(", ", rx.Medicines)
             }).ToList();
@@ -148,7 +153,7 @@ namespace SCMS.Domain.Features.Documents
             y = DrawClinicHeader(b, y, "PRESCRIPTION");
 
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {rx.CreatedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {rx.CreatedAt.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Patient & visit info (2-column key-value table) ────────
@@ -159,7 +164,7 @@ namespace SCMS.Domain.Features.Documents
                 new[] { "Patient Name", rx.PatientName ?? "-" },
                 new[] { "Appointment", rx.AppointmentCode ?? "-" },
                 new[] { "Diagnosis", rx.DiseaseName ?? "General Consultation" },
-                new[] { "Date", rx.CreatedAt.ToString("dd-MM-yyyy HH:mm") }
+                new[] { "Date", rx.CreatedAt.ToString(DateTimeFormat) }
             };
             y = DrawKeyValueTable(b, y, infoRows);
             y -= 8;
@@ -243,7 +248,7 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 16;
 
             y = DrawSectionTitle(b, y, "Summary");
@@ -265,7 +270,7 @@ namespace SCMS.Domain.Features.Documents
                 item.PatientName,
                 item.AppointmentCode,
                 item.DiseaseName ?? "-",
-                item.CreatedAt.ToString("dd-MM-yyyy"),
+                item.CreatedAt.ToString(DateFormat),
                 $"{item.MedicineCount} ({item.TotalQuantity} total)"
             }).ToList();
 
@@ -321,7 +326,7 @@ namespace SCMS.Domain.Features.Documents
                 new[] { "Appointment", payment.AppointmentCode ?? "-" },
                 new[] { "Payment Method", payment.PaymentMethod ?? "-" },
                 new[] { "Status", payment.PaymentStatus ?? "-" },
-                new[] { "Date", payment.PaidAt?.ToString("dd-MM-yyyy HH:mm") ?? "Unpaid" }
+                new[] { "Date", payment.PaidAt?.ToString(DateTimeFormat) ?? "Unpaid" }
             };
             y = DrawKeyValueTable(b, y, infoRows);
             y -= 8;
@@ -378,7 +383,7 @@ namespace SCMS.Domain.Features.Documents
             y = DrawSectionTitle(b, y, "Summary");
             if (report.ReportType != "daily")
             {
-                b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd:dd-MM-yyyy}");
+                b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart.ToString(DateFormat)} to {report.PeriodEnd.ToString(DateFormat)}");
                 y -= 16;
             }
             var stats = new List<(string, string, string)>
@@ -417,13 +422,13 @@ namespace SCMS.Domain.Features.Documents
                     }
 
                     // Day sub-heading
-                    y = DrawSectionTitle(b, y, dayGroup.Key.ToString("dddd, dd-MM-yyyy"));
+                    y = DrawSectionTitle(b, y, dayGroup.Key.ToString(DayDateFormat));
 
                     var dayRows = dayGroup.Select((item, idx) => new[]
                     {
                         (idx + 1).ToString(),
                         item.AppointmentCode,
-                        item.Datetime.ToString("dd-MM-yyyy"),
+                        item.Datetime.ToString(DateFormat),
                         item.Datetime.ToString("HH:mm"),
                         item.PatientName,
                         CapitalizeFirst(item.Status),
@@ -474,7 +479,7 @@ namespace SCMS.Domain.Features.Documents
                 {
                     (idx + 1).ToString(),
                     item.AppointmentCode,
-                    item.Datetime.ToString("dd-MM-yyyy"),
+                    item.Datetime.ToString(DateFormat),
                     item.Datetime.ToString("HH:mm"),
                     item.PatientName,
                     CapitalizeFirst(item.Status),
@@ -535,14 +540,14 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
             y = DrawSectionTitle(b, y, "Revenue Summary");
             if (report.ReportType != "daily")
             {
-                b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd:dd-MM-yyyy}");
+                b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart.ToString(DateFormat)} to {report.PeriodEnd.ToString(DateFormat)}");
                 y -= 16;
             }
             var stats = new List<(string, string, string)>
@@ -590,7 +595,7 @@ namespace SCMS.Domain.Features.Documents
                 item.Amount.ToString("N2"),
                 item.Tax.ToString("N2"),
                 item.Total.ToString("N2"),
-                item.PaidAt?.ToString("dd-MM-yyyy") ?? "-",
+                item.PaidAt?.ToString(DateFormat) ?? "-",
                 item.Total.ToString("N2")
             }).ToList();
 
@@ -654,7 +659,7 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
@@ -680,7 +685,7 @@ namespace SCMS.Domain.Features.Documents
                 item.Gender,
                 item.BloodType,
                 item.MobileNo ?? item.Email ?? "-",
-                item.RegisteredAt.ToString("dd-MM-yyyy")
+                item.RegisteredAt.ToString(DateFormat)
             }).ToList();
 
             if (dataRows.Count == 0)
@@ -735,7 +740,7 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
@@ -788,7 +793,7 @@ namespace SCMS.Domain.Features.Documents
                         m.Category,
                         batch.BatchNo,
                         batch.Quantity.ToString(),
-                        batch.ExpiryDate.ToString("dd-MM-yyyy"),
+                        batch.ExpiryDate.ToString(DateFormat),
                         status
                     });
                     idx++;
@@ -847,12 +852,12 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 16;
 
             // ── Summary (key-value table) ──────────────────────────────
             y = DrawSectionTitle(b, y, "Follow-Up Summary");
-            string periodStr = report.PeriodStart == DateTime.MinValue ? "All Time" : $"{report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd?.ToString("dd-MM-yyyy") ?? "present"}";
+            string periodStr = report.PeriodStart == DateTime.MinValue ? "All Time" : $"{report.PeriodStart.ToString(DateFormat)} to {report.PeriodEnd?.ToString(DateFormat) ?? "present"}";
             b.AddText(MarginL, y, 9, "F1", $"Period: {periodStr}");
             y -= 16;
             var stats = new List<(string, string, string)>
@@ -879,7 +884,7 @@ namespace SCMS.Domain.Features.Documents
                     (idx + 1).ToString(),
                     item.PatientName,
                     item.MobileNo ?? "-",
-                    item.DueAt.ToString("dd-MM-yyyy HH:mm"),
+                    item.DueAt.ToString(DateTimeFormat),
                     status,
                     item.Recommendation
                 };
@@ -938,9 +943,9 @@ namespace SCMS.Domain.Features.Documents
             b.AddText(MarginL, y, 12, "F2", report.ReportTitle);
             y -= 14;
             b.AddText(MarginL, y, 8, "F1",
-                $"Generated: {report.GeneratedAt:dd-MM-yyyy HH:mm} UTC", gray: 0.5f);
+                $"Generated: {report.GeneratedAt.ToString(DateTimeFormat)} UTC", gray: 0.5f);
             y -= 10;
-            b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart:dd-MM-yyyy} to {report.PeriodEnd:dd-MM-yyyy}");
+            b.AddText(MarginL, y, 9, "F1", $"Period: {report.PeriodStart.ToString(DateFormat)} to {report.PeriodEnd.ToString(DateFormat)}");
             y -= 20;
 
             // ── Patient Overview (key-value table) ──────────────────────

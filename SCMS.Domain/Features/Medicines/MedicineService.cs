@@ -166,7 +166,7 @@ namespace SCMS.Domain.Features.Medicines
                             CurrentQuantity = b.Quantity,
                             ExpiryDate = b.ExpiryDate,
                             AlertType = "Nearing Expiry",
-                            Message = $"Batch {b.BatchNo} of {medName} is expiring on {b.ExpiryDate:dd-MM-yyyy} (in {(b.ExpiryDate.ToDateTime(TimeOnly.MinValue) - DateTime.UtcNow).Days} days)."
+                            Message = $"Batch {b.BatchNo} of {medName} is expiring on {b.ExpiryDate.ToString(Common.FormatHelper.DateFormat)} (in {(b.ExpiryDate.ToDateTime(TimeOnly.MinValue) - DateTime.UtcNow).Days} days)."
                         });
                     }
                 }

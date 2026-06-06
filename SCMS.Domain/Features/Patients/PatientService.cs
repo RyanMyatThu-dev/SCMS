@@ -13,6 +13,7 @@ namespace SCMS.Domain.Features.Patients
     public class PatientService
     {
         private readonly AppDbContext _context;
+        private static readonly string DateTimeFormat = Common.FormatHelper.DateFormat + " HH:mm";
 
         public PatientService(AppDbContext context)
         {
@@ -330,7 +331,7 @@ namespace SCMS.Domain.Features.Patients
             }
 
             var s = summaryResult.Data;
-            var dobStr = s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("dd-MM-yyyy") : "N/A";
+            var dobStr = s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString(Common.FormatHelper.DateFormat) : "N/A";
             
             // Build vitals history rows
             var vitalsRows = "";
@@ -338,7 +339,7 @@ namespace SCMS.Domain.Features.Patients
             {
                 vitalsRows += $@"
                 <tr>
-                    <td>{v.Date:dd-MM-yyyy HH:mm}</td>
+                    <td>{v.Date.ToString(DateTimeFormat)}</td>
                     <td>{v.WeightKg?.ToString() ?? "-"} kg</td>
                     <td>{(v.BloodPressureSystolic.HasValue && v.BloodPressureDiastolic.HasValue ? $"{v.BloodPressureSystolic}/{v.BloodPressureDiastolic}" : "-")}</td>
                     <td>{v.TemperatureC?.ToString() ?? "-"} C</td>
@@ -356,7 +357,7 @@ namespace SCMS.Domain.Features.Patients
                 rxRows += $@"
                 <div class='rx-card'>
                     <div class='rx-header'>
-                        <strong>{rx.DiseaseName}</strong> <span style='float:right; font-size: 12px; color: #666;'>{rx.Date:dd-MM-yyyy}</span>
+                        <strong>{rx.DiseaseName}</strong> <span style='float:right; font-size: 12px; color: #666;'>{rx.Date.ToString(Common.FormatHelper.DateFormat)}</span>
                     </div>
                     <div class='rx-body'>
                         Medicines: {string.Join(", ", rx.Medicines)}
@@ -484,7 +485,7 @@ namespace SCMS.Domain.Features.Patients
                         </div>
                         <div style='text-align: right;'>
                             <strong style='color:#3b82f6; font-size: 18px;'>EMR Report</strong><br/>
-                            <span style='font-size: 12px; color:#64748b;'>Generated: {DateTime.UtcNow:dd-MM-yyyy HH:mm} UTC</span>
+                            <span style='font-size: 12px; color:#64748b;'>Generated: {DateTime.UtcNow.ToString(DateTimeFormat)} UTC</span>
                         </div>
                     </div>
 

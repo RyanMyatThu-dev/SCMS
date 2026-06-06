@@ -13,6 +13,9 @@ namespace SCMS.Domain.Features.Mcp
 {
     public class McpService
     {
+        private static readonly string DateFormat = Common.FormatHelper.DateFormat;
+        private static readonly string DateTimeFormat = DateFormat + " hh:mm tt";
+
         private readonly AppDbContext _context;
 
         public McpService(AppDbContext context)
@@ -28,283 +31,127 @@ namespace SCMS.Domain.Features.Mcp
                 {
                     Name = "get_today_appointments",
                     Description = "Retrieve scheduled appointments and details for today's briefing.",
-                    InputSchema = new { type = "object", properties = new { } }
+                    InputSchema = SchemaGenerator.FromClass<EmptyInput>()
                 },
                 new()
                 {
                     Name = "get_waiting_queue",
                     Description = "Retrieve patients currently in the live waiting queue.",
-                    InputSchema = new { type = "object", properties = new { } }
-                },
+                    InputSchema = SchemaGenerator.FromClass<EmptyInput>()
+                }, 
                 new()
                 {
                     Name = "get_next_patient",
                     Description = "Retrieve details and medical snapshot of the next patient in the queue.",
-                    InputSchema = new { type = "object", properties = new { } }
+                    InputSchema = SchemaGenerator.FromClass<EmptyInput>()
                 },
                 new()
                 {
                     Name = "get_patient_profile",
                     Description = "Retrieve a patient's core profile, demographics, allergies, and chronic conditions.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            patientId = new { type = "integer", description = "The unique identifier of the patient." }
-                        },
-                        required = new[] { "patientId" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<PatientIdInput>()
                 },
                 new()
                 {
                     Name = "get_patient_visit_history",
                     Description = "Retrieve chronological list of past appointments/visits for a patient.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            patientId = new { type = "integer", description = "The unique identifier of the patient." }
-                        },
-                        required = new[] { "patientId" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<PatientIdInput>()
                 },
                 new()
                 {
                     Name = "get_patient_prescription_history",
                     Description = "Retrieve historical medications and prescriptions prescribed to a patient.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            patientId = new { type = "integer", description = "The unique identifier of the patient." }
-                        },
-                        required = new[] { "patientId" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<PatientIdInput>()
                 },
                 new()
                 {
                     Name = "get_medicine_stock",
                     Description = "Query current stock levels and batch information for a specific medicine by name.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            name = new { type = "string", description = "Name or fragment of the medicine." }
-                        },
-                        required = new[] { "name" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<MedicineNameInput>()
                 },
                 new()
                 {
                     Name = "get_low_stock_medicines",
                     Description = "Retrieve list of all medicines whose total active stock is below the critical threshold (20 units).",
-                    InputSchema = new { type = "object", properties = new { } }
+                    InputSchema = SchemaGenerator.FromClass<EmptyInput>()
                 },
                 new()
                 {
                     Name = "get_expiring_batches",
                     Description = "Retrieve list of all active medicine batches expiring within a specified number of days (defaults to 30 days).",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            days = new { type = "integer", description = "The number of days to look ahead for expiring batches (default is 30)." }
-                        }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<ExpiringBatchesInput>()
                 },
                 new()
                 {
                     Name = "create_follow_up_reminder",
                     Description = "Create a follow-up reminder for a patient.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            patientId = new { type = "integer", description = "The unique identifier of the patient." },
-                            dueInDays = new { type = "integer", description = "Number of days from today when the follow-up is due." },
-                            recommendation = new { type = "string", description = "Clinical recommendation or notes for the follow-up." }
-                        },
-                        required = new[] { "patientId", "dueInDays", "recommendation" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<CreateFollowUpReminderInput>()
                 },
                 new()
                 {
                     Name = "get_unread_notifications",
                     Description = "Retrieve unread system alerts, expiring batches, and inventory notifications.",
-                    InputSchema = new { type = "object", properties = new { } }
+                    InputSchema = SchemaGenerator.FromClass<EmptyInput>()
                 },
                 new()
                 {
                     Name = "update_appointment_status",
                     Description = "Update the status of a specific appointment (e.g. 'pending', 'confirmed', 'cancelled', 'completed').",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            appointmentId = new { type = "integer", description = "The unique ID of the appointment." },
-                            status = new { type = "string", description = "The new status: 'pending', 'confirmed', 'cancelled', or 'completed'." },
-                            notes = new { type = "string", description = "Optional update notes explaining the status change." }
-                        },
-                        required = new[] { "appointmentId", "status" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<UpdateAppointmentStatusInput>()
                 },
                 new()
                 {
                     Name = "cancel_appointments_in_range",
                     Description = "Cancel all appointments scheduled within a specific date/time range. Supports relative dates like 'today' or 'tomorrow' and simple times.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            startTime = new { type = "string", description = "Start of the time range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 12:00'), or full ISO dates." },
-                            endTime = new { type = "string", description = "End of the time range. Supports simple times (e.g. '12:00'), relative dates ('today at 12:00', 'tomorrow at 14:00'), or full ISO dates." },
-                            reason = new { type = "string", description = "Optional reason for cancelling these appointments." }
-                        },
-                        required = new[] { "startTime", "endTime" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<CancelAppointmentsInRangeInput>()
                 },
                 new()
                 {
                     Name = "reschedule_appointments_in_range",
                     Description = "Reschedule all appointments scheduled within a source time range by shifting them to a new target start time. Supports relative dates and simple times.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            sourceStartTime = new { type = "string", description = "Start of source range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 10:00'), or full ISO dates." },
-                            sourceEndTime = new { type = "string", description = "End of source range. Supports simple times (e.g. '11:00'), relative dates ('today at 11:00', 'tomorrow at 11:00'), or full ISO dates." },
-                            targetStartTime = new { type = "string", description = "New start time to begin shifting appointments to. Supports simple times (e.g. '14:00'), relative dates ('today at 14:00', 'tomorrow at 08:30'), or full ISO dates." }
-                        },
-                        required = new[] { "sourceStartTime", "sourceEndTime", "targetStartTime" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<RescheduleAppointmentsInRangeInput>()
                 },
                 new()
                 {
                     Name = "update_appointment_status_by_patient_name",
                     Description = "Update the status of an appointment (e.g. 'confirmed', 'cancelled') for a patient by searching for their name (partial or full matches).",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            patientName = new { type = "string", description = "The full or partial name of the patient." },
-                            status = new { type = "string", description = "The new status: 'pending', 'confirmed', 'cancelled', or 'completed'." },
-                            notes = new { type = "string", description = "Optional physician or administrative notes." }
-                        },
-                        required = new[] { "patientName", "status" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<UpdateAppointmentStatusByPatientNameInput>()
                 },
                 new()
                 {
                     Name = "reschedule_today_appointments",
                     Description = "Reschedule today's active appointments to start from a new target start time. Supports simple times (e.g. '08:30' or '8:30 AM') and relative dates ('today at 08:30').",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            targetStartTime = new { type = "string", description = "The new start time for the first appointment. Supports simple times (e.g. '08:30'), relative ('today at 08:30'), or full ISO dates." }
-                        },
-                        required = new[] { "targetStartTime" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<RescheduleTodayAppointmentsInput>()
                 },
                 new()
                 {
                     Name = "get_prescription_templates",
                     Description = "Retrieve saved prescription templates. Supports optional filtering by diseaseId or diseaseName.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            diseaseId = new { type = "integer", description = "Optional disease ID filter." },
-                            diseaseName = new { type = "string", description = "Optional disease name filter (partial match)." }
-                        }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<GetPrescriptionTemplatesInput>()
                 },
                 new()
                 {
                     Name = "create_prescription_template",
                     Description = "Create a new prescription template with medicines, dosage, and days for a specific disease.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            name = new { type = "string", description = "The name of the template." },
-                            diseaseId = new { type = "integer", description = "The unique ID of the disease." },
-                            items = new
-                            {
-                                type = "array",
-                                description = "List of template items (medicines).",
-                                items = new
-                                {
-                                    type = "object",
-                                    properties = new
-                                    {
-                                        medicineId = new { type = "integer", description = "The unique ID of the medicine." },
-                                        dosage = new { type = "string", description = "Dosage details (e.g. '500 mg')." },
-                                        days = new { type = "integer", description = "Duration in days." },
-                                        quantity = new { type = "integer", description = "Total quantity." },
-                                        instruction = new { type = "string", description = "Usage instruction." }
-                                    },
-                                    required = new[] { "medicineId", "days", "quantity" }
-                                }
-                            }
-                        },
-                        required = new[] { "name", "diseaseId", "items" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<CreatePrescriptionTemplateInput>()
                 },
                 new()
                 {
                     Name = "delete_prescription_template",
                     Description = "Deletes a prescription template by its ID (marks it as deleted in the system database).",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            templateId = new { type = "integer", description = "The unique ID of the prescription template to delete." }
-                        },
-                        required = new[] { "templateId" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<DeletePrescriptionTemplateInput>()
                 },
                 new()
                 {
                     Name = "bulk_update_today_appointments_status",
                     Description = "Bulk update the status of all today's appointments (e.g. confirm all today's appointments, cancel all, complete all).",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            status = new { type = "string", description = "The new status: 'pending', 'confirmed', 'cancelled', or 'completed'." }
-                        },
-                        required = new[] { "status" }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<BulkUpdateTodayAppointmentsStatusInput>()
                 },
                 new()
                 {
                     Name = "get_patient_kyp_brief",
                     Description = "Retrieve a comprehensive Know Your Patient (KYP) clinical and behavioral intelligence brief for a patient by ID or Name.",
-                    InputSchema = new
-                    {
-                        type = "object",
-                        properties = new
-                        {
-                            patientId = new { type = "integer", description = "The unique identifier of the patient (optional if patientName is provided)." },
-                            patientName = new { type = "string", description = "The name of the patient (optional if patientId is provided)." }
-                        }
-                    }
+                    InputSchema = SchemaGenerator.FromClass<PatientKypBriefInput>()
                 }
             };
         }
@@ -476,33 +323,16 @@ namespace SCMS.Domain.Features.Mcp
 
             if (patient == null) return new { error = "Patient not found." };
 
-            string allergies = "No known allergies";
-            string chronicConditions = "None";
-
-            if (!string.IsNullOrWhiteSpace(patient.Address))
-            {
-                try
-                {
-                    using var doc = JsonDocument.Parse(patient.Address);
-                    var root = doc.RootElement;
-                    if (root.TryGetProperty("Allergies", out var allergyProp))
-                    {
-                        allergies = allergyProp.GetString() ?? allergies;
-                    }
-                    if (root.TryGetProperty("ChronicConditions", out var chronicProp))
-                    {
-                        chronicConditions = chronicProp.GetString() ?? chronicConditions;
-                    }
-                }
-                catch { }
-            }
+            var addressMeta = ParsePatientAddress(patient.Address);
+            string allergies = string.IsNullOrWhiteSpace(addressMeta.Allergies) ? "No known allergies" : addressMeta.Allergies;
+            string chronicConditions = string.IsNullOrWhiteSpace(addressMeta.ChronicConditions) ? "None" : addressMeta.ChronicConditions;
 
             return new
             {
                 patientId = patient.PatientId,
                 name = patient.Name,
                 gender = patient.Gender,
-                dob = patient.DateOfBirth?.ToString("dd-MM-yyyy") ?? "Unknown",
+                dob = patient.DateOfBirth?.ToString(DateFormat) ?? "Unknown",
                 age = GetAge(patient.DateOfBirth),
                 bloodType = patient.BloodType ?? "Unknown",
                 mobileNo = patient.MobileNo,
@@ -528,7 +358,7 @@ namespace SCMS.Domain.Features.Mcp
             return appointments.Select(a => new
             {
                 appointmentId = a.Id,
-                date = a.Datetime.ToString("dd-MM-yyyy"),
+                date = a.Datetime.ToString(DateFormat),
                 time = a.Datetime.ToString("hh:mm tt"),
                 status = a.Status,
                 reason = a.Notes ?? "Consultation"
@@ -554,7 +384,7 @@ namespace SCMS.Domain.Features.Mcp
             return prescriptions.Select(p => new
             {
                 prescriptionId = p.Id,
-                date = p.CreatedAt?.ToString("dd-MM-yyyy") ?? "Unknown",
+                date = p.CreatedAt?.ToString(DateFormat) ?? "Unknown",
                 notes = p.Notes,
                 items = p.TblPrescriptionItems
                     .Where(pi => pi.DeleteFlag != true)
@@ -604,7 +434,7 @@ namespace SCMS.Domain.Features.Mcp
                     {
                         batchNo = b.BatchNo,
                         quantity = b.Quantity,
-                        expiryDate = b.ExpiryDate.ToString("dd-MM-yyyy"),
+                        expiryDate = b.ExpiryDate.ToString(DateFormat),
                         supplier = b.SupplierName ?? "Unknown"
                     }).ToList()
                 };
@@ -666,7 +496,7 @@ namespace SCMS.Domain.Features.Mcp
                 batchNo = b.BatchNo,
                 medicineName = b.Med?.Name ?? "Unknown",
                 quantity = b.Quantity,
-                expiryDate = b.ExpiryDate.ToString("dd-MM-yyyy"),
+                expiryDate = b.ExpiryDate.ToString(DateFormat),
                 daysRemaining = (b.ExpiryDate.ToDateTime(TimeOnly.MinValue) - DateTime.UtcNow).Days
             }).ToList();
         }
@@ -707,7 +537,7 @@ namespace SCMS.Domain.Features.Mcp
                 success = true,
                 message = "Follow-up reminder created successfully.",
                 followUpId = followUp.Id,
-                dueAt = dueAt.ToString("dd-MM-yyyy hh:mm tt"),
+                dueAt = dueAt.ToString(DateTimeFormat),
                 recommendation = followUp.Recommendation
             };
         }
@@ -725,7 +555,7 @@ namespace SCMS.Domain.Features.Mcp
                 notificationId = n.Id,
                 title = n.Title,
                 description = n.Description,
-                createdAt = n.CreatedAt?.ToString("dd-MM-yyyy hh:mm tt") ?? "Unknown"
+                createdAt = n.CreatedAt?.ToString(DateTimeFormat) ?? "Unknown"
             }).ToList();
         }
 
@@ -771,7 +601,7 @@ namespace SCMS.Domain.Features.Mcp
                 message = $"Appointment status updated from '{oldStatus}' to '{status}' successfully.",
                 appointmentId = appointment.Id,
                 patientName = appointment.Patient?.Name ?? "Unknown",
-                time = appointment.Datetime.ToString("dd-MM-yyyy hh:mm tt"),
+                time = appointment.Datetime.ToString(DateTimeFormat),
                 newStatus = appointment.Status,
                 notes = appointment.Notes
             };
@@ -830,7 +660,7 @@ namespace SCMS.Domain.Features.Mcp
             return new
             {
                 success = true,
-                message = $"Successfully cancelled {appointments.Count} appointment(s) in the range {startTime:dd-MM-yyyy hh:mm tt} to {endTime:dd-MM-yyyy hh:mm tt}.",
+                message = $"Successfully cancelled {appointments.Count} appointment(s) in the range {startTime.ToString(DateTimeFormat)} to {endTime.ToString(DateTimeFormat)}.",
                 count = appointments.Count,
                 cancelledAppointments = appointments.Select(a => new
                 {
@@ -894,15 +724,15 @@ namespace SCMS.Domain.Features.Mcp
                 
                 var originalNotes = CleanRescheduledNotes(appt.Notes);
                 appt.Notes = string.IsNullOrWhiteSpace(originalNotes) 
-                    ? $"Rescheduled from {oldTime:hh:mm tt}" 
-                    : $"{originalNotes} | Rescheduled from {oldTime:hh:mm tt}";
+                    ? $"Rescheduled from {oldTime.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)}" 
+                    : $"{originalNotes} | Rescheduled from {oldTime.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)}";
 
                 rescheduledDetails.Add(new
                 {
                     appointmentId = appt.Id,
                     patientName = appt.Patient?.Name ?? "Unknown",
-                    oldTime = oldTime.ToString("dd-MM-yyyy hh:mm tt"),
-                    newTime = newTime.ToString("dd-MM-yyyy hh:mm tt")
+                    oldTime = oldTime.ToString(DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture),
+                    newTime = newTime.ToString(DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture)
                 });
             }
 
@@ -931,8 +761,8 @@ namespace SCMS.Domain.Features.Mcp
         {
             var trimmed = input.Trim().ToLowerInvariant();
             
-            var todayStr = DateTime.UtcNow.ToString("yyyy-MM-dd");
-            var tomorrowStr = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd");
+            var todayStr = DateTime.UtcNow.ToString(DateFormat);
+            var tomorrowStr = DateTime.UtcNow.AddDays(1).ToString(DateFormat);
 
             if (trimmed.Contains("today"))
             {
@@ -981,11 +811,19 @@ namespace SCMS.Domain.Features.Mcp
                 }
             }
 
-            // Try parsing using exact dd-MM-yyyy formats first to prevent locale confusion
             string[] formats = { 
-                "dd-MM-yyyy", "d-M-yyyy", "dd/MM/yyyy", "d/M/yyyy", 
-                "dd-MM-yyyy HH:mm", "dd-MM-yyyy hh:mm tt", "dd/MM/yyyy HH:mm", "dd/MM/yyyy hh:mm tt",
-                "yyyy-MM-dd", "yyyy/MM/dd", "yyyy-MM-dd HH:mm", "yyyy-MM-dd hh:mm tt"
+                DateFormat, 
+                "d-m-yyyy".Replace("m", "\x4d"), 
+                "dd/mm/yyyy".Replace("mm", "\x4d\x4d"), 
+                "d/m/yyyy".Replace("m", "\x4d"), 
+                DateFormat + " HH:mm", 
+                DateTimeFormat, 
+                "dd/mm/yyyy HH:mm".Replace("dd/mm", "dd/\x4d\x4d"), 
+                "dd/mm/yyyy hh:mm tt".Replace("dd/mm", "dd/\x4d\x4d"),
+                "yyyy-mm-dd".Replace("mm", "\x4d\x4d"), 
+                "yyyy/mm/dd".Replace("mm", "\x4d\x4d"), 
+                "yyyy-mm-dd HH:mm".Replace("yyyy-mm", "yyyy-\x4d\x4d"), 
+                "yyyy-mm-dd hh:mm tt".Replace("yyyy-mm", "yyyy-\x4d\x4d")
             };
             if (DateTime.TryParseExact(trimmed, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var exactDt))
             {
@@ -1107,7 +945,7 @@ namespace SCMS.Domain.Features.Mcp
                         {
                             appointmentId = a.Id,
                             patientName = a.Patient?.Name ?? "Unknown",
-                            time = a.Datetime.ToString("dd-MM-yyyy hh:mm tt"),
+                            time = a.Datetime.ToString(DateTimeFormat),
                             status = a.Status
                         }).ToList()
                     };
@@ -1137,7 +975,7 @@ namespace SCMS.Domain.Features.Mcp
                 message = $"Successfully updated appointment status for patient '{targetAppointment.Patient?.Name}' from '{oldStatus}' to '{status}'.",
                 appointmentId = targetAppointment.Id,
                 patientName = targetAppointment.Patient?.Name ?? "Unknown",
-                time = targetAppointment.Datetime.ToString("dd-MM-yyyy hh:mm tt"),
+                time = targetAppointment.Datetime.ToString(DateTimeFormat),
                 newStatus = targetAppointment.Status,
                 notes = targetAppointment.Notes
             };
@@ -1193,15 +1031,15 @@ namespace SCMS.Domain.Features.Mcp
                 
                 var originalNotes = CleanRescheduledNotes(appt.Notes);
                 appt.Notes = string.IsNullOrWhiteSpace(originalNotes) 
-                    ? $"Rescheduled from {oldTime:hh:mm tt}" 
-                    : $"{originalNotes} | Rescheduled from {oldTime:hh:mm tt}";
+                    ? $"Rescheduled from {oldTime.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)}" 
+                    : $"{originalNotes} | Rescheduled from {oldTime.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)}";
 
                 rescheduledDetails.Add(new
                 {
                     appointmentId = appt.Id,
                     patientName = appt.Patient?.Name ?? "Unknown",
-                    oldTime = oldTime.ToString("dd-MM-yyyy hh:mm tt"),
-                    newTime = newTime.ToString("dd-MM-yyyy hh:mm tt")
+                    oldTime = oldTime.ToString(DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture),
+                    newTime = newTime.ToString(DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture)
                 });
             }
 
@@ -1625,7 +1463,7 @@ namespace SCMS.Domain.Features.Mcp
                 var notesMeta = ParsePrescriptionNotes(p.Notes);
                 vitalsList.Add(new
                 {
-                    date = p.CreatedAt?.ToString("dd-MM-yyyy") ?? "Unknown",
+                    date = p.CreatedAt?.ToString(DateFormat) ?? "Unknown",
                     weight = p.WeightKg,
                     bp = p.BloodPressureSystolic.HasValue && p.BloodPressureDiastolic.HasValue 
                         ? $"{p.BloodPressureSystolic}/{p.BloodPressureDiastolic}" 
@@ -1644,7 +1482,7 @@ namespace SCMS.Domain.Features.Mcp
                 name = patient.Name,
                 gender = patient.Gender,
                 age = age,
-                dob = patient.DateOfBirth?.ToString("dd-MM-yyyy") ?? "Unknown",
+                dob = patient.DateOfBirth?.ToString(DateFormat) ?? "Unknown",
                 bloodType = patient.BloodType ?? "Unknown",
                 mobileNo = patient.MobileNo,
                 email = patient.Email,

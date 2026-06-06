@@ -369,3 +369,8 @@ FodyWeavers.xsd
 
 D:\SCMS\ZPrompt
 .sonarqube/
+
+# VsCode
+.vscode/
+
+.env.local  

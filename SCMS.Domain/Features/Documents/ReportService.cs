@@ -13,6 +13,7 @@ namespace SCMS.Domain.Features.Documents
     {
         private readonly AppDbContext _context;
 
+
         public ReportService(AppDbContext context)
         {
             _context = context;
@@ -36,13 +37,13 @@ namespace SCMS.Domain.Features.Documents
                 int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
                 periodStart = baseDate.AddDays(-diff);
                 periodEnd = periodStart.AddDays(7);
-                title = $"Weekly Appointment Report ({periodStart:dd-MM-yyyy} to {periodEnd.AddDays(-1):dd-MM-yyyy})";
+                title = $"Weekly Appointment Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {periodEnd.AddDays(-1).ToString(Common.FormatHelper.DateFormat)})";
             }
             else
             {
                 periodStart = baseDate;
                 periodEnd = baseDate.AddDays(1);
-                title = $"Daily Appointment Report ({baseDate:dd-MM-yyyy})";
+                title = $"Daily Appointment Report ({baseDate.ToString(Common.FormatHelper.DateFormat)})";
             }
 
             var appointments = await _context.TblAppointments
@@ -113,17 +114,17 @@ namespace SCMS.Domain.Features.Documents
                     int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
                     periodStart = baseDate.AddDays(-diff);
                     periodEnd = periodStart.AddDays(7);
-                    title = $"Weekly Revenue Report ({periodStart:dd-MM-yyyy} to {periodEnd.AddDays(-1):dd-MM-yyyy})";
+                    title = $"Weekly Revenue Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {periodEnd.AddDays(-1).ToString(Common.FormatHelper.DateFormat)})";
                     break;
                 case "monthly":
                     periodStart = new DateTime(baseDate.Year, baseDate.Month, 1);
                     periodEnd = periodStart.AddMonths(1);
-                    title = $"Monthly Revenue Report ({periodStart:yyyy MMMM})";
+                    title = $"Monthly Revenue Report ({periodStart.ToString(Common.FormatHelper.DateFormat)})";
                     break;
                 default: // daily
                     periodStart = baseDate;
                     periodEnd = baseDate.AddDays(1);
-                    title = $"Daily Revenue Report ({baseDate:dd-MM-yyyy})";
+                    title = $"Daily Revenue Report ({baseDate.ToString(Common.FormatHelper.DateFormat)})";
                     break;
             }
 
@@ -321,11 +322,11 @@ namespace SCMS.Domain.Features.Documents
             string title;
             if (periodStart.HasValue && request.EndDate.HasValue && request.EndDate.Value.Date != request.StartDate!.Value.Date)
             {
-                title = $"Follow-Up Report ({periodStart.Value:dd-MM-yyyy} to {request.EndDate.Value:dd-MM-yyyy})";
+                title = $"Follow-Up Report ({periodStart.Value.ToString(Common.FormatHelper.DateFormat)} to {request.EndDate.Value.ToString(Common.FormatHelper.DateFormat)})";
             }
             else if (periodStart.HasValue)
             {
-                title = $"Follow-Up Report ({periodStart.Value:dd-MM-yyyy})";
+                title = $"Follow-Up Report ({periodStart.Value.ToString(Common.FormatHelper.DateFormat)})";
             }
             else
             {
@@ -418,7 +419,7 @@ namespace SCMS.Domain.Features.Documents
 
             var response = new BusinessSummaryReportResponse
             {
-                ReportTitle = $"Business Summary ({periodStart:yyyy MMMM})",
+                ReportTitle = $"Business Summary ({periodStart.ToString(Common.FormatHelper.DateFormat)})",
                 PeriodStart = periodStart,
                 PeriodEnd = periodEnd.AddDays(-1),
                 GeneratedAt = DateTime.UtcNow,
