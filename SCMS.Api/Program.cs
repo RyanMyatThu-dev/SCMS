@@ -1,3 +1,4 @@
+using Serilog;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -8,7 +9,18 @@ using SCMS.Shared;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
-var builder = WebApplication.CreateBuilder(args);
+try
+{
+    var builder = WebApplication.CreateBuilder(args);
+
+    Log.Logger = new LoggerConfiguration()
+        .MinimumLevel.Debug()
+        .WriteTo.Console()
+        .WriteTo.File("logs/scms_log.txt", rollingInterval: RollingInterval.Hour)
+        .CreateLogger();
+
+    //Add Serilog
+    builder.Services.AddSerilog();
 
 
 
@@ -113,7 +125,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
+//await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
 
 
 
@@ -158,3 +170,12 @@ app.MapHub<NotificationsHub>("/hubs/notifications");
 
 
 app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application start-up failed");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
