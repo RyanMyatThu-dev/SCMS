@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Diseases;
+using SCMS.Domain.DTOs;
 
 namespace SCMS.Domain.Features.Diseases
 {
@@ -14,21 +14,14 @@ namespace SCMS.Domain.Features.Diseases
             _context = context;
         }
 
-        public async Task<PagedResult<DiseaseResponse>> GetDiseasesAsync(string? query, PaginationRequest paginationRequest)
+        public async Task<PagedResult<DiseaseResponse>> GetDiseasesAsync(DiseaseRequest request)
         {
-            var diseasesQuery = _context.TblDiseases.Where(d => d.DeleteFlag != true);
-            if (!string.IsNullOrWhiteSpace(query))
-            {
-                var q = query.Trim().ToLowerInvariant();
-                diseasesQuery = diseasesQuery.Where(d => d.Name.ToLower().Contains(q)
-                    || (d.Description != null && d.Description.ToLower().Contains(q)));
-            }
-
-            var totalCount = await diseasesQuery.CountAsync();
-            var list = await diseasesQuery
+            var diseases = await _context.TblDiseases.Where(d => d.DeleteFlag != true && 
+            (d.Name.ToLower().Contains(request.Query!.Trim().ToLower()) || 
+            (d.Description != null && d.Description.ToLower().Contains(request.Query!.Trim().ToLower()))))
                 .OrderBy(d => d.Name)
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .Select(d => new DiseaseResponse
                 {
                     Id = d.Id,
@@ -37,16 +30,14 @@ namespace SCMS.Domain.Features.Diseases
                 })
                 .ToListAsync();
 
-            return PagedResult<DiseaseResponse>.Success(list, new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount));
+            var totalCount = diseases.Count();
+                
+
+            return PagedResult<DiseaseResponse>.Success(diseases, new Pagination(request.PageNumber, request.PageSize, totalCount));
         }
 
         public async Task<Result<DiseaseResponse>> CreateDiseaseAsync(CreateDiseaseRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
-            {
-                return Result<DiseaseResponse>.Failure("Disease name is required.");
-            }
-
             // Check if disease with same name already exists (case-insensitive)
             var diseaseExists = await _context.TblDiseases
                 .AnyAsync(d => d.Name.ToLower() == request.Name.Trim().ToLower() && d.DeleteFlag != true);
@@ -77,24 +68,10 @@ namespace SCMS.Domain.Features.Diseases
 
         public async Task<Result<DiseaseResponse>> UpdateDiseaseAsync(UpdateDiseaseRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
+            var disease = await _context.TblDiseases.FirstOrDefaultAsync(d => d.Id == request.Id && d.DeleteFlag != true);
+            if(disease == null)
             {
-                return Result<DiseaseResponse>.Failure("Disease name is required.");
-            }
-
-            var disease = await _context.TblDiseases
-                .FirstOrDefaultAsync(d => d.Id == request.Id && d.DeleteFlag != true);
-            if (disease == null)
-            {
-                return Result<DiseaseResponse>.Failure("Disease not found.");
-            }
-
-            // Check if another disease with same name already exists (case-insensitive)
-            var duplicateExists = await _context.TblDiseases
-                .AnyAsync(d => d.Id != request.Id && d.Name.ToLower() == request.Name.Trim().ToLower() && d.DeleteFlag != true);
-            if (duplicateExists)
-            {
-                return Result<DiseaseResponse>.Failure("Another disease with this name already exists.");
+                return Result<DiseaseResponse>.Failure("Disease to update not found");
             }
 
             disease.Name = request.Name.Trim();

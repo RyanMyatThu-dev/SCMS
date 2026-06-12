@@ -27,7 +27,7 @@ Both projects must run simultaneously; the `.slnLaunch.user` multi-startup profi
 | `SCMS.Api` | ASP.NET Core 8 Web API — controllers, JWT auth, SignalR hubs, Swagger/Scalar |
 | `SCMS.Domain` | Business logic, **controllers live here too** (loaded via `AddApplicationPart`) |
 | `SCMS.Database` | EF Core `AppDbContext` and scaffolded `Tbl*` entity models |
-| `SCMS.Shared` | `Result`/`Result<T>` pattern, pagination, **request/response DTOs** (`Contracts/`) |
+| `SCMS.Shared` | `Result`/`Result<T>` pattern, pagination |
 | `SCMS.Web` | Blazor WebAssembly frontend using **Ant Design Blazor** (`AntDesign` 1.6) |
 | `SCMS.Domain.Tests` | xUnit tests, mirror the `Features/` folder structure |
 
@@ -57,14 +57,14 @@ Features/
 ```
 
 - **Controllers are in `SCMS.Domain`**, not `SCMS.Api`. The API project loads them via `AddApplicationPart(typeof(FeatureManager).Assembly)`.
-- **Request/Response DTOs are in `SCMS.Shared/Contracts/{FeatureName}/`**, not next to the service. This lets the Blazor WASM client share the same types.
+- **Request/Response DTOs are in `SCMS.Domain/DTOs/`**, not next to the service.
 - **Service registration**: every new service must be manually added to `FeatureManager.AddScmsFeatureServices()`.
 - **Controller registration**: happens automatically via the assembly scan, no manual step needed.
 
 ### Adding a new feature checklist
 
 1. Create `SCMS.Domain/Features/{Name}/{Name}Service.cs` and `{Name}Controller.cs`
-2. Create DTOs in `SCMS.Shared/Contracts/{Name}/`
+2. Create DTOs in `SCMS.Domain/DTOs/`
 3. Register the service in `FeatureManager.AddScmsFeatureServices()`
 4. Mirror the folder in `SCMS.Domain.Tests/{Name}/`
 
