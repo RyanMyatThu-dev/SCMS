@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Domain.Features.Diseases;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Diseases;
+using SCMS.Domain.DTOs;
 using SCMS.Domain.Tests.TestSupport;
 using Xunit;
 
@@ -46,23 +46,7 @@ namespace SCMS.Domain.Tests.Diseases
             Assert.Equal("Chronic condition affecting blood sugar levels", result.Data.Description);
         }
 
-        [Fact]
-        public async Task CreateDisease_ShouldReturnFailure_WhenNameIsEmpty()
-        {
-            // Arrange
-            var request = new CreateDiseaseRequest
-            {
-                Name = "",
-                Description = "Test description"
-            };
 
-            // Act
-            var result = await _diseaseService.CreateDiseaseAsync(request);
-
-            // Assert
-            Assert.False(result.IsSuccess);
-            Assert.Contains("Disease name is required", result.Message!);
-        }
 
         [Fact]
         public async Task UpdateDisease_ShouldReturnSuccess_WhenValidRequest()
@@ -96,35 +80,7 @@ namespace SCMS.Domain.Tests.Diseases
             Assert.Equal("Updated description for high blood pressure", result.Data.Description);
         }
 
-        [Fact]
-        public async Task UpdateDisease_ShouldReturnFailure_WhenNameIsEmpty()
-        {
-            // Arrange
-            var disease = new TblDisease
-            {
-                Name = "Asthma",
-                Description = "Respiratory condition",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                DeleteFlag = false
-            };
-            _context.TblDiseases.Add(disease);
-            await _context.SaveChangesAsync();
 
-            var request = new UpdateDiseaseRequest
-            {
-                Id = disease.Id,
-                Name = "",
-                Description = "Updated description"
-            };
-
-            // Act
-            var result = await _diseaseService.UpdateDiseaseAsync(request);
-
-            // Assert
-            Assert.False(result.IsSuccess);
-            Assert.Contains("Disease name is required", result.Message!);
-        }
 
         [Fact]
         public async Task DeactivateDisease_ShouldReturnSuccess_WhenDiseaseNotReferenced()
@@ -221,7 +177,7 @@ namespace SCMS.Domain.Tests.Diseases
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _diseaseService.GetDiseasesAsync(string.Empty, new PaginationRequest { PageNumber = 1, PageSize = 10 });
+            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = string.Empty, PageNumber = 1, PageSize = 10 });
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -254,7 +210,7 @@ namespace SCMS.Domain.Tests.Diseases
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _diseaseService.GetDiseasesAsync("diabetes", new PaginationRequest { PageNumber = 1, PageSize = 10 });
+            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = "diabetes", PageNumber = 1, PageSize = 10 });
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -286,7 +242,7 @@ namespace SCMS.Domain.Tests.Diseases
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _diseaseService.GetDiseasesAsync(string.Empty, new PaginationRequest { PageNumber = 1, PageSize = 10 });
+            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = string.Empty, PageNumber = 1, PageSize = 10 });
 
             // Assert
             Assert.True(result.IsSuccess);

@@ -5,67 +5,29 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Shared.Contracts.Patients;
+using SCMS.Domain.DTOs;
 using SCMS.Shared;
+using SCMS.Domain.Features.Appointments;
+using SCMS.Domain.Features.Prescriptions;
 
 namespace SCMS.Domain.Features.Patients
 {
     public class PatientService
     {
         private readonly AppDbContext _context;
+        private readonly AppointmentsService _appointmentsService;
+        private readonly PrescriptionService _prescriptionService;
         private static readonly string DateTimeFormat = Common.FormatHelper.DateFormat + " HH:mm";
 
-        public PatientService(AppDbContext context)
+        public PatientService(AppDbContext context, AppointmentsService appointmentsService, PrescriptionService prescriptionService)
         {
             _context = context;
-        }
-
-        // Helper structure for serialization in Address
-        public class PatientAddressMetadata
-        {
-            public string? ActualAddress { get; set; }
-            public string? Allergies { get; set; }
-            public string? ChronicConditions { get; set; }
-            public string? PastSurgeries { get; set; }
-            public string? FamilyHistory { get; set; }
-            public string? VaccinationHistory { get; set; }
-        }
-
-        // Helper structure for vitals deserialization from Notes
-        public class PrescriptionNotesMetadata
-        {
-            public string? ActualNotes { get; set; }
-            public double? TemperatureC { get; set; }
-            public int? PulseBpm { get; set; }
-            public int? Spo2Percent { get; set; }
-            public double? HeightCm { get; set; }
-            public double? Bmi { get; set; }
-            public string? LabTestRequests { get; set; }
+            _appointmentsService = appointmentsService;
+            _prescriptionService = prescriptionService;
         }
 
         public async Task<Result<PatientProfileResponse>> AddPatientProfileAsync(PatientProfileRequest request, int userId)
         {
-            if (userId <= 0)
-            {
-                return Result<PatientProfileResponse>.Failure("User id is required.");
-            }
-            if (string.IsNullOrWhiteSpace(request.Name))
-            {
-                return Result<PatientProfileResponse>.Failure("Patient name is required.");
-            }
-
-            // Serialize address and medical history
-            var addressMeta = new PatientAddressMetadata
-            {
-                ActualAddress = request.ActualAddress,
-                Allergies = request.Allergies,
-                ChronicConditions = request.ChronicConditions,
-                PastSurgeries = request.PastSurgeries,
-                FamilyHistory = request.FamilyHistory,
-                VaccinationHistory = request.VaccinationHistory
-            };
-            var serializedAddress = JsonSerializer.Serialize(addressMeta);
-
             var patient = new TblPatient
             {
                 UserId = userId,
@@ -75,7 +37,12 @@ namespace SCMS.Domain.Features.Patients
                 DateOfBirth = request.DateOfBirth,
                 Gender = request.Gender,
                 BloodType = request.BloodType,
-                Address = serializedAddress,
+                Address = request.ActualAddress,
+                Allergies = request.Allergies,
+                ChronicConditions = request.ChronicConditions,
+                PastSurgeries = request.PastSurgeries,
+                FamilyHistory = request.FamilyHistory,
+                VaccinationHistory = request.VaccinationHistory,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 DeleteFlag = false
@@ -87,7 +54,7 @@ namespace SCMS.Domain.Features.Patients
             return Result<PatientProfileResponse>.Success(MapToResponse(patient), "Patient profile created successfully.");
         }
 
-        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(int userId, PaginationRequest paginationRequest, bool isStaff = false, string? search = null)
+        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(PatientProfilesRequest request, int userId, bool isStaff = false)
         {
             var query = _context.TblPatients
                 .Where(p => p.DeleteFlag != true);
@@ -97,9 +64,9 @@ namespace SCMS.Domain.Features.Patients
                 query = query.Where(p => p.UserId == userId);
             }
 
-            if (!string.IsNullOrWhiteSpace(search))
+            if (!string.IsNullOrWhiteSpace(request.Search))
             {
-                var cleanSearch = search.Trim().ToLower();
+                var cleanSearch = request.Search.Trim().ToLower();
                 query = query.Where(p => 
                     p.Name.ToLower().Contains(cleanSearch) || 
                     (p.MobileNo != null && p.MobileNo.Contains(cleanSearch)) || 
@@ -110,12 +77,12 @@ namespace SCMS.Domain.Features.Patients
             var totalCount = await query.CountAsync();
             var patients = await query
                 .OrderBy(p => p.Name)
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync();
 
             var list = patients.Select(MapToResponse).ToList();
-            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
 
             return PagedResult<PatientProfileResponse>.Success(list, pagination);
         }
@@ -177,10 +144,9 @@ namespace SCMS.Domain.Features.Patients
                 PatientName = patient.Name
             };
 
-            // 1. Fetch Appointments
-            var appointments = await _context.TblAppointments
-                .Where(a => a.PatientId == patientId)
-                .ToListAsync();
+            // 1. Fetch Appointments via AppointmentsService
+            var appointmentsResult = await _appointmentsService.GetAppointmentsAsync(null, null, null, patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 }, userId, true);
+            var appointments = appointmentsResult.Data ?? new List<SCMS.Shared.Contracts.Appointments.AppointmentDetailsResponse>();
 
             foreach (var a in appointments)
             {
@@ -194,22 +160,18 @@ namespace SCMS.Domain.Features.Patients
                 });
             }
 
-            // 2. Fetch Prescriptions & Vitals
-            var prescriptions = await _context.TblPrescriptions
-                .Include(p => p.Disease)
-                .Include(p => p.TblPrescriptionItems)
-                    .ThenInclude(i => i.Medicine)
-                .Where(p => p.PatientId == patientId && p.DeleteFlag != true)
-                .ToListAsync();
+            // 2. Fetch Prescriptions & Vitals via PrescriptionService
+            var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 });
+            var prescriptions = prescriptionsResult.Data ?? new List<SCMS.Shared.Contracts.Prescriptions.PrescriptionResponse>();
 
             foreach (var p in prescriptions)
             {
-                var diseaseName = p.Disease?.Name ?? "General Consultation";
-                var medsList = string.Join(", ", p.TblPrescriptionItems.Select(i => $"{i.Medicine.Name} ({i.Dosage} x {i.Days}d)"));
+                var diseaseName = p.DiseaseName ?? "General Consultation";
+                var medsList = string.Join(", ", p.Items.Select(i => $"{i.MedicineName} ({i.Dosage} x {i.Days}d)"));
 
                 response.Timeline.Add(new TimelineItemDto
                 {
-                    Date = p.CreatedAt ?? DateTime.UtcNow,
+                    Date = p.CreatedAt,
                     Type = "Prescription",
                     Title = $"Prescribed for {diseaseName}",
                     Description = $"Medicines: {medsList}",
@@ -218,23 +180,21 @@ namespace SCMS.Domain.Features.Patients
 
                 response.Timeline.Add(new TimelineItemDto
                 {
-                    Date = p.CreatedAt ?? DateTime.UtcNow,
+                    Date = p.CreatedAt,
                     Type = "Diagnosis",
                     Title = $"Diagnosed with {diseaseName}",
                     Description = p.Notes != null && p.Notes.StartsWith("{") ? "Diagnosis recorded during consultation." : (p.Notes ?? "No diagnosis details"),
                     LinkedId = p.Id
                 });
 
-                // Parse Vitals & Lab requests
-                var notesMeta = ParsePrescriptionNotes(p.Notes);
-                if (!string.IsNullOrEmpty(notesMeta.LabTestRequests))
+                if (!string.IsNullOrEmpty(p.LabTestRequests))
                 {
                     response.Timeline.Add(new TimelineItemDto
                     {
-                        Date = p.CreatedAt ?? DateTime.UtcNow,
+                        Date = p.CreatedAt,
                         Type = "Lab Request",
                         Title = "Lab test requested",
-                        Description = $"Tests: {notesMeta.LabTestRequests}",
+                        Description = $"Tests: {p.LabTestRequests}",
                         LinkedId = p.Id
                     });
                 }
@@ -260,8 +220,6 @@ namespace SCMS.Domain.Features.Patients
                 return Result<MedicalSummaryResponse>.Failure("Patient not found.");
             }
 
-            var addressMeta = ParsePatientAddress(patient.Address);
-
             var summary = new MedicalSummaryResponse
             {
                 PatientId = patientId,
@@ -269,38 +227,34 @@ namespace SCMS.Domain.Features.Patients
                 DateOfBirth = patient.DateOfBirth,
                 Gender = patient.Gender,
                 BloodType = patient.BloodType,
-                Allergies = addressMeta.Allergies,
-                ChronicConditions = addressMeta.ChronicConditions,
-                PastSurgeries = addressMeta.PastSurgeries,
-                FamilyHistory = addressMeta.FamilyHistory,
-                VaccinationHistory = addressMeta.VaccinationHistory
+                Allergies = patient.Allergies,
+                ChronicConditions = patient.ChronicConditions,
+                PastSurgeries = patient.PastSurgeries,
+                FamilyHistory = patient.FamilyHistory,
+                VaccinationHistory = patient.VaccinationHistory
             };
 
             // Fetch prescriptions to aggregate Vitals history and Active prescriptions
-            var prescriptions = await _context.TblPrescriptions
-                .Include(p => p.Disease)
-                .Include(p => p.TblPrescriptionItems)
-                    .ThenInclude(i => i.Medicine)
-                .Where(p => p.PatientId == patientId && p.DeleteFlag != true)
-                .OrderBy(p => p.CreatedAt)
-                .ToListAsync();
+            var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 });
+            var prescriptions = prescriptionsResult.Data ?? new List<SCMS.Shared.Contracts.Prescriptions.PrescriptionResponse>();
+            
+            // Order chronologically (GetPrescriptionsAsync might return desc)
+            prescriptions = prescriptions.OrderBy(p => p.CreatedAt).ToList();
 
             foreach (var p in prescriptions)
             {
-                var notesMeta = ParsePrescriptionNotes(p.Notes);
-
                 // Add to vitals history
                 summary.VitalsHistory.Add(new PatientVitalsHistoryDto
                 {
-                    Date = p.CreatedAt ?? DateTime.UtcNow,
+                    Date = p.CreatedAt,
                     WeightKg = p.WeightKg,
                     BloodPressureSystolic = p.BloodPressureSystolic,
                     BloodPressureDiastolic = p.BloodPressureDiastolic,
-                    TemperatureC = notesMeta.TemperatureC,
-                    PulseBpm = notesMeta.PulseBpm,
-                    Spo2Percent = notesMeta.Spo2Percent,
-                    HeightCm = notesMeta.HeightCm,
-                    Bmi = notesMeta.Bmi
+                    TemperatureC = p.TemperatureC,
+                    PulseBpm = p.PulseBpm,
+                    Spo2Percent = p.Spo2Percent,
+                    HeightCm = p.HeightCm,
+                    Bmi = p.Bmi
                 });
 
                 // Add to active prescriptions if prescribed within past 30 days (as a heuristic)
@@ -309,9 +263,9 @@ namespace SCMS.Domain.Features.Patients
                     summary.ActivePrescriptions.Add(new ActivePrescriptionSummaryDto
                     {
                         PrescriptionId = p.Id,
-                        Date = p.CreatedAt ?? DateTime.UtcNow,
-                        DiseaseName = p.Disease?.Name ?? "General Consultation",
-                        Medicines = p.TblPrescriptionItems.Select(i => i.Medicine.Name).ToList()
+                        Date = p.CreatedAt,
+                        DiseaseName = p.DiseaseName ?? "General Consultation",
+                        Medicines = p.Items.Select(i => i.MedicineName).ToList()
                     });
                 }
             }
@@ -543,7 +497,6 @@ namespace SCMS.Domain.Features.Patients
 
         private PatientProfileResponse MapToResponse(TblPatient p)
         {
-            var addressMeta = ParsePatientAddress(p.Address);
             return new PatientProfileResponse
             {
                 PatientId = p.PatientId,
@@ -554,50 +507,14 @@ namespace SCMS.Domain.Features.Patients
                 DateOfBirth = p.DateOfBirth,
                 Gender = p.Gender,
                 BloodType = p.BloodType,
-                ActualAddress = addressMeta.ActualAddress,
-                Allergies = addressMeta.Allergies,
-                ChronicConditions = addressMeta.ChronicConditions,
-                PastSurgeries = addressMeta.PastSurgeries,
-                FamilyHistory = addressMeta.FamilyHistory,
-                VaccinationHistory = addressMeta.VaccinationHistory,
+                ActualAddress = p.Address,
+                Allergies = p.Allergies,
+                ChronicConditions = p.ChronicConditions,
+                PastSurgeries = p.PastSurgeries,
+                FamilyHistory = p.FamilyHistory,
+                VaccinationHistory = p.VaccinationHistory,
                 CreatedAt = p.CreatedAt ?? DateTime.UtcNow
             };
-        }
-
-        private PatientAddressMetadata ParsePatientAddress(string? address)
-        {
-            if (string.IsNullOrEmpty(address)) return new PatientAddressMetadata();
-            try
-            {
-                if (address.TrimStart().StartsWith("{"))
-                {
-                    return JsonSerializer.Deserialize<PatientAddressMetadata>(address) ?? new PatientAddressMetadata();
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-
-            return new PatientAddressMetadata { ActualAddress = address };
-        }
-
-        private PrescriptionNotesMetadata ParsePrescriptionNotes(string? notes)
-        {
-            if (string.IsNullOrEmpty(notes)) return new PrescriptionNotesMetadata();
-            try
-            {
-                if (notes.TrimStart().StartsWith("{"))
-                {
-                    return JsonSerializer.Deserialize<PrescriptionNotesMetadata>(notes) ?? new PrescriptionNotesMetadata();
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-
-            return new PrescriptionNotesMetadata { ActualNotes = notes };
         }
 
         private async Task<bool> CanAccessPatientAsync(int patientId, int userId)

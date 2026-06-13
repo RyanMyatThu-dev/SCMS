@@ -42,10 +42,7 @@ public class DashboardServiceTests
         TestData.AddPayment(db, appointment, status: "pending", amount: 15000m);
         var disease = TestData.AddDisease(db);
         var medicine = TestData.AddMedicine(db);
-        var notes = JsonSerializer.Serialize(new PatientService.PrescriptionNotesMetadata
-        {
-            ActualNotes = "Dashboard note"
-        });
+        var notes = "Dashboard note";
         var prescription = TestData.AddPrescription(db, patient, appointment, disease, notes);
         TestData.AddPrescriptionItem(db, prescription, medicine);
         var service = new DashboardService(db.Context);

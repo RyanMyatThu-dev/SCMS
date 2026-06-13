@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Domain.Security;
+using SCMS.Domain.DTOs;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Dashboards

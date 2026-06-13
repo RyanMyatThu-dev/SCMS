@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Domain.Security;
 using SCMS.Shared;
+using SCMS.Domain.DTOs;
 
 namespace SCMS.Domain.Features.Notifications
 {
@@ -60,8 +61,13 @@ namespace SCMS.Domain.Features.Notifications
 
         [HttpPost]
         [Authorize(Roles = "owner,admin,doctor")]
-        public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationApiRequest request)
+        public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationRequest request)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(Result.Failure("Invalid request data"));
+            }
+
             var result = await _notificationService.CreateNotificationAsync(request.UserId, request.Title, request.Description, request.ActionRoute);
             if (result.IsFailure)
             {
@@ -69,13 +75,5 @@ namespace SCMS.Domain.Features.Notifications
             }
             return Ok(result);
         }
-    }
-
-    public class CreateNotificationApiRequest
-    {
-        public int? UserId { get; set; }
-        public string Title { get; set; } = null!;
-        public string Description { get; set; } = null!;
-        public string? ActionRoute { get; set; }
     }
 }

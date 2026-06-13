@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-using SCMS.Shared.Contracts.Patients;
+using SCMS.Domain.DTOs;
 using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared.Contracts.Reports;
