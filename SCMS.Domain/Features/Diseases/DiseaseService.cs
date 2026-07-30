@@ -15,7 +15,11 @@ namespace SCMS.Domain.Features.Diseases
         }
 
         public async Task<PagedResult<DiseaseResponse>> GetDiseasesAsync(DiseaseRequest request)
-        {
+        {   
+            if(request.Query == null)
+            {
+                request.Query = string.Empty;
+            }
             var diseases = await _context.TblDiseases.Where(d => d.DeleteFlag != true && 
             (d.Name.ToLower().Contains(request.Query!.Trim().ToLower()) || 
             (d.Description != null && d.Description.ToLower().Contains(request.Query!.Trim().ToLower()))))
