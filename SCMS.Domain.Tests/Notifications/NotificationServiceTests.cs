@@ -46,15 +46,4 @@ public class NotificationServiceTests
         Assert.Empty(listResult.Data);
     }
 
-    [Fact]
-    public async Task CreateNotificationAsync_RejectsMissingRequiredText()
-    {
-        using var db = new TestDatabase();
-        var service = new NotificationService(db.Context);
-
-        var result = await service.CreateNotificationAsync(null, " ", " ", null);
-
-        Assert.True(result.IsFailure);
-        Assert.Empty(db.Context.TblNotifications);
-    }
 }

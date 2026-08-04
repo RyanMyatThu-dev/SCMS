@@ -81,7 +81,7 @@ namespace SCMS.Domain.Features.FollowUps
                 await _notificationService.CreateNotificationAsync(
                     patient.UserId,
                     "Follow-up Scheduled",
-                    $"{patient.Name} has a follow-up due on {request.DueAt:yyyy-MM-dd HH:mm}.",
+                    $"{patient.Name} has a follow-up due on {request.DueAt.ToString(Common.FormatHelper.DateFormat)} {request.DueAt:HH:mm}.",
                     $"/follow-ups?patientId={patient.PatientId}");
             }
             else
@@ -90,7 +90,7 @@ namespace SCMS.Domain.Features.FollowUps
                 {
                     UserId = patient.UserId,
                     Title = "Follow-up Scheduled",
-                    Description = $"{patient.Name} has a follow-up due on {request.DueAt:yyyy-MM-dd HH:mm}.",
+                    Description = $"{patient.Name} has a follow-up due on {request.DueAt.ToString(Common.FormatHelper.DateFormat)} {request.DueAt:HH:mm}.",
                     ActionRoute = $"/follow-ups?patientId={patient.PatientId}",
                     CreatedAt = DateTime.UtcNow,
                     DeleteFlag = false

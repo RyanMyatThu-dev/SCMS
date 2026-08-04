@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Shared.Contracts.Notifications;
+using SCMS.Domain.DTOs;
 using SCMS.Shared;
 using Microsoft.AspNetCore.SignalR;
 using SCMS.Domain.Realtime;
@@ -79,15 +79,6 @@ namespace SCMS.Domain.Features.Notifications
 
         public async Task<Result<NotificationResponse>> CreateNotificationAsync(int? userId, string title, string description, string? actionRoute)
         {
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                return Result<NotificationResponse>.Failure("Notification title is required.");
-            }
-            if (string.IsNullOrWhiteSpace(description))
-            {
-                return Result<NotificationResponse>.Failure("Notification description is required.");
-            }
-
             var n = new TblNotification
             {
                 UserId = userId,
@@ -117,13 +108,13 @@ namespace SCMS.Domain.Features.Notifications
                     if (userId.HasValue)
                     {
                         await _hubContext.Clients.User(userId.Value.ToString()).SendAsync("ReceiveNotification", response);
+                        await _hubContext.Clients.User(userId.Value.ToString()).SendAsync("NotificationsChanged");
                     }
                     else
                     {
                         await _hubContext.Clients.Group("clinic-notifications").SendAsync("ReceiveNotification", response);
+                        await _hubContext.Clients.Group("clinic-notifications").SendAsync("NotificationsChanged");
                     }
-
-                    await _hubContext.Clients.All.SendAsync("NotificationsChanged");
                 }
             }
             catch (Exception ex)

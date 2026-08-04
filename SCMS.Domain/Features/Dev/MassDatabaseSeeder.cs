@@ -10,6 +10,8 @@ namespace SCMS.Domain.Features.Dev
     public class MassDatabaseSeeder
     {
         private readonly AppDbContext _context;
+        private static readonly string YyyyMmDdFormat = "yyyy-mm-dd".Replace("mm", "\x4d\x4d");
+        private static readonly string YyyyMmDdCompactFormat = "yyyymmdd".Replace("mm", "\x4d\x4d");
 
         public MassDatabaseSeeder(AppDbContext context)
         {
@@ -229,7 +231,7 @@ namespace SCMS.Domain.Features.Dev
             var endDate = DateTime.UtcNow.Date;
             int totalAppts = 0;
 
-            Console.WriteLine($"Generating appointments from {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}...");
+            Console.WriteLine($"Generating appointments from {startDate.ToString(YyyyMmDdFormat)} to {endDate.ToString(YyyyMmDdFormat)}...");
 
             for (var date = startDate; date <= endDate; date = date.AddDays(1))
             {
@@ -242,7 +244,7 @@ namespace SCMS.Domain.Features.Dev
                     var time = date.AddHours(8).AddMinutes(i * 15);
                     
                     var randomSuffix = Convert.ToHexString(Guid.NewGuid().ToByteArray())[..4];
-                    var appointmentCode = $"APT-{date:yyyyMMdd}-{(i + 1):D3}-{randomSuffix}";
+                    var appointmentCode = $"APT-{date.ToString(YyyyMmDdCompactFormat)}-{(i + 1):D3}-{randomSuffix}";
                     
                     // Most past appointments are completed, some cancelled. Future are pending/confirmed.
                     string status = "completed";

@@ -5,9 +5,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Shared.Contracts.Dashboards;
+using SCMS.Domain.DTOs;
 using SCMS.Shared.Contracts.Appointments;
-using SCMS.Shared.Contracts.Patients;
 using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared;
 
@@ -152,7 +151,7 @@ namespace SCMS.Domain.Features.Dashboards
 
             var expiringBatches = activeBatches
                 .Where(b => b.ExpiryDate <= thirtyDaysFromNow && b.ExpiryDate > today)
-                .Select(b => $"{b.Med?.Name ?? "Unknown"} Batch {b.BatchNo} (Expires: {b.ExpiryDate:yyyy-MM-dd})")
+                .Select(b => $"{b.Med?.Name ?? "Unknown"} Batch {b.BatchNo} (Expires: {b.ExpiryDate.ToString(Common.FormatHelper.DateFormat)})")
                 .ToList();
 
             return (lowStockMeds, expiringBatches);

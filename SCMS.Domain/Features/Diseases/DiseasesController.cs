@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Diseases;
+using SCMS.Domain.DTOs;
 
 namespace SCMS.Domain.Features.Diseases
 {
@@ -18,19 +18,26 @@ namespace SCMS.Domain.Features.Diseases
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetDiseases([FromQuery] string? query, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetDiseases([FromQuery] DiseaseRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(Result<DiseaseResponse>.Failure("Invalid request data."));
+            }
+            request ??= new DiseaseRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
-            var result = await _diseaseService.GetDiseasesAsync(query, paginationRequest);
+            var result = await _diseaseService.GetDiseasesAsync(request);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateDisease([FromBody] CreateDiseaseRequest request)
         {
+            if (!ModelState.IsValid) { 
+                return BadRequest(Result<DiseaseResponse>.Failure("Invalid request data."));
+            }
             var result = await _diseaseService.CreateDiseaseAsync(request);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
@@ -38,6 +45,9 @@ namespace SCMS.Domain.Features.Diseases
         [HttpPut]
         public async Task<IActionResult> UpdateDisease([FromBody] UpdateDiseaseRequest request)
         {
+            if (!ModelState.IsValid) { 
+                return BadRequest(Result<DiseaseResponse>.Failure("Invalid request data."));
+            }
             var result = await _diseaseService.UpdateDiseaseAsync(request);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
@@ -45,6 +55,10 @@ namespace SCMS.Domain.Features.Diseases
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeactivateDisease(int id)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(Result<bool>.Failure("Invalid request data."));
+            }
             var result = await _diseaseService.DeactivateDiseaseAsync(id);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }

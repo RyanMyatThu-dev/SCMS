@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Patients;
-using SCMS.Shared.Contracts.Patients;
+using SCMS.Domain.DTOs;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
 
@@ -16,7 +16,9 @@ public class PatientServiceTests
         var user = TestData.AddUser(db);
         var otherUser = TestData.AddUser(db);
         TestData.AddPatient(db, otherUser, "Hidden Patient");
-        var service = new PatientService(db.Context);
+        var appointmentsService = new SCMS.Domain.Features.Appointments.AppointmentsService(db.Context);
+        var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
+        var service = new PatientService(db.Context, appointmentsService, prescriptionService);
 
         var createResult = await service.AddPatientProfileAsync(new PatientProfileRequest
         {
@@ -30,7 +32,7 @@ public class PatientServiceTests
         Assert.Equal("Mg Mg", createResult.Data!.Name);
         Assert.Equal("Aspirin", createResult.Data.Allergies);
 
-        var listResult = await service.GetPatientProfilesAsync(user.UserId, new PaginationRequest());
+        var listResult = await service.GetPatientProfilesAsync(new PatientProfilesRequest(), user.UserId);
         Assert.True(listResult.IsSuccess);
         Assert.Single(listResult.Data);
         Assert.Equal("Mg Mg", listResult.Data[0].Name);
@@ -46,9 +48,11 @@ public class PatientServiceTests
         TestData.AddPatient(db, firstUser, "Aye Aye");
         TestData.AddPatient(db, secondUser, "Mg Mg");
         TestData.AddPatient(db, secondUser, "Deleted", deleted: true);
-        var service = new PatientService(db.Context);
+        var appointmentsService = new SCMS.Domain.Features.Appointments.AppointmentsService(db.Context);
+        var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
+        var service = new PatientService(db.Context, appointmentsService, prescriptionService);
 
-        var listResult = await service.GetPatientProfilesAsync(staff.UserId, new PaginationRequest(), isStaff: true);
+        var listResult = await service.GetPatientProfilesAsync(new PatientProfilesRequest(), staff.UserId, isStaff: true);
 
         Assert.True(listResult.IsSuccess);
         Assert.Equal(2, listResult.Data.Count);
@@ -63,7 +67,9 @@ public class PatientServiceTests
         var stranger = TestData.AddUser(db);
         var admin = TestData.AddUser(db, role: "owner");
         var patient = TestData.AddPatient(db, owner);
-        var service = new PatientService(db.Context);
+        var appointmentsService = new SCMS.Domain.Features.Appointments.AppointmentsService(db.Context);
+        var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
+        var service = new PatientService(db.Context, appointmentsService, prescriptionService);
 
         var ownerResult = await service.GetPatientProfileByIdAsync(patient.PatientId, owner.UserId);
         var strangerResult = await service.GetPatientProfileByIdAsync(patient.PatientId, stranger.UserId);
@@ -84,14 +90,15 @@ public class PatientServiceTests
         var disease = TestData.AddDisease(db, "Flu");
         var medicine = TestData.AddMedicine(db, "Cetirizine");
         var batch = TestData.AddBatch(db, medicine);
-        var notes = JsonSerializer.Serialize(new PatientService.PrescriptionNotesMetadata
-        {
-            ActualNotes = "Rest well",
-            LabTestRequests = "CBC"
-        });
+        var notes = "Rest well";
         var prescription = TestData.AddPrescription(db, patient, appointment, disease, notes);
+        prescription.LabTestRequests = "CBC";
+        db.Context.SaveChanges();
         TestData.AddPrescriptionItem(db, prescription, medicine, batch);
-        var service = new PatientService(db.Context);
+        
+        var appointmentsService = new SCMS.Domain.Features.Appointments.AppointmentsService(db.Context);
+        var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
+        var service = new PatientService(db.Context, appointmentsService, prescriptionService);
 
         var result = await service.GetPatientHistoryAsync(patient.PatientId, user.UserId);
 
@@ -107,26 +114,29 @@ public class PatientServiceTests
     {
         using var db = new TestDatabase();
         var user = TestData.AddUser(db);
-        var address = JsonSerializer.Serialize(new PatientService.PatientAddressMetadata
-        {
-            Allergies = "Penicillin",
-            ChronicConditions = "Diabetes"
-        });
+        var address = "123 Main St";
         var patient = TestData.AddPatient(db, user, address: address);
+        patient.Allergies = "Penicillin";
+        patient.ChronicConditions = "Diabetes";
+        db.Context.SaveChanges();
+
         var appointment = TestData.AddAppointment(db, patient, DateTime.UtcNow.AddDays(-1), "completed");
         var disease = TestData.AddDisease(db);
         var medicine = TestData.AddMedicine(db);
-        var notes = JsonSerializer.Serialize(new PatientService.PrescriptionNotesMetadata
-        {
-            TemperatureC = 37.5,
-            PulseBpm = 88,
-            Spo2Percent = 98,
-            HeightCm = 165,
-            Bmi = 22.04
-        });
+        var notes = "Test notes";
         var prescription = TestData.AddPrescription(db, patient, appointment, disease, notes);
+        prescription.TemperatureC = 37.5;
+        prescription.PulseBpm = 88;
+        prescription.Spo2Percent = 98;
+        prescription.HeightCm = 165;
+        prescription.Bmi = 22.04;
+        db.Context.SaveChanges();
+
         TestData.AddPrescriptionItem(db, prescription, medicine);
-        var service = new PatientService(db.Context);
+        
+        var appointmentsService = new SCMS.Domain.Features.Appointments.AppointmentsService(db.Context);
+        var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
+        var service = new PatientService(db.Context, appointmentsService, prescriptionService);
 
         var result = await service.GetMedicalSummaryAsync(patient.PatientId, user.UserId);
 

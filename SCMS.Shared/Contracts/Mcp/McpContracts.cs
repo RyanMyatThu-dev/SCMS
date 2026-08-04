@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace SCMS.Shared.Contracts.Mcp
@@ -11,7 +14,205 @@ namespace SCMS.Shared.Contracts.Mcp
         public string Description { get; set; } = string.Empty;
 
         [JsonPropertyName("inputSchema")]
-        public object InputSchema { get; set; } = new { type = "object", properties = new { } };
+        public JsonSchemaInput InputSchema { get; set; } = new();
+    }
+
+    public class JsonSchemaInput
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = "object";
+
+        [JsonPropertyName("properties")]
+        public Dictionary<string, PropertyDefinition> Properties { get; set; } = new();
+
+        [JsonPropertyName("required")]
+        public List<string> Required { get; set; } = new();
+    }
+
+    public class PropertyDefinition
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = string.Empty;
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; } = string.Empty;
+
+        [JsonPropertyName("items")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public JsonSchemaInput? Items { get; set; }
+    }
+
+    // Strongly-typed input classes for MCP tools
+
+    public class EmptyInput
+    {
+    }
+
+    public class PatientIdInput
+    {
+        [Required]
+        [Description("The unique identifier of the patient.")]
+        public int PatientId { get; set; }
+    }
+
+    public class MedicineNameInput
+    {
+        [Required]
+        [Description("Name or fragment of the medicine.")]
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class ExpiringBatchesInput
+    {
+        [Description("The number of days to look ahead for expiring batches (default is 30).")]
+        public int? Days { get; set; }
+    }
+
+    public class CreateFollowUpReminderInput
+    {
+        [Required]
+        [Description("The unique identifier of the patient.")]
+        public int PatientId { get; set; }
+
+        [Required]
+        [Description("Number of days from today when the follow-up is due.")]
+        public int DueInDays { get; set; }
+
+        [Required]
+        [Description("Clinical recommendation or notes for the follow-up.")]
+        public string Recommendation { get; set; } = string.Empty;
+    }
+
+    public class UpdateAppointmentStatusInput
+    {
+        [Required]
+        [Description("The unique ID of the appointment.")]
+        public int AppointmentId { get; set; }
+
+        [Required]
+        [Description("The new status: 'pending', 'confirmed', 'cancelled', or 'completed'.")]
+        public string Status { get; set; } = string.Empty;
+
+        [Description("Optional update notes explaining the status change.")]
+        public string? Notes { get; set; }
+    }
+
+    public class CancelAppointmentsInRangeInput
+    {
+        [Required]
+        [Description("Start of the time range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 12:00'), or full ISO dates.")]
+        public string StartTime { get; set; } = string.Empty;
+
+        [Required]
+        [Description("End of the time range. Supports simple times (e.g. '12:00'), relative dates ('today at 12:00', 'tomorrow at 14:00'), or full ISO dates.")]
+        public string EndTime { get; set; } = string.Empty;
+
+        [Description("Optional reason for cancelling these appointments.")]
+        public string? Reason { get; set; }
+    }
+
+    public class RescheduleAppointmentsInRangeInput
+    {
+        [Required]
+        [Description("Start of source range. Supports simple times (e.g. '10:00'), relative dates ('today at 10:00', 'tomorrow at 10:00'), or full ISO dates.")]
+        public string SourceStartTime { get; set; } = string.Empty;
+
+        [Required]
+        [Description("End of source range. Supports simple times (e.g. '11:00'), relative dates ('today at 11:00', 'tomorrow at 11:00'), or full ISO dates.")]
+        public string SourceEndTime { get; set; } = string.Empty;
+
+        [Required]
+        [Description("New start time to begin shifting appointments to. Supports simple times (e.g. '14:00'), relative dates ('today at 14:00', 'tomorrow at 08:30'), or full ISO dates.")]
+        public string TargetStartTime { get; set; } = string.Empty;
+    }
+
+    public class UpdateAppointmentStatusByPatientNameInput
+    {
+        [Required]
+        [Description("The full or partial name of the patient.")]
+        public string PatientName { get; set; } = string.Empty;
+
+        [Required]
+        [Description("The new status: 'pending', 'confirmed', 'cancelled', or 'completed'.")]
+        public string Status { get; set; } = string.Empty;
+
+        [Description("Optional physician or administrative notes.")]
+        public string? Notes { get; set; }
+    }
+
+    public class RescheduleTodayAppointmentsInput
+    {
+        [Required]
+        [Description("The new start time for the first appointment. Supports simple times (e.g. '08:30'), relative ('today at 08:30'), or full ISO dates.")]
+        public string TargetStartTime { get; set; } = string.Empty;
+    }
+
+    public class GetPrescriptionTemplatesInput
+    {
+        [Description("Optional disease ID filter.")]
+        public int? DiseaseId { get; set; }
+
+        [Description("Optional disease name filter (partial match).")]
+        public string? DiseaseName { get; set; }
+    }
+
+    public class CreatePrescriptionTemplateInput
+    {
+        [Required]
+        [Description("The name of the template.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        [Description("The unique ID of the disease.")]
+        public int DiseaseId { get; set; }
+
+        [Required]
+        [Description("List of template items (medicines).")]
+        public List<PrescriptionTemplateItemInput> Items { get; set; } = new();
+    }
+
+    public class PrescriptionTemplateItemInput
+    {
+        [Required]
+        [Description("The unique ID of the medicine.")]
+        public int MedicineId { get; set; }
+
+        [Description("Dosage details (e.g. '500 mg').")]
+        public string? Dosage { get; set; }
+
+        [Required]
+        [Description("Duration in days.")]
+        public int Days { get; set; }
+
+        [Required]
+        [Description("Total quantity.")]
+        public int Quantity { get; set; }
+
+        [Description("Usage instruction.")]
+        public string? Instruction { get; set; }
+    }
+
+    public class DeletePrescriptionTemplateInput
+    {
+        [Required]
+        [Description("The unique ID of the prescription template to delete.")]
+        public int TemplateId { get; set; }
+    }
+
+    public class BulkUpdateTodayAppointmentsStatusInput
+    {
+        [Required]
+        [Description("The new status: 'pending', 'confirmed', 'cancelled', or 'completed'.")]
+        public string Status { get; set; } = string.Empty;
+    }
+
+    public class PatientKypBriefInput
+    {
+        [Description("The unique identifier of the patient (optional if patientName is provided).")]
+        public int? PatientId { get; set; }
+
+        [Description("The name of the patient (optional if patientId is provided).")]
+        public string? PatientName { get; set; }
     }
 
     public class McpToolCallRequest

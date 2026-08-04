@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SCMS.Database.Models;
@@ -25,6 +25,12 @@ public partial class TblPatient
     public string? BloodType { get; set; }
 
     public string? Address { get; set; }
+
+    public string? Allergies { get; set; }
+    public string? ChronicConditions { get; set; }
+    public string? PastSurgeries { get; set; }
+    public string? FamilyHistory { get; set; }
+    public string? VaccinationHistory { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 
