@@ -88,9 +88,16 @@ namespace SCMS.Domain.Features.Prescriptions
                 }
             }
 
+            // Batch pre-fetch all medicines referenced in this prescription
+            var medicineIds = request.Items.Select(i => i.MedicineId).Distinct().ToList();
+            var prescribedMeds = await _context.TblMedicines
+                .Where(m => medicineIds.Contains(m.MedicineId) && m.DeleteFlag != true)
+                .ToListAsync();
+            var medMap = prescribedMeds.ToDictionary(m => m.MedicineId);
+
             var warnings = new List<string>();
 
-            // 1. Check Allergies
+            // 1. Check Allergies in-memory
             if (!string.IsNullOrEmpty(patient.Allergies))
             {
                 var allergyList = patient.Allergies.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
@@ -99,9 +106,7 @@ namespace SCMS.Domain.Features.Prescriptions
 
                 foreach (var item in request.Items)
                 {
-                    var med = await _context.TblMedicines
-                        .FirstOrDefaultAsync(m => m.MedicineId == item.MedicineId && m.DeleteFlag != true);
-                    if (med != null)
+                    if (medMap.TryGetValue(item.MedicineId, out var med))
                     {
                         var medNameLower = med.Name.ToLower();
                         foreach (var allergy in allergyList)
@@ -115,15 +120,7 @@ namespace SCMS.Domain.Features.Prescriptions
                 }
             }
 
-            // 2. Check Drug Interactions (Basic Demo logic: e.g., Aspirin + Warfarin, or ibuprofen + aspirin)
-            var prescribedMeds = new List<TblMedicine>();
-            foreach (var item in request.Items)
-            {
-                var med = await _context.TblMedicines
-                    .FirstOrDefaultAsync(m => m.MedicineId == item.MedicineId && m.DeleteFlag != true);
-                if (med != null) prescribedMeds.Add(med);
-            }
-
+            // 2. Check Drug Interactions in-memory
             for (int i = 0; i < prescribedMeds.Count; i++)
             {
                 for (int j = i + 1; j < prescribedMeds.Count; j++)
@@ -145,14 +142,39 @@ namespace SCMS.Domain.Features.Prescriptions
             // 3. Smart Inventory Deduction (FIFO) & Expiry Warnings
             await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var prescriptionItemsToCreate = new List<TblPrescriptionItem>();
-            var schedulesToCreate = new List<TblPrescriptionItemSchedule>();
             var lowStockAlertsToSend = new List<(int MedicineId, string MedName, int TotalAvailable)>();
+
+            // Calculate BMI
+            double? bmi = null;
+            if (request.WeightKg.HasValue && request.HeightCm.HasValue && request.HeightCm.Value > 0)
+            {
+                var heightMeters = request.HeightCm.Value / 100.0;
+                bmi = Math.Round(request.WeightKg.Value / (heightMeters * heightMeters), 2);
+            }
+
+            var prescription = new TblPrescription
+            {
+                AppointmentId = request.AppointmentId,
+                PatientId = request.PatientId,
+                DiseaseId = request.DiseaseId,
+                WeightKg = request.WeightKg,
+                BloodPressureSystolic = request.BloodPressureSystolic,
+                BloodPressureDiastolic = request.BloodPressureDiastolic,
+                Notes = request.Notes,
+                TemperatureC = request.TemperatureC,
+                PulseBpm = request.PulseBpm,
+                Spo2Percent = request.Spo2Percent,
+                HeightCm = request.HeightCm,
+                Bmi = bmi,
+                LabTestRequests = request.LabTestRequests,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                DeleteFlag = false
+            };
 
             foreach (var item in request.Items)
             {
-                var med = prescribedMeds.FirstOrDefault(m => m.MedicineId == item.MedicineId);
-                if (med == null)
+                if (!medMap.TryGetValue(item.MedicineId, out var med))
                 {
                     return Result<PrescriptionResponse>.Failure($"Medicine ID {item.MedicineId} not found.");
                 }
@@ -212,9 +234,8 @@ namespace SCMS.Domain.Features.Prescriptions
                     }
 
                     batch.UpdatedAt = DateTime.UtcNow;
-                    prescriptionItemsToCreate.Add(pItem);
 
-                    // Add schedule
+                    // Add schedule to item in memory
                     var schedule = new TblPrescriptionItemSchedule
                     {
                         StartDate = DateOnly.FromDateTime(DateTime.UtcNow),
@@ -233,61 +254,21 @@ namespace SCMS.Domain.Features.Prescriptions
                         CreatedAt = DateTime.UtcNow,
                         DeleteFlag = false
                     };
-                    schedulesToCreate.Add(schedule);
+
+                    pItem.TblPrescriptionItemSchedules.Add(schedule);
+                    prescription.TblPrescriptionItems.Add(pItem);
                 }
             }
-
-            // 4. Calculate BMI
-            double? bmi = null;
-            if (request.WeightKg.HasValue && request.HeightCm.HasValue && request.HeightCm.Value > 0)
-            {
-                var heightMeters = request.HeightCm.Value / 100.0;
-                bmi = Math.Round(request.WeightKg.Value / (heightMeters * heightMeters), 2);
-            }
-
-            // Save prescription
-            var prescription = new TblPrescription
-            {
-                AppointmentId = request.AppointmentId,
-                PatientId = request.PatientId,
-                DiseaseId = request.DiseaseId,
-                WeightKg = request.WeightKg,
-                BloodPressureSystolic = request.BloodPressureSystolic,
-                BloodPressureDiastolic = request.BloodPressureDiastolic,
-                Notes = request.Notes,
-                TemperatureC = request.TemperatureC,
-                PulseBpm = request.PulseBpm,
-                Spo2Percent = request.Spo2Percent,
-                HeightCm = request.HeightCm,
-                Bmi = bmi,
-                LabTestRequests = request.LabTestRequests,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                DeleteFlag = false
-            };
 
             try
             {
                 _context.TblPrescriptions.Add(prescription);
-                await _context.SaveChangesAsync(); // Generates prescription.Id
-
-                // Link prescription items & schedules
-                int scheduleIndex = 0;
-                foreach (var pItem in prescriptionItemsToCreate)
-                {
-                    pItem.PrescriptionId = prescription.Id;
-                    _context.TblPrescriptionItems.Add(pItem);
-                    await _context.SaveChangesAsync(); // Generates pItem.Id
-
-                    var schedule = schedulesToCreate[scheduleIndex++];
-                    schedule.PrescriptionItemId = pItem.Id;
-                    _context.TblPrescriptionItemSchedules.Add(schedule);
-                }
 
                 // Set appointment status to Completed
                 appointment.Status = "completed";
                 appointment.UpdatedAt = DateTime.UtcNow;
 
+                // Single atomic database save committing the entire graph!
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -337,6 +318,7 @@ namespace SCMS.Domain.Features.Prescriptions
         public async Task<Result<PrescriptionResponse>> GetPrescriptionDetailsAsync(int id)
         {
             var p = await _context.TblPrescriptions
+                .AsNoTracking()
                 .Include(x => x.Patient)
                 .Include(x => x.Appointment)
                 .Include(x => x.Disease)
@@ -353,63 +335,23 @@ namespace SCMS.Domain.Features.Prescriptions
                 return Result<PrescriptionResponse>.Failure("Prescription not found.");
             }
 
-            var itemResponseDtos = new List<PrescriptionItemResponseDto>();
-            foreach (var item in p.TblPrescriptionItems)
-            {
-                var sched = item.TblPrescriptionItemSchedules.FirstOrDefault();
-
-                itemResponseDtos.Add(new PrescriptionItemResponseDto
-                {
-                    Id = item.Id,
-                    MedicineId = item.MedicineId,
-                    MedicineName = item.Medicine.Name,
-                    MedicineBatchId = item.MedicineBatchId,
-                    BatchNo = item.MedicineBatch?.BatchNo,
-                    Dosage = item.Dosage,
-                    Days = item.Days,
-                    Quantity = item.Quantity,
-                    Instruction = item.Instruction,
-                    DoseTime = sched?.DoseTime,
-                    DoseQuantity = sched?.DoseQuantity ?? 1.0m,
-                    DoseUnit = sched?.DoseUnit,
-                    MealTiming = sched?.MealTiming,
-                    Route = sched?.Route,
-                    IntervalHours = sched?.IntervalHours,
-                    IntervalDays = sched?.IntervalDays,
-                    DayOfWeek = sched?.DayOfWeek,
-                    IsAsNeeded = sched?.IsAsNeeded ?? false,
-                    BodySite = sched?.BodySite,
-                    ScheduleNote = sched?.Note
-                });
-            }
-
-            return Result<PrescriptionResponse>.Success(new PrescriptionResponse
-            {
-                Id = p.Id,
-                AppointmentId = p.AppointmentId,
-                AppointmentCode = p.Appointment.AppointmentCode,
-                PatientId = p.PatientId,
-                PatientName = p.Patient.Name,
-                DiseaseId = p.DiseaseId,
-                DiseaseName = p.Disease?.Name,
-                WeightKg = p.WeightKg,
-                BloodPressureSystolic = p.BloodPressureSystolic,
-                BloodPressureDiastolic = p.BloodPressureDiastolic,
-                Notes = p.Notes,
-                TemperatureC = p.TemperatureC,
-                PulseBpm = p.PulseBpm,
-                Spo2Percent = p.Spo2Percent,
-                HeightCm = p.HeightCm,
-                Bmi = p.Bmi,
-                LabTestRequests = p.LabTestRequests,
-                Items = itemResponseDtos,
-                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
-            });
+            return Result<PrescriptionResponse>.Success(MapPrescriptionToResponse(p));
         }
 
         public async Task<PagedResult<PrescriptionResponse>> GetPrescriptionsAsync(int? patientId, PaginationRequest paginationRequest)
         {
-            var query = _context.TblPrescriptions.Where(p => p.DeleteFlag != true);
+            var query = _context.TblPrescriptions
+                .AsNoTracking()
+                .Include(p => p.Patient)
+                .Include(p => p.Appointment)
+                .Include(p => p.Disease)
+                .Include(p => p.TblPrescriptionItems)
+                    .ThenInclude(i => i.Medicine)
+                .Include(p => p.TblPrescriptionItems)
+                    .ThenInclude(i => i.MedicineBatch)
+                .Include(p => p.TblPrescriptionItems)
+                    .ThenInclude(i => i.TblPrescriptionItemSchedules)
+                .Where(p => p.DeleteFlag != true);
 
             if (patientId.HasValue)
             {
@@ -417,22 +359,14 @@ namespace SCMS.Domain.Features.Prescriptions
             }
 
             var totalCount = await query.CountAsync();
-            var ids = await query
+            var prescriptions = await query
                 .OrderByDescending(p => p.Id)
                 .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
                 .Take(paginationRequest.PageSize)
-                .Select(p => p.Id)
+                .AsSplitQuery()
                 .ToListAsync();
 
-            var list = new List<PrescriptionResponse>();
-            foreach (var id in ids)
-            {
-                var r = await GetPrescriptionDetailsAsync(id);
-                if (r.IsSuccess && r.Data != null)
-                {
-                    list.Add(r.Data);
-                }
-            }
+            var list = prescriptions.Select(MapPrescriptionToResponse).ToList();
 
             var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
             return PagedResult<PrescriptionResponse>.Success(list, pagination);
@@ -590,6 +524,7 @@ namespace SCMS.Domain.Features.Prescriptions
         public async Task<PagedResult<PrescriptionTemplateResponse>> GetTemplatesAsync(int? diseaseId, PaginationRequest paginationRequest)
         {
             var query = _context.TblPrescriptionTemplates
+                .AsNoTracking()
                 .Include(t => t.Disease)
                 .Include(t => t.TblPrescriptionTemplateItems)
                     .ThenInclude(i => i.Medicine)
@@ -612,9 +547,66 @@ namespace SCMS.Domain.Features.Prescriptions
             return PagedResult<PrescriptionTemplateResponse>.Success(list, pagination);
         }
 
+        private static PrescriptionResponse MapPrescriptionToResponse(TblPrescription p)
+        {
+            var itemResponseDtos = new List<PrescriptionItemResponseDto>();
+            foreach (var item in p.TblPrescriptionItems)
+            {
+                var sched = item.TblPrescriptionItemSchedules.FirstOrDefault();
+
+                itemResponseDtos.Add(new PrescriptionItemResponseDto
+                {
+                    Id = item.Id,
+                    MedicineId = item.MedicineId,
+                    MedicineName = item.Medicine?.Name ?? "Unknown Medicine",
+                    MedicineBatchId = item.MedicineBatchId,
+                    BatchNo = item.MedicineBatch?.BatchNo,
+                    Dosage = item.Dosage,
+                    Days = item.Days,
+                    Quantity = item.Quantity,
+                    Instruction = item.Instruction,
+                    DoseTime = sched?.DoseTime,
+                    DoseQuantity = sched?.DoseQuantity ?? 1.0m,
+                    DoseUnit = sched?.DoseUnit,
+                    MealTiming = sched?.MealTiming,
+                    Route = sched?.Route,
+                    IntervalHours = sched?.IntervalHours,
+                    IntervalDays = sched?.IntervalDays,
+                    DayOfWeek = sched?.DayOfWeek,
+                    IsAsNeeded = sched?.IsAsNeeded ?? false,
+                    BodySite = sched?.BodySite,
+                    ScheduleNote = sched?.Note
+                });
+            }
+
+            return new PrescriptionResponse
+            {
+                Id = p.Id,
+                AppointmentId = p.AppointmentId,
+                AppointmentCode = p.Appointment?.AppointmentCode ?? "-",
+                PatientId = p.PatientId,
+                PatientName = p.Patient?.Name ?? "Unknown",
+                DiseaseId = p.DiseaseId,
+                DiseaseName = p.Disease?.Name,
+                WeightKg = p.WeightKg,
+                BloodPressureSystolic = p.BloodPressureSystolic,
+                BloodPressureDiastolic = p.BloodPressureDiastolic,
+                Notes = p.Notes,
+                TemperatureC = p.TemperatureC,
+                PulseBpm = p.PulseBpm,
+                Spo2Percent = p.Spo2Percent,
+                HeightCm = p.HeightCm,
+                Bmi = p.Bmi,
+                LabTestRequests = p.LabTestRequests,
+                Items = itemResponseDtos,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
         private async Task<PrescriptionTemplateResponse> MapToTemplateResponseAsync(int id)
         {
             var template = await _context.TblPrescriptionTemplates
+                .AsNoTracking()
                 .Include(t => t.Disease)
                 .Include(t => t.TblPrescriptionTemplateItems)
                     .ThenInclude(i => i.Medicine)

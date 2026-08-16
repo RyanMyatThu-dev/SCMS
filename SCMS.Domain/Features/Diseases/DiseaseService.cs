@@ -16,13 +16,21 @@ namespace SCMS.Domain.Features.Diseases
 
         public async Task<PagedResult<DiseaseResponse>> GetDiseasesAsync(DiseaseRequest request)
         {   
-            if(request.Query == null)
+            var query = _context.TblDiseases
+                .AsNoTracking()
+                .Where(d => d.DeleteFlag != true);
+
+            if (!string.IsNullOrWhiteSpace(request.Query))
             {
-                request.Query = string.Empty;
+                var q = request.Query.Trim().ToLower();
+                query = query.Where(d => 
+                    d.Name.ToLower().Contains(q) || 
+                    (d.Description != null && d.Description.ToLower().Contains(q)));
             }
-            var diseases = await _context.TblDiseases.Where(d => d.DeleteFlag != true && 
-            (d.Name.ToLower().Contains(request.Query!.Trim().ToLower()) || 
-            (d.Description != null && d.Description.ToLower().Contains(request.Query!.Trim().ToLower()))))
+
+            var totalCount = await query.CountAsync();
+
+            var diseases = await query
                 .OrderBy(d => d.Name)
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -34,17 +42,22 @@ namespace SCMS.Domain.Features.Diseases
                 })
                 .ToListAsync();
 
-            var totalCount = diseases.Count();
-                
-
             return PagedResult<DiseaseResponse>.Success(diseases, new Pagination(request.PageNumber, request.PageSize, totalCount));
         }
 
         public async Task<Result<DiseaseResponse>> CreateDiseaseAsync(CreateDiseaseRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Result<DiseaseResponse>.Failure("Disease name is required.");
+            }
+
+            var trimmedName = request.Name.Trim();
+            var lowerName = trimmedName.ToLower();
+
             // Check if disease with same name already exists (case-insensitive)
             var diseaseExists = await _context.TblDiseases
-                .AnyAsync(d => d.Name.ToLower() == request.Name.Trim().ToLower() && d.DeleteFlag != true);
+                .AnyAsync(d => d.Name.ToLower() == lowerName && d.DeleteFlag != true);
             if (diseaseExists)
             {
                 return Result<DiseaseResponse>.Failure("A disease with this name already exists.");
@@ -52,7 +65,7 @@ namespace SCMS.Domain.Features.Diseases
 
             var disease = new TblDisease
             {
-                Name = request.Name.Trim(),
+                Name = trimmedName,
                 Description = request.Description?.Trim(),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -72,13 +85,28 @@ namespace SCMS.Domain.Features.Diseases
 
         public async Task<Result<DiseaseResponse>> UpdateDiseaseAsync(UpdateDiseaseRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Result<DiseaseResponse>.Failure("Disease name is required.");
+            }
+
             var disease = await _context.TblDiseases.FirstOrDefaultAsync(d => d.Id == request.Id && d.DeleteFlag != true);
-            if(disease == null)
+            if (disease == null)
             {
                 return Result<DiseaseResponse>.Failure("Disease to update not found");
             }
 
-            disease.Name = request.Name.Trim();
+            var trimmedName = request.Name.Trim();
+            var lowerName = trimmedName.ToLower();
+
+            var nameConflict = await _context.TblDiseases
+                .AnyAsync(d => d.Id != request.Id && d.Name.ToLower() == lowerName && d.DeleteFlag != true);
+            if (nameConflict)
+            {
+                return Result<DiseaseResponse>.Failure("Another active disease with this name already exists.");
+            }
+
+            disease.Name = trimmedName;
             disease.Description = request.Description?.Trim();
             disease.UpdatedAt = DateTime.UtcNow;
 

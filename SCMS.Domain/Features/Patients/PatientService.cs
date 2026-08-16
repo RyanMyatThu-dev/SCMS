@@ -57,6 +57,7 @@ namespace SCMS.Domain.Features.Patients
         public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(PatientProfilesRequest request, int userId, bool isStaff = false)
         {
             var query = _context.TblPatients
+                .AsNoTracking()
                 .Where(p => p.DeleteFlag != true);
 
             if (!isStaff)

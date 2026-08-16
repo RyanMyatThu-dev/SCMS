@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
+using SCMS.Domain.Common;
 using SCMS.Domain.Security;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.Auth;
@@ -25,20 +26,28 @@ namespace SCMS.Domain.Features.Auth
             {
                 return Result<AuthResponse>.Failure("Name is required.");
             }
-            if (string.IsNullOrWhiteSpace(request.Email))
+            if (!ValidationHelper.IsValidEmail(request.Email, out var email))
             {
-                return Result<AuthResponse>.Failure("Email is required.");
+                return Result<AuthResponse>.Failure("A valid email address is required.");
             }
             if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
             {
                 return Result<AuthResponse>.Failure("Password must be at least 8 characters.");
             }
 
-            var email = request.Email.Trim().ToLowerInvariant();
-            var mobile = string.IsNullOrWhiteSpace(request.MobileNo) ? null : request.MobileNo.Trim();
+            string? mobile = null;
+            if (!string.IsNullOrWhiteSpace(request.MobileNo))
+            {
+                if (!ValidationHelper.IsValidMyanmarMobile(request.MobileNo, out var normMobile))
+                {
+                    return Result<AuthResponse>.Failure("Invalid mobile number. Please provide a valid Myanmar mobile number (e.g. 09xxxxxxxxx or +959xxxxxxxxx).");
+                }
+                mobile = normMobile;
+            }
+
             var exists = await _context.TblUsers.AnyAsync(u =>
                 u.DeleteFlag != true &&
-                ((u.Email != null && u.Email.ToLower() == email) || (mobile != null && u.MobileNo == mobile)));
+                (u.Email == email || (mobile != null && u.MobileNo == mobile)));
 
             if (exists)
             {
@@ -56,14 +65,12 @@ namespace SCMS.Domain.Features.Auth
                 DeleteFlag = false
             };
 
-            _context.TblUsers.Add(user);
-            await _context.SaveChangesAsync();
-
-            _context.TblUserRoles.Add(new TblUserRole
+            user.TblUserRoles.Add(new TblUserRole
             {
-                UserId = user.UserId,
                 Role = "user"
             });
+
+            _context.TblUsers.Add(user);
             await _context.SaveChangesAsync();
 
             return await IssueTokensAsync(user, "Account created.");
@@ -76,11 +83,20 @@ namespace SCMS.Domain.Features.Auth
                 return Result<AuthResponse>.Failure("Email/mobile and password are required.");
             }
 
-            var login = request.EmailOrMobile.Trim().ToLowerInvariant();
+            var rawInput = request.EmailOrMobile.Trim();
+            var loginLower = rawInput.ToLowerInvariant();
+            string? normalizedMobile = null;
+            if (ValidationHelper.IsValidMyanmarMobile(rawInput, out var norm))
+            {
+                normalizedMobile = norm;
+            }
+
             var user = await _context.TblUsers
                 .Include(u => u.TblUserRoles)
                 .FirstOrDefaultAsync(u => u.DeleteFlag != true
-                    && ((u.Email != null && u.Email.ToLower() == login) || (u.MobileNo != null && u.MobileNo == request.EmailOrMobile.Trim())));
+                    && (u.Email == loginLower 
+                        || u.MobileNo == rawInput 
+                        || (normalizedMobile != null && u.MobileNo == normalizedMobile)));
 
             if (user == null || !_passwords.VerifyPassword(user.PasswordHash, request.Password))
             {
@@ -135,6 +151,7 @@ namespace SCMS.Domain.Features.Auth
         public async Task<Result<CurrentUserResponse>> GetCurrentUserAsync(int userId)
         {
             var user = await _context.TblUsers
+                .AsNoTracking()
                 .Include(u => u.TblUserRoles)
                 .FirstOrDefaultAsync(u => u.UserId == userId && u.DeleteFlag != true);
 

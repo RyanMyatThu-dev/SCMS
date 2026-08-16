@@ -246,8 +246,59 @@ namespace SCMS.Domain.Tests.Diseases
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.Single(result.Data); // Only the active disease should be returned
+            Assert.Single(result.Data);
             Assert.Equal("Measles", result.Data[0].Name);
+        }
+
+        [Fact]
+        public async Task UpdateDisease_ShouldReturnFailure_WhenDuplicateNameExists()
+        {
+            // Arrange
+            var disease1 = new TblDisease { Name = "Asthma", Description = "Respiratory condition", DeleteFlag = false };
+            var disease2 = new TblDisease { Name = "Bronchitis", Description = "Inflammation", DeleteFlag = false };
+            _context.TblDiseases.AddRange(disease1, disease2);
+            await _context.SaveChangesAsync();
+
+            var request = new UpdateDiseaseRequest
+            {
+                Id = disease2.Id,
+                Name = "Asthma", // Duplicate with disease1
+                Description = "Updated description"
+            };
+
+            // Act
+            var result = await _diseaseService.UpdateDiseaseAsync(request);
+
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Contains("already exists", result.Message!);
+        }
+
+        [Fact]
+        public async Task GetDiseasesAsync_ShouldReturnAccuratePagination_WhenMultiplePagesExist()
+        {
+            // Arrange
+            for (int i = 1; i <= 15; i++)
+            {
+                _context.TblDiseases.Add(new TblDisease
+                {
+                    Name = $"Disease {i:D2}",
+                    Description = $"Description {i}",
+                    DeleteFlag = false
+                });
+            }
+            await _context.SaveChangesAsync();
+
+            // Act
+            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = string.Empty, PageNumber = 2, PageSize = 5 });
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.Equal(5, result.Data.Count);
+            Assert.NotNull(result.Pagination);
+            Assert.Equal(15, result.Pagination.TotalCount);
+            Assert.Equal(3, result.Pagination.TotalPages);
+            Assert.Equal(2, result.Pagination.PageNumber);
         }
     }
 }

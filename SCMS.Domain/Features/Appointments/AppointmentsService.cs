@@ -66,27 +66,17 @@ namespace SCMS.Domain.Features.Appointments
                 var appointmentDate = request.Datetime.Date;
                 var nextDay = appointmentDate.AddDays(1);
 
-                var todayCodes = await _context.TblAppointments
-                    .Where(a => a.Datetime >= appointmentDate && a.Datetime < nextDay)
-                    .ToListAsync();
+                var todayCount = await _context.TblAppointments
+                    .CountAsync(a => a.Datetime >= appointmentDate && a.Datetime < nextDay);
 
-                var maxSeq = todayCodes
-                    .Select(a => a.AppointmentCode)
-                    .Where(c => c != null && c.StartsWith("APT-"))
-                    .Select(c =>
-                    {
-                        var parts = c.Substring(4).Split('-');
-                        return int.TryParse(parts[0], out var n) ? n : 0;
-                    })
-                    .DefaultIfEmpty(0)
-                    .Max();
-
-                // Append a short random hex suffix to make the code collision-resistant
+                // Append a short random hex suffix to guarantee collision-resistance
                 var randomSuffix = Convert.ToHexString(Guid.NewGuid().ToByteArray())[..4];
-                appointmentCode = $"APT-{(maxSeq + 1):D3}-{randomSuffix}";
+                appointmentCode = $"APT-{(todayCount + 1 + retry):D3}-{randomSuffix}";
 
-                // Auto-assign slot time: first starts at 08:00 AM, each subsequent is spaced by 15 mins
-                var assignedTime = appointmentDate.AddHours(8).AddMinutes(todayCodes.Count * 15);
+                // Auto-assign slot time: if specific time provided, keep it; otherwise 08:00 AM + (count * 15) mins
+                var assignedTime = request.Datetime.TimeOfDay != TimeSpan.Zero
+                    ? request.Datetime
+                    : appointmentDate.AddHours(8).AddMinutes(todayCount * 15);
 
                 appointment = new TblAppointment
                 {
@@ -106,7 +96,7 @@ namespace SCMS.Domain.Features.Appointments
                     await _context.SaveChangesAsync();
                     break; // Success — exit retry loop
                 }
-                catch (DbUpdateException ex) // Postgres unique constraint check or generic fallback
+                catch (DbUpdateException) // Postgres unique constraint check or generic fallback
                 {
                     // UNIQUE constraint still failed (extremely rare with suffix, but handle anyway)
                     _context.Entry(appointment).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
@@ -281,6 +271,7 @@ namespace SCMS.Domain.Features.Appointments
             bool isStaff = true)
         {
             var query = _context.TblAppointments
+                .AsNoTracking()
                 .Include(a => a.Patient)
                 .AsQueryable();
 
@@ -317,12 +308,34 @@ namespace SCMS.Domain.Features.Appointments
                 .Take(paginationRequest.PageSize)
                 .ToListAsync();
 
-            var list = new List<AppointmentDetailsResponse>();
-            foreach (var a in appointments)
+            var tokenMap = new Dictionary<int, int>();
+            if (appointments.Count > 0)
             {
-                var token = await GetTokenNumberAsync(a);
-                list.Add(MapToDetailsResponse(a, token));
+                var dates = appointments.Select(a => a.Datetime.Date).Distinct().ToList();
+                var minDate = dates.Min();
+                var maxDate = dates.Max().AddDays(1);
+
+                var dailyActiveAppts = await _context.TblAppointments
+                    .AsNoTracking()
+                    .Where(a => a.Datetime >= minDate && a.Datetime < maxDate && a.Status != "cancelled")
+                    .OrderBy(a => a.Datetime.Date)
+                    .ThenBy(a => a.Id)
+                    .Select(a => new { a.Id, Date = a.Datetime.Date })
+                    .ToListAsync();
+
+                foreach (var group in dailyActiveAppts.GroupBy(x => x.Date))
+                {
+                    int seq = 1;
+                    foreach (var item in group)
+                    {
+                        tokenMap[item.Id] = seq++;
+                    }
+                }
             }
+
+            var list = appointments
+                .Select(a => MapToDetailsResponse(a, tokenMap.TryGetValue(a.Id, out var tok) ? tok : 0))
+                .ToList();
 
             var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
             return PagedResult<AppointmentDetailsResponse>.Success(list, pagination);
