@@ -7,24 +7,43 @@ namespace SCMS.Domain.Tests.Notifications;
 public class NotificationServiceTests
 {
     [Fact]
-    public async Task GetNotificationsAsync_ReturnsUserAndBroadcastNotifications()
+    public async Task GetNotificationsAsync_Staff_ReturnsUserAndBroadcastNotifications()
     {
         using var db = new TestDatabase();
-        var user = TestData.AddUser(db);
+        var staffUser = TestData.AddUser(db);
         var otherUser = TestData.AddUser(db);
         var service = new NotificationService(db.Context);
 
-        await service.CreateNotificationAsync(user.UserId, "Mine", "User notification", "/mine");
+        await service.CreateNotificationAsync(staffUser.UserId, "Mine", "User notification", "/mine");
         await service.CreateNotificationAsync(null, "Broadcast", "Clinic alert", "/alerts");
         await service.CreateNotificationAsync(otherUser.UserId, "Other", "Other notification", "/other");
 
-        var result = await service.GetNotificationsAsync(user.UserId, new PaginationRequest());
+        var result = await service.GetNotificationsAsync(staffUser.UserId, new PaginationRequest(), isStaff: true);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Data.Count);
         Assert.Contains(result.Data, x => x.Title == "Mine");
         Assert.Contains(result.Data, x => x.Title == "Broadcast");
         Assert.DoesNotContain(result.Data, x => x.Title == "Other");
+    }
+
+    [Fact]
+    public async Task GetNotificationsAsync_Patient_DoesNotReceiveStaffBroadcastAlerts()
+    {
+        using var db = new TestDatabase();
+        var patientUser = TestData.AddUser(db);
+        var otherUser = TestData.AddUser(db);
+        var service = new NotificationService(db.Context);
+
+        await service.CreateNotificationAsync(patientUser.UserId, "Mine", "User notification", "/mine");
+        await service.CreateNotificationAsync(null, "Broadcast", "Clinic alert", "/alerts");
+        await service.CreateNotificationAsync(otherUser.UserId, "Other", "Other notification", "/other");
+
+        var result = await service.GetNotificationsAsync(patientUser.UserId, new PaginationRequest(), isStaff: false);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.Data);
+        Assert.Equal("Mine", result.Data[0].Title);
     }
 
     [Fact]
@@ -45,5 +64,4 @@ public class NotificationServiceTests
         Assert.True(ownerResult.IsSuccess);
         Assert.Empty(listResult.Data);
     }
-
 }

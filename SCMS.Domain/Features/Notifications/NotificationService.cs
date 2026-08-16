@@ -7,6 +7,7 @@ using SCMS.Database.Models;
 using SCMS.Domain.DTOs;
 using SCMS.Shared;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using SCMS.Domain.Realtime;
 
 namespace SCMS.Domain.Features.Notifications
@@ -15,22 +16,36 @@ namespace SCMS.Domain.Features.Notifications
     {
         private readonly AppDbContext _context;
         private readonly IHubContext<NotificationsHub>? _hubContext;
+        private readonly ILogger<NotificationService>? _logger;
 
-        public NotificationService(AppDbContext context, IHubContext<NotificationsHub>? hubContext = null)
+        public NotificationService(
+            AppDbContext context, 
+            IHubContext<NotificationsHub>? hubContext = null,
+            ILogger<NotificationService>? logger = null)
         {
             _context = context;
             _hubContext = hubContext;
+            _logger = logger;
         }
 
-        public async Task<PagedResult<NotificationResponse>> GetNotificationsAsync(int? userId, PaginationRequest paginationRequest)
+        public async Task<PagedResult<NotificationResponse>> GetNotificationsAsync(int? userId, PaginationRequest paginationRequest, bool isStaff = false)
         {
             var query = _context.TblNotifications
+                .AsNoTracking()
                 .Where(n => n.DeleteFlag != true);
 
             if (userId.HasValue)
             {
-                // Returns user's notifications + system broadcast alerts (where UserId is null)
-                query = query.Where(n => n.UserId == userId.Value || n.UserId == null);
+                if (isStaff)
+                {
+                    // Staff can see both user-specific notifications and clinic broadcasts
+                    query = query.Where(n => n.UserId == userId.Value || n.UserId == null);
+                }
+                else
+                {
+                    // Regular patients should ONLY receive their own notifications
+                    query = query.Where(n => n.UserId == userId.Value);
+                }
             }
             else
             {
@@ -119,10 +134,26 @@ namespace SCMS.Domain.Features.Notifications
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SignalR Broadcast failed: {ex.Message}");
+                _logger?.LogError(ex, "SignalR broadcast notification failed for user {UserId}", userId);
             }
 
             return Result<NotificationResponse>.Success(response, "Notification created.");
+        }
+
+        public async Task<int> CleanupSoftDeletedNotificationsAsync(int daysOld = 30)
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-daysOld);
+            var oldNotifications = await _context.TblNotifications
+                .Where(n => n.DeleteFlag == true && n.CreatedAt < cutoff)
+                .ToListAsync();
+
+            if (oldNotifications.Count > 0)
+            {
+                _context.TblNotifications.RemoveRange(oldNotifications);
+                return await _context.SaveChangesAsync();
+            }
+
+            return 0;
         }
     }
 }

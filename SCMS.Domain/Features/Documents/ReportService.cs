@@ -13,7 +13,6 @@ namespace SCMS.Domain.Features.Documents
     {
         private readonly AppDbContext _context;
 
-
         public ReportService(AppDbContext context)
         {
             _context = context;
@@ -47,36 +46,41 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var appointments = await _context.TblAppointments
+                .AsNoTracking()
                 .Include(a => a.Patient)
                 .Where(a => a.Datetime >= periodStart && a.Datetime < periodEnd)
                 .OrderBy(a => a.Datetime)
                 .ThenBy(a => a.Id)
                 .ToListAsync();
 
-            // Group by date for token numbering
-            var grouped = appointments
-                .GroupBy(a => a.Datetime.Date)
-                .ToDictionary(g => g.Key, g => g.OrderBy(a => a.Id).ToList());
-
-            var items = new List<AppointmentReportItemDto>();
-            foreach (var a in appointments)
+            // Pre-calculate token numbers by date group in O(N)
+            var tokenMap = new Dictionary<int, int>();
+            foreach (var group in appointments.GroupBy(a => a.Datetime.Date))
             {
-                var dayGroup = grouped[a.Datetime.Date];
-                var nonCancelled = dayGroup.Where(x => x.Status != "cancelled").ToList();
-                var token = nonCancelled.FindIndex(x => x.Id == a.Id) + 1;
-                if (token <= 0) token = 0; // cancelled appointments get token 0
-
-                items.Add(new AppointmentReportItemDto
+                int seq = 1;
+                foreach (var a in group.OrderBy(x => x.Id))
                 {
-                    AppointmentId = a.Id,
-                    AppointmentCode = a.AppointmentCode ?? "-",
-                    PatientName = a.Patient?.Name ?? "Unknown",
-                    Datetime = a.Datetime,
-                    Status = a.Status ?? "unknown",
-                    TokenNumber = token,
-                    Notes = a.Notes
-                });
+                    if (a.Status != "cancelled")
+                    {
+                        tokenMap[a.Id] = seq++;
+                    }
+                    else
+                    {
+                        tokenMap[a.Id] = 0;
+                    }
+                }
             }
+
+            var items = appointments.Select(a => new AppointmentReportItemDto
+            {
+                AppointmentId = a.Id,
+                AppointmentCode = a.AppointmentCode ?? "-",
+                PatientName = a.Patient?.Name ?? "Unknown",
+                Datetime = a.Datetime,
+                Status = a.Status ?? "unknown",
+                TokenNumber = tokenMap.TryGetValue(a.Id, out var tok) ? tok : 0,
+                Notes = a.Notes
+            }).ToList();
 
             var response = new AppointmentReportResponse
             {
@@ -129,6 +133,7 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var payments = await _context.TblPayments
+                .AsNoTracking()
                 .Include(p => p.Appointment)
                     .ThenInclude(a => a.Patient)
                 .Where(p => p.PaidAt >= periodStart && p.PaidAt < periodEnd
@@ -189,6 +194,7 @@ namespace SCMS.Domain.Features.Documents
         public async Task<Result<PatientListReportResponse>> GetPatientListReportAsync()
         {
             var patients = await _context.TblPatients
+                .AsNoTracking()
                 .Where(p => p.DeleteFlag != true)
                 .OrderBy(p => p.Name)
                 .ToListAsync();
@@ -239,6 +245,7 @@ namespace SCMS.Domain.Features.Documents
         public async Task<Result<MedicineStockReportResponse>> GetMedicineStockReportAsync()
         {
             var medicines = await _context.TblMedicines
+                .AsNoTracking()
                 .Include(m => m.Category)
                 .Include(m => m.TblMedicineBatches)
                 .Where(m => m.DeleteFlag != true)
@@ -260,7 +267,7 @@ namespace SCMS.Domain.Features.Documents
                     .Select(b =>
                     {
                         var isExpired = b.ExpiryDate <= today;
-                        var isLowStock = b.Quantity <= 10 && !isExpired; // Let's say 10 is low stock threshold
+                        var isLowStock = b.Quantity <= 10 && !isExpired;
 
                         if (isExpired) expiredCount++;
                         if (isLowStock) lowStockCount++;
@@ -334,6 +341,7 @@ namespace SCMS.Domain.Features.Documents
             }
 
             var query = _context.TblFollowUps
+                .AsNoTracking()
                 .Include(f => f.Patient)
                 .Where(f => f.DeleteFlag != true);
 
@@ -399,21 +407,26 @@ namespace SCMS.Domain.Features.Documents
 
             // 1. Total Patients (all-time active) vs New Patients (this month)
             var totalPatients = await _context.TblPatients
+                .AsNoTracking()
                 .CountAsync(p => p.DeleteFlag != true);
             
             var newPatients = await _context.TblPatients
+                .AsNoTracking()
                 .CountAsync(p => p.DeleteFlag != true && p.CreatedAt >= periodStart && p.CreatedAt < periodEnd);
 
             // 2. Total Appointments (this month)
             var totalAppointments = await _context.TblAppointments
+                .AsNoTracking()
                 .CountAsync(a => a.Datetime >= periodStart && a.Datetime < periodEnd && a.Status != "cancelled");
 
             // 3. Total Prescriptions (this month)
             var totalPrescriptions = await _context.TblPrescriptions
+                .AsNoTracking()
                 .CountAsync(p => p.CreatedAt >= periodStart && p.CreatedAt < periodEnd && p.DeleteFlag != true);
 
             // 4. Financials (this month, paid only)
             var payments = await _context.TblPayments
+                .AsNoTracking()
                 .Where(p => p.PaidAt >= periodStart && p.PaidAt < periodEnd && p.PaymentStatus == "paid")
                 .ToListAsync();
 
@@ -438,12 +451,14 @@ namespace SCMS.Domain.Features.Documents
         public async Task<Result<PrescriptionReportResponse>> GetPrescriptionReportAsync()
         {
             var prescriptions = await _context.TblPrescriptions
+                .AsNoTracking()
                 .Include(p => p.Patient)
                 .Include(p => p.Appointment)
                 .Include(p => p.Disease)
                 .Include(p => p.TblPrescriptionItems)
                 .Where(p => p.DeleteFlag != true)
                 .OrderByDescending(p => p.Id)
+                .Take(1000)
                 .ToListAsync();
 
             var items = prescriptions.Select(p => new PrescriptionReportItemDto

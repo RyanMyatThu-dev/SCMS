@@ -22,29 +22,6 @@ namespace SCMS.Domain.Features.Dashboards
             _context = context;
         }
 
-        // Helper structure for patient address serialization
-        public class PatientAddressMetadata
-        {
-            public string? ActualAddress { get; set; }
-            public string? Allergies { get; set; }
-            public string? ChronicConditions { get; set; }
-            public string? PastSurgeries { get; set; }
-            public string? FamilyHistory { get; set; }
-            public string? VaccinationHistory { get; set; }
-        }
-
-        // Helper structure for vitals serialization
-        public class PrescriptionNotesMetadata
-        {
-            public string? ActualNotes { get; set; }
-            public double? TemperatureC { get; set; }
-            public int? PulseBpm { get; set; }
-            public int? Spo2Percent { get; set; }
-            public double? HeightCm { get; set; }
-            public double? Bmi { get; set; }
-            public string? LabTestRequests { get; set; }
-        }
-
         public async Task<Result<DoctorDashboardResponse>> GetDoctorDashboardAsync()
         {
             var todayUtc = DateTime.UtcNow.Date;
@@ -58,6 +35,7 @@ namespace SCMS.Domain.Features.Dashboards
             var dailyRevenue = await GetDailyRevenueAsync(todayUtc, tomorrowUtc);
 
             var totalRevenueDouble = await _context.TblPayments
+                .AsNoTracking()
                 .Where(p => p.PaymentStatus == "paid")
                 .Select(p => (double)p.Amount)
                 .SumAsync();
@@ -70,6 +48,7 @@ namespace SCMS.Domain.Features.Dashboards
                 .Count();
 
             var totalMedicinesCount = await _context.TblMedicines
+                .AsNoTracking()
                 .CountAsync(m => m.DeleteFlag != true);
 
             var stockRiskStatus = lowStockMeds.Count > 0 ? "At Risk" : "Safe";
@@ -113,6 +92,7 @@ namespace SCMS.Domain.Features.Dashboards
         private async Task<List<TblAppointment>> GetTodayAppointmentsAsync(DateTime start, DateTime end)
         {
             return await _context.TblAppointments
+                .AsNoTracking()
                 .Include(a => a.Patient)
                 .Where(a => a.Datetime >= start && a.Datetime < end)
                 .OrderBy(a => a.Id)
@@ -124,7 +104,7 @@ namespace SCMS.Domain.Features.Dashboards
             return todayAppointments
                 .Where(a => a.Status == "confirmed" || a.Status == "pending")
                 .Take(3)
-                .Select((a, idx) => new UpcomingPatientDto
+                .Select(a => new UpcomingPatientDto
                 {
                     Id = a.Id,
                     AppointmentCode = a.AppointmentCode,
@@ -139,6 +119,7 @@ namespace SCMS.Domain.Features.Dashboards
         private async Task<(List<string> LowStock, List<string> Expiring)> GetInventoryAlertsAsync(DateOnly today, DateOnly thirtyDaysFromNow)
         {
             var activeBatches = await _context.TblMedicineBatches
+                .AsNoTracking()
                 .Include(b => b.Med)
                 .Where(b => b.Status == "active" && b.ExpiryDate > today && b.DeleteFlag != true)
                 .ToListAsync();
@@ -160,6 +141,7 @@ namespace SCMS.Domain.Features.Dashboards
         private async Task<decimal> GetDailyRevenueAsync(DateTime start, DateTime end)
         {
             var amounts = await _context.TblPayments
+                .AsNoTracking()
                 .Where(p => p.PaymentStatus == "paid" && p.PaidAt.HasValue && p.PaidAt.Value >= start && p.PaidAt.Value < end)
                 .Select(p => p.Amount)
                 .ToListAsync();
@@ -171,53 +153,76 @@ namespace SCMS.Domain.Features.Dashboards
         private async Task<List<TblPatient>> GetPatientProfilesAsync(int userId)
         {
             return await _context.TblPatients
+                .AsNoTracking()
                 .Where(p => p.UserId == userId && p.DeleteFlag != true)
                 .ToListAsync();
         }
 
         private async Task<List<AppointmentDetailsResponse>> GetUpcomingAppointmentsAsync(List<int> patientIds)
         {
+            if (patientIds == null || patientIds.Count == 0)
+            {
+                return new List<AppointmentDetailsResponse>();
+            }
+
             var upcomingAppts = await _context.TblAppointments
+                .AsNoTracking()
                 .Include(a => a.Patient)
                 .Where(a => patientIds.Contains(a.PatientId) && a.Datetime >= DateTime.UtcNow && (a.Status == "pending" || a.Status == "confirmed"))
                 .OrderBy(a => a.Datetime)
                 .ToListAsync();
 
-            var upcomingResponseList = new List<AppointmentDetailsResponse>();
-            foreach (var a in upcomingAppts)
+            if (upcomingAppts.Count == 0)
             {
-                var today = a.Datetime.Date;
-                var tomorrow = today.AddDays(1);
-                
-                var todayList = await _context.TblAppointments
-                    .Where(x => x.Datetime >= today && x.Datetime < tomorrow && x.Status != "cancelled")
-                    .OrderBy(x => x.Id)
-                    .Select(x => x.Id)
-                    .ToListAsync();
-                
-                var token = todayList.IndexOf(a.Id) + 1;
-
-                upcomingResponseList.Add(new AppointmentDetailsResponse
-                {
-                    Id = a.Id,
-                    AppointmentCode = a.AppointmentCode,
-                    PatientId = a.PatientId,
-                    PatientName = a.Patient?.Name ?? "Unknown",
-                    Datetime = a.Datetime,
-                    Status = a.Status,
-                    Notes = a.Notes,
-                    TokenNumber = token,
-                    ClinicDoctorName = "Clinic Doctor",
-                    CreatedAt = a.CreatedAt ?? DateTime.UtcNow
-                });
+                return new List<AppointmentDetailsResponse>();
             }
 
-            return upcomingResponseList;
+            var dates = upcomingAppts.Select(a => a.Datetime.Date).Distinct().ToList();
+            var minDate = dates.Min();
+            var maxDate = dates.Max().AddDays(1);
+
+            var dailyActiveAppts = await _context.TblAppointments
+                .AsNoTracking()
+                .Where(x => x.Datetime >= minDate && x.Datetime < maxDate && x.Status != "cancelled")
+                .OrderBy(x => x.Datetime.Date)
+                .ThenBy(x => x.Id)
+                .Select(x => new { x.Id, Date = x.Datetime.Date })
+                .ToListAsync();
+
+            var tokenMap = new Dictionary<int, int>();
+            foreach (var group in dailyActiveAppts.GroupBy(x => x.Date))
+            {
+                int seq = 1;
+                foreach (var item in group)
+                {
+                    tokenMap[item.Id] = seq++;
+                }
+            }
+
+            return upcomingAppts.Select(a => new AppointmentDetailsResponse
+            {
+                Id = a.Id,
+                AppointmentCode = a.AppointmentCode,
+                PatientId = a.PatientId,
+                PatientName = a.Patient?.Name ?? "Unknown",
+                Datetime = a.Datetime,
+                Status = a.Status,
+                Notes = a.Notes,
+                TokenNumber = tokenMap.TryGetValue(a.Id, out var tok) ? tok : 0,
+                ClinicDoctorName = "Clinic Doctor",
+                CreatedAt = a.CreatedAt ?? DateTime.UtcNow
+            }).ToList();
         }
 
         private async Task<List<PrescriptionResponse>> GetPrescriptionHistoryAsync(List<int> patientIds)
         {
+            if (patientIds == null || patientIds.Count == 0)
+            {
+                return new List<PrescriptionResponse>();
+            }
+
             var prescriptions = await _context.TblPrescriptions
+                .AsNoTracking()
                 .Include(p => p.Patient)
                 .Include(p => p.Appointment)
                 .Include(p => p.Disease)
@@ -234,13 +239,14 @@ namespace SCMS.Domain.Features.Dashboards
 
         private async Task<List<UnpaidInvoiceDto>> GetOutstandingBalancesAsync(List<int> patientIds)
         {
-            var appointmentIds = await _context.TblAppointments
-                .Where(a => patientIds.Contains(a.PatientId))
-                .Select(a => a.Id)
-                .ToListAsync();
+            if (patientIds == null || patientIds.Count == 0)
+            {
+                return new List<UnpaidInvoiceDto>();
+            }
 
             return await _context.TblPayments
-                .Where(p => appointmentIds.Contains(p.AppointmentId) && p.PaymentStatus != "paid")
+                .AsNoTracking()
+                .Where(p => p.Appointment != null && patientIds.Contains(p.Appointment.PatientId) && p.PaymentStatus != "paid")
                 .Select(p => new UnpaidInvoiceDto
                 {
                     Id = p.Id,
@@ -255,11 +261,24 @@ namespace SCMS.Domain.Features.Dashboards
                 .ToListAsync();
         }
 
-        // --- Mappers & Parsers ---
+        // --- Mappers ---
 
         private PatientProfileResponse MapPatientToResponse(TblPatient p)
         {
-            var addressMeta = ParsePatientAddress(p.Address);
+            var addressText = p.Address;
+            if (!string.IsNullOrEmpty(addressText) && addressText.TrimStart().StartsWith("{"))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(addressText);
+                    if (doc.RootElement.TryGetProperty("ActualAddress", out var actualProp))
+                    {
+                        addressText = actualProp.GetString();
+                    }
+                }
+                catch { }
+            }
+
             return new PatientProfileResponse
             {
                 PatientId = p.PatientId,
@@ -270,24 +289,22 @@ namespace SCMS.Domain.Features.Dashboards
                 DateOfBirth = p.DateOfBirth,
                 Gender = p.Gender,
                 BloodType = p.BloodType,
-                ActualAddress = addressMeta.ActualAddress,
-                Allergies = addressMeta.Allergies,
-                ChronicConditions = addressMeta.ChronicConditions,
-                PastSurgeries = addressMeta.PastSurgeries,
-                FamilyHistory = addressMeta.FamilyHistory,
-                VaccinationHistory = addressMeta.VaccinationHistory,
+                ActualAddress = addressText,
+                Allergies = p.Allergies,
+                ChronicConditions = p.ChronicConditions,
+                PastSurgeries = p.PastSurgeries,
+                FamilyHistory = p.FamilyHistory,
+                VaccinationHistory = p.VaccinationHistory,
                 CreatedAt = p.CreatedAt ?? DateTime.UtcNow
             };
         }
 
         private PrescriptionResponse MapPrescriptionToResponse(TblPrescription p)
         {
-            var notesMeta = ParsePrescriptionNotes(p.Notes);
-
             var itemsList = p.TblPrescriptionItems.Select(item => new PrescriptionItemResponseDto
             {
                 Id = item.Id,
-                MedicineName = item.Medicine.Name,
+                MedicineName = item.Medicine?.Name ?? "Unknown",
                 Dosage = item.Dosage,
                 Days = item.Days,
                 Quantity = item.Quantity,
@@ -298,52 +315,24 @@ namespace SCMS.Domain.Features.Dashboards
             {
                 Id = p.Id,
                 AppointmentId = p.AppointmentId,
-                AppointmentCode = p.Appointment != null ? p.Appointment.AppointmentCode : "Unknown",
+                AppointmentCode = p.Appointment?.AppointmentCode ?? "Unknown",
                 PatientId = p.PatientId,
-                PatientName = p.Patient != null ? p.Patient.Name : "Unknown",
+                PatientName = p.Patient?.Name ?? "Unknown",
                 DiseaseId = p.DiseaseId,
                 DiseaseName = p.Disease?.Name,
                 WeightKg = p.WeightKg,
                 BloodPressureSystolic = p.BloodPressureSystolic,
                 BloodPressureDiastolic = p.BloodPressureDiastolic,
-                Notes = notesMeta.ActualNotes,
-                TemperatureC = notesMeta.TemperatureC,
-                PulseBpm = notesMeta.PulseBpm,
-                Spo2Percent = notesMeta.Spo2Percent,
-                HeightCm = notesMeta.HeightCm,
-                Bmi = notesMeta.Bmi,
-                LabTestRequests = notesMeta.LabTestRequests,
+                Notes = p.Notes,
+                TemperatureC = p.TemperatureC,
+                PulseBpm = p.PulseBpm,
+                Spo2Percent = p.Spo2Percent,
+                HeightCm = p.HeightCm,
+                Bmi = p.Bmi,
+                LabTestRequests = p.LabTestRequests,
                 Items = itemsList,
                 CreatedAt = p.CreatedAt ?? DateTime.UtcNow
             };
-        }
-
-        private PatientAddressMetadata ParsePatientAddress(string? address)
-        {
-            if (string.IsNullOrEmpty(address)) return new PatientAddressMetadata();
-            try
-            {
-                if (address.TrimStart().StartsWith("{"))
-                {
-                    return JsonSerializer.Deserialize<PatientAddressMetadata>(address) ?? new PatientAddressMetadata();
-                }
-            }
-            catch { }
-            return new PatientAddressMetadata { ActualAddress = address };
-        }
-
-        private PrescriptionNotesMetadata ParsePrescriptionNotes(string? notes)
-        {
-            if (string.IsNullOrEmpty(notes)) return new PrescriptionNotesMetadata();
-            try
-            {
-                if (notes.TrimStart().StartsWith("{"))
-                {
-                    return JsonSerializer.Deserialize<PrescriptionNotesMetadata>(notes) ?? new PrescriptionNotesMetadata();
-                }
-            }
-            catch { }
-            return new PrescriptionNotesMetadata { ActualNotes = notes };
         }
     }
 }

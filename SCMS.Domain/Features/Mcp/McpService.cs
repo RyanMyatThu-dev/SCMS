@@ -287,15 +287,14 @@ namespace SCMS.Domain.Features.Mcp
             // Get recent prescriptions
             var lastPrescription = await _context.TblPrescriptions
                 .Include(p => p.TblPrescriptionItems)
-                .ThenInclude(pi => pi.MedicineBatch)
-                .ThenInclude(mb => mb.Med)
+                .ThenInclude(pi => pi.Medicine)
                 .Where(p => p.PatientId == patient.PatientId && p.DeleteFlag != true)
                 .OrderByDescending(p => p.CreatedAt)
                 .FirstOrDefaultAsync();
 
             var recentMeds = lastPrescription?.TblPrescriptionItems
                 .Where(pi => pi.DeleteFlag != true)
-                .Select(pi => pi.MedicineBatch?.Med?.Name ?? "Unknown Medicine")
+                .Select(pi => pi.Medicine?.Name ?? "Unknown Medicine")
                 .ToList() ?? new List<string>();
 
             return new
@@ -374,8 +373,7 @@ namespace SCMS.Domain.Features.Mcp
 
             var prescriptions = await _context.TblPrescriptions
                 .Include(p => p.TblPrescriptionItems)
-                .ThenInclude(pi => pi.MedicineBatch)
-                .ThenInclude(mb => mb.Med)
+                .ThenInclude(pi => pi.Medicine)
                 .Where(p => p.PatientId == patientId && p.DeleteFlag != true)
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(5)
@@ -642,6 +640,11 @@ namespace SCMS.Domain.Features.Mcp
                 return new { success = true, message = "No active appointments found in the specified time range.", count = 0 };
             }
 
+            if (appointments.Count > 100)
+            {
+                return new { error = $"Operation exceeds maximum safety limit of 100 appointments (matched {appointments.Count}). Please narrow your time window." };
+            }
+
             string reason = "Bulk cancelled via AI Assistant";
             if (arguments.TryGetValue("reason", out var reasonObj) && reasonObj != null && !string.IsNullOrWhiteSpace(reasonObj.ToString()))
             {
@@ -653,6 +656,19 @@ namespace SCMS.Domain.Features.Mcp
                 appt.Status = "cancelled";
                 appt.Notes = string.IsNullOrWhiteSpace(appt.Notes) ? reason : $"{appt.Notes} | Cancelled: {reason}";
                 appt.UpdatedAt = DateTime.UtcNow;
+
+                if (appt.Patient?.UserId != null)
+                {
+                    _context.TblNotifications.Add(new TblNotification
+                    {
+                        UserId = appt.Patient.UserId,
+                        Title = "Appointment Cancelled",
+                        Description = $"Your appointment (Code: {appt.AppointmentCode}) scheduled for {appt.Datetime:f} has been cancelled. Reason: {reason}",
+                        ActionRoute = $"/appointments/{appt.Id}",
+                        CreatedAt = DateTime.UtcNow,
+                        DeleteFlag = false
+                    });
+                }
             }
 
             await _context.SaveChangesAsync();
@@ -710,6 +726,11 @@ namespace SCMS.Domain.Features.Mcp
                 return new { success = true, message = "No active appointments found in the source time range to reschedule.", count = 0 };
             }
 
+            if (appointments.Count > 100)
+            {
+                return new { error = $"Operation exceeds maximum safety limit of 100 appointments (matched {appointments.Count}). Please narrow your time window." };
+            }
+
             // Calculate the exact offset shift (difference between targetStartTime and sourceStartTime)
             var offset = targetStartTime - sourceStartTime;
 
@@ -726,6 +747,19 @@ namespace SCMS.Domain.Features.Mcp
                 appt.Notes = string.IsNullOrWhiteSpace(originalNotes) 
                     ? $"Rescheduled from {oldTime.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)}" 
                     : $"{originalNotes} | Rescheduled from {oldTime.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)}";
+
+                if (appt.Patient?.UserId != null)
+                {
+                    _context.TblNotifications.Add(new TblNotification
+                    {
+                        UserId = appt.Patient.UserId,
+                        Title = "Appointment Rescheduled",
+                        Description = $"Your appointment (Code: {appt.AppointmentCode}) has been rescheduled to {newTime:f}.",
+                        ActionRoute = $"/appointments/{appt.Id}",
+                        CreatedAt = DateTime.UtcNow,
+                        DeleteFlag = false
+                    });
+                }
 
                 rescheduledDetails.Add(new
                 {

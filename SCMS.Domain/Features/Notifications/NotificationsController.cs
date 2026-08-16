@@ -34,7 +34,7 @@ namespace SCMS.Domain.Features.Notifications
 
             int? userId = includeAll && User.IsStaff() ? null : currentUserId;
 
-            var result = await _notificationService.GetNotificationsAsync(userId, paginationRequest);
+            var result = await _notificationService.GetNotificationsAsync(userId, paginationRequest, User.IsStaff());
             if (result.IsFailure)
             {
                 return BadRequest(result);
