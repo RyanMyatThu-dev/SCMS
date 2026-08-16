@@ -20,6 +20,7 @@ namespace SCMS.Domain.Features.FollowUps
         public async Task<PagedResult<FollowUpResponse>> GetFollowUpsAsync(int? patientId, int currentUserId, bool isStaff, PaginationRequest paginationRequest)
         {
             var query = _context.TblFollowUps
+                .AsNoTracking()
                 .Include(f => f.Patient)
                 .Where(f => f.DeleteFlag != true);
 
@@ -68,7 +69,7 @@ namespace SCMS.Domain.Features.FollowUps
                 AppointmentId = request.AppointmentId,
                 PrescriptionId = request.PrescriptionId,
                 DueAt = request.DueAt,
-                Recommendation = request.Recommendation?.Trim(),
+                Recommendation = request.Recommendation?.Trim() ?? string.Empty,
                 Status = "pending",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -76,6 +77,8 @@ namespace SCMS.Domain.Features.FollowUps
             };
 
             _context.TblFollowUps.Add(followUp);
+            await _context.SaveChangesAsync();
+
             if (_notificationService != null)
             {
                 await _notificationService.CreateNotificationAsync(
@@ -95,9 +98,9 @@ namespace SCMS.Domain.Features.FollowUps
                     CreatedAt = DateTime.UtcNow,
                     DeleteFlag = false
                 });
+                await _context.SaveChangesAsync();
             }
 
-            await _context.SaveChangesAsync();
             followUp.Patient = patient;
 
             return Result<FollowUpResponse>.Success(MapToResponse(followUp), "Follow-up scheduled.");
@@ -112,6 +115,11 @@ namespace SCMS.Domain.Features.FollowUps
             if (followUp == null)
             {
                 return Result<FollowUpResponse>.Failure("Follow-up not found.");
+            }
+
+            if (followUp.Status == "completed")
+            {
+                return Result<FollowUpResponse>.Failure("Follow-up is already completed.");
             }
 
             followUp.Status = "completed";

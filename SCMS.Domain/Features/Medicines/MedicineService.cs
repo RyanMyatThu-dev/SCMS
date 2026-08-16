@@ -185,22 +185,25 @@ namespace SCMS.Domain.Features.Medicines
         public async Task CreateInventoryAlertNotificationsAsync()
         {
             var alerts = await GetInventoryAlertsAsync(new PaginationRequest { PageNumber = 1, PageSize = 100 });
-            if (!alerts.IsSuccess)
+            if (!alerts.IsSuccess || alerts.Data == null || alerts.Data.Count == 0)
             {
                 return;
             }
 
+            var cutoff = DateTime.UtcNow.AddHours(-24);
+            var existingRecentAlerts = await _context.TblNotifications
+                .AsNoTracking()
+                .Where(n => n.UserId == null && n.CreatedAt >= cutoff && n.DeleteFlag != true && n.Description != null)
+                .Select(n => n.Description!)
+                .ToListAsync();
+
+            var existingDescriptions = new HashSet<string>(existingRecentAlerts, StringComparer.Ordinal);
+            var notificationsToAdd = new List<TblNotification>();
+
             foreach (var alert in alerts.Data)
             {
                 var title = alert.AlertType == "Low Stock" ? "Low Stock Alert" : "Batch Nearing Expiry";
-                var recentExists = await _context.TblNotifications.AnyAsync(n =>
-                    n.UserId == null &&
-                    n.Title == title &&
-                    n.Description == alert.Message &&
-                    n.CreatedAt >= DateTime.UtcNow.AddHours(-24) &&
-                    n.DeleteFlag != true);
-
-                if (recentExists)
+                if (existingDescriptions.Contains(alert.Message))
                 {
                     continue;
                 }
@@ -211,7 +214,7 @@ namespace SCMS.Domain.Features.Medicines
                 }
                 else
                 {
-                    _context.TblNotifications.Add(new TblNotification
+                    notificationsToAdd.Add(new TblNotification
                     {
                         UserId = null,
                         Title = title,
@@ -220,8 +223,14 @@ namespace SCMS.Domain.Features.Medicines
                         CreatedAt = DateTime.UtcNow,
                         DeleteFlag = false
                     });
-                    await _context.SaveChangesAsync();
                 }
+                existingDescriptions.Add(alert.Message);
+            }
+
+            if (notificationsToAdd.Count > 0)
+            {
+                _context.TblNotifications.AddRange(notificationsToAdd);
+                await _context.SaveChangesAsync();
             }
         }
 
@@ -732,25 +741,13 @@ namespace SCMS.Domain.Features.Medicines
             }
 
             var activeAllocationExists = await _context.TblPrescriptionItems
-                .Where(pi => pi.MedicineBatch.MedId == id && pi.DeleteFlag != true)
+                .Where(pi => pi.MedicineId == id && pi.DeleteFlag != true)
                 .AnyAsync(pi => pi.Prescription.Appointment.Status != "completed"
                              && pi.Prescription.Appointment.Status != "cancelled");
 
             if (activeAllocationExists)
             {
                 return Result.Failure("Cannot delete this medicine. It is allocated to active prescription(s). Complete or cancel the related appointment(s) first.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(medicine.ImageUrl))
-            {
-                if (_photoService != null)
-                {
-                    var publicId = ExtractPublicIdFromUrl(medicine.ImageUrl);
-                    if (!string.IsNullOrWhiteSpace(publicId))
-                    {
-                        await _photoService.DeletePhotoAsync(publicId);
-                    }
-                }
             }
 
             medicine.DeleteFlag = true;
@@ -763,6 +760,25 @@ namespace SCMS.Domain.Features.Medicines
             }
 
             await _context.SaveChangesAsync();
+
+            if (!string.IsNullOrWhiteSpace(medicine.ImageUrl))
+            {
+                if (_photoService != null)
+                {
+                    var publicId = ExtractPublicIdFromUrl(medicine.ImageUrl);
+                    if (!string.IsNullOrWhiteSpace(publicId))
+                    {
+                        try
+                        {
+                            await _photoService.DeletePhotoAsync(publicId);
+                        }
+                        catch
+                        {
+                            // Database soft-delete has succeeded; image cleanup failure is non-fatal
+                        }
+                    }
+                }
+            }
 
             return Result.Success("Medicine and its batches deleted successfully.");
         }

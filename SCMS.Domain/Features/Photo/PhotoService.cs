@@ -1,10 +1,10 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Photo
@@ -12,10 +12,13 @@ namespace SCMS.Domain.Features.Photo
     public class PhotoService
     {
         private readonly Cloudinary? _cloudinary;
+        private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+        private static readonly string[] AllowedContentTypes = { "image/jpeg", "image/png", "image/webp", "image/jpg" };
+        private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
 
-        public PhotoService(IServiceProvider serviceProvider)
+        public PhotoService(Cloudinary? cloudinary = null)
         {
-            _cloudinary = serviceProvider.GetService<Cloudinary>();
+            _cloudinary = cloudinary;
         }
 
         public async Task<Result<PhotoUploadResult>> UploadPhotoAsync(IFormFile file)
@@ -28,6 +31,17 @@ namespace SCMS.Domain.Features.Photo
             if (file == null || file.Length == 0)
             {
                 return Result<PhotoUploadResult>.Failure("No file was uploaded.");
+            }
+
+            if (file.Length > MaxFileSizeBytes)
+            {
+                return Result<PhotoUploadResult>.Failure("File size exceeds the maximum allowed limit of 5 MB.");
+            }
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!AllowedExtensions.Contains(extension) || (!string.IsNullOrEmpty(file.ContentType) && !AllowedContentTypes.Contains(file.ContentType.ToLowerInvariant())))
+            {
+                return Result<PhotoUploadResult>.Failure("Invalid file type. Only JPEG, PNG, and WebP images are allowed.");
             }
 
             try

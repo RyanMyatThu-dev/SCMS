@@ -269,6 +269,7 @@ namespace SCMS.Domain.Features.Payments
         public async Task<PagedResult<PaymentDetailsResponse>> GetPaymentsAsync(string? status, PaginationRequest paginationRequest, string? dateFilter = null, string? searchQuery = null)
         {
             var query = _context.TblPayments
+                .AsNoTracking()
                 .Include(p => p.Appointment)
                     .ThenInclude(a => a.Patient)
                 .AsQueryable();
