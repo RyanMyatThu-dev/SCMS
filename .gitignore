@@ -373,4 +373,7 @@ D:\SCMS\ZPrompt
 # VsCode
 .vscode/
 
-.env.local  
+.env.local
+.agents
+.env.*
+system_report.md
