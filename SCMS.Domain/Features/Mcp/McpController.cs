@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using SCMS.Domain.Security;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.Mcp;
 
@@ -16,7 +17,8 @@ namespace SCMS.Domain.Features.Mcp
 {
     [ApiController]
     [Route("api/mcp")]
-    [Authorize(Roles = "owner,admin,doctor")]
+    [Authorize]
+    [HasPermission("Mcp.Access")]
     public class McpController : ControllerBase
     {
         private readonly McpService _mcpService;

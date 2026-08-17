@@ -2,13 +2,14 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SCMS.Domain.Security;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.Reports;
 
 namespace SCMS.Domain.Features.Documents
 {
     [ApiController]
-    [Authorize(Roles = "owner,admin,doctor")]
+    [Authorize]
     [Route("api/[controller]")]
     public class ReportsController : ControllerBase
     {
@@ -25,6 +26,7 @@ namespace SCMS.Domain.Features.Documents
         /// Get appointment report data (JSON) for a given period.
         /// </summary>
         [HttpGet("appointments")]
+        [HasPermission("Reports.View")]
         public async Task<IActionResult> GetAppointmentReport(
             [FromQuery] string? reportType,
             [FromQuery] DateTime? date)
@@ -47,6 +49,7 @@ namespace SCMS.Domain.Features.Documents
         /// Download appointment report as a PDF file.
         /// </summary>
         [HttpGet("appointments/pdf")]
+        [HasPermission("Reports.ExportPdf")]
         public async Task<IActionResult> GetAppointmentReportPdf(
             [FromQuery] string? reportType,
             [FromQuery] DateTime? date)
@@ -73,6 +76,7 @@ namespace SCMS.Domain.Features.Documents
         /// Get revenue report data (JSON) for a given period.
         /// </summary>
         [HttpGet("revenue")]
+        [HasPermission("Reports.View")]
         public async Task<IActionResult> GetRevenueReport(
             [FromQuery] string? reportType,
             [FromQuery] DateTime? date)
@@ -95,6 +99,7 @@ namespace SCMS.Domain.Features.Documents
         /// Download revenue report as a PDF file.
         /// </summary>
         [HttpGet("revenue/pdf")]
+        [HasPermission("Reports.ExportPdf")]
         public async Task<IActionResult> GetRevenueReportPdf(
             [FromQuery] string? reportType,
             [FromQuery] DateTime? date)
@@ -121,6 +126,7 @@ namespace SCMS.Domain.Features.Documents
         /// Get patient list report data (JSON).
         /// </summary>
         [HttpGet("patients")]
+        [HasPermission("Reports.View")]
         public async Task<IActionResult> GetPatientListReport()
         {
             var result = await _reportService.GetPatientListReportAsync();
@@ -135,6 +141,7 @@ namespace SCMS.Domain.Features.Documents
         /// Download patient list report as a PDF file.
         /// </summary>
         [HttpGet("patients/pdf")]
+        [HasPermission("Reports.ExportPdf")]
         public async Task<IActionResult> GetPatientListReportPdf()
         {
             var result = await _reportService.GetPatientListReportAsync();
@@ -152,6 +159,7 @@ namespace SCMS.Domain.Features.Documents
         /// Get medicine stock report data (JSON).
         /// </summary>
         [HttpGet("medicine-stock")]
+        [HasPermission("Reports.View")]
         public async Task<IActionResult> GetMedicineStockReport()
         {
             var result = await _reportService.GetMedicineStockReportAsync();
@@ -166,6 +174,7 @@ namespace SCMS.Domain.Features.Documents
         /// Download medicine stock report as a PDF file.
         /// </summary>
         [HttpGet("medicine-stock/pdf")]
+        [HasPermission("Reports.ExportPdf")]
         public async Task<IActionResult> GetMedicineStockReportPdf()
         {
             var result = await _reportService.GetMedicineStockReportAsync();
@@ -183,6 +192,7 @@ namespace SCMS.Domain.Features.Documents
         /// Get follow-up report data (JSON).
         /// </summary>
         [HttpGet("follow-ups")]
+        [HasPermission("Reports.View")]
         public async Task<IActionResult> GetFollowUpReport(
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
@@ -207,6 +217,7 @@ namespace SCMS.Domain.Features.Documents
         /// Download follow-up report as a PDF file.
         /// </summary>
         [HttpGet("follow-ups/pdf")]
+        [HasPermission("Reports.ExportPdf")]
         public async Task<IActionResult> GetFollowUpReportPdf(
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
@@ -234,6 +245,7 @@ namespace SCMS.Domain.Features.Documents
         /// Get prescription report data (JSON).
         /// </summary>
         [HttpGet("prescriptions")]
+        [HasPermission("Reports.View")]
         public async Task<IActionResult> GetPrescriptionReport()
         {
             var result = await _reportService.GetPrescriptionReportAsync();
@@ -248,6 +260,7 @@ namespace SCMS.Domain.Features.Documents
         /// Download prescription report as a PDF file.
         /// </summary>
         [HttpGet("prescriptions/pdf")]
+        [HasPermission("Reports.ExportPdf")]
         public async Task<IActionResult> GetPrescriptionReportPdf()
         {
             var result = await _reportService.GetPrescriptionReportAsync();
@@ -265,6 +278,7 @@ namespace SCMS.Domain.Features.Documents
         /// Get monthly business summary report data (JSON).
         /// </summary>
         [HttpGet("business-summary")]
+        [HasPermission("Reports.View")]
         public async Task<IActionResult> GetBusinessSummaryReport([FromQuery] int? month, [FromQuery] int? year)
         {
             var request = new BusinessSummaryReportRequest { Month = month, Year = year };
@@ -280,6 +294,7 @@ namespace SCMS.Domain.Features.Documents
         /// Download monthly business summary report as a PDF file.
         /// </summary>
         [HttpGet("business-summary/pdf")]
+        [HasPermission("Reports.ExportPdf")]
         public async Task<IActionResult> GetBusinessSummaryReportPdf([FromQuery] int? month, [FromQuery] int? year)
         {
             var request = new BusinessSummaryReportRequest { Month = month, Year = year };

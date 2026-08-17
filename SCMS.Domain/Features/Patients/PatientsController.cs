@@ -2,7 +2,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Domain.Features.Documents;
-
 using SCMS.Domain.Security;
 using SCMS.Domain.DTOs;
 using SCMS.Shared;
@@ -24,6 +23,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpPost]
+        [HasPermission("Patients.Create")]
         public async Task<IActionResult> AddPatientProfile([FromBody] PatientProfileRequest request)
         {
             if (!ModelState.IsValid)
@@ -45,9 +45,9 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpGet]
+        [HasPermission("Patients.View")]
         public async Task<IActionResult> GetPatientProfiles([FromQuery] PatientProfilesRequest request)
         {
-
             request ??= new PatientProfilesRequest();
             if (!ModelState.IsValid)
             {
@@ -71,6 +71,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpGet("patients/{id}")]
+        [HasPermission("Patients.View")]
         public async Task<IActionResult> GetPatientProfileById(int id)
         {
             if (!ModelState.IsValid || id <= 0) {
@@ -91,6 +92,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpGet("{id}/history")]
+        [HasPermission("Patients.View")]
         public async Task<IActionResult> GetPatientHistory(int id)
         {
             if (!ModelState.IsValid || id <= 0)
@@ -112,6 +114,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpGet("{id}/summary")]
+        [HasPermission("Patients.View")]
         public async Task<IActionResult> GetMedicalSummary(int id)
         {
             if (!ModelState.IsValid || id <= 0)
@@ -133,6 +136,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpGet("{id}/summary/html")]
+        [HasPermission("Patients.View")]
         public async Task<IActionResult> GetMedicalSummaryHtml(int id)
         {
             if (!ModelState.IsValid || id <= 0)
@@ -151,6 +155,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpGet("{id}/summary/pdf")]
+        [HasPermission("Patients.ExportPdf")]
         public async Task<IActionResult> GetMedicalSummaryPdf(int id)
         {
             if (!ModelState.IsValid || id <= 0)
@@ -174,6 +179,7 @@ namespace SCMS.Domain.Features.Patients
         }
 
         [HttpDelete("{id}")]
+        [HasPermission("Patients.Delete")]
         public async Task<IActionResult> DeletePatientProfile(int id)
         {
             if (!ModelState.IsValid || id <= 0)
@@ -194,7 +200,5 @@ namespace SCMS.Domain.Features.Patients
             }
             return Ok(result);
         }
-
-
     }
 }

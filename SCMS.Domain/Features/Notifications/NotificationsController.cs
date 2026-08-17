@@ -20,9 +20,9 @@ namespace SCMS.Domain.Features.Notifications
         }
 
         [HttpGet]
+        [HasPermission("Notifications.View")]
         public async Task<IActionResult> GetNotifications([FromQuery] PaginationRequest paginationRequest, [FromQuery] bool includeAll = false)
         {
-            //paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
@@ -43,6 +43,7 @@ namespace SCMS.Domain.Features.Notifications
         }
 
         [HttpPost("{id}/read")]
+        [HasPermission("Notifications.Update")]
         public async Task<IActionResult> MarkAsRead(int id)
         {
             var userId = User.GetUserId();
@@ -60,7 +61,7 @@ namespace SCMS.Domain.Features.Notifications
         }
 
         [HttpPost]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Notifications.Create")]
         public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationRequest request)
         {
             if (!ModelState.IsValid)

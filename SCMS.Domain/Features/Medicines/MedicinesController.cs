@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
+using SCMS.Domain.Security;
 using SCMS.Shared;
 using SCMS.Shared.Contracts.Medicines;
 
 namespace SCMS.Domain.Features.Medicines
 {
     [ApiController]
-    [Authorize(Roles = "owner,admin,doctor")]
+    [Authorize]
     [Route("api/[controller]")]
     public class MedicinesController : ControllerBase
     {
@@ -21,9 +22,9 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpGet]
+        [HasPermission("Medicines.View")]
         public async Task<IActionResult> SearchMedicines([FromQuery] string? query, [FromQuery] PaginationRequest paginationRequest)
         {
-            //paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
@@ -36,7 +37,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPost("quarantine-expired")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Medicines.AdjustStock")]
         public async Task<IActionResult> QuarantineExpiredBatches()
         {
             var result = await _medicineService.QuarantineExpiredBatchesAsync();
@@ -48,6 +49,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpGet("alerts")]
+        [HasPermission("Medicines.View")]
         public async Task<IActionResult> GetInventoryAlerts([FromQuery] PaginationRequest paginationRequest)
         {
             paginationRequest ??= new PaginationRequest();
@@ -67,6 +69,7 @@ namespace SCMS.Domain.Features.Medicines
         // ────────────────────────────────────────────────────────────────
 
         [HttpGet("batches")]
+        [HasPermission("Medicines.View")]
         public async Task<IActionResult> GetBatches(
             [FromQuery] string? query,
             [FromQuery] string? status,
@@ -88,6 +91,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpGet("batches/{id}")]
+        [HasPermission("Medicines.View")]
         public async Task<IActionResult> GetBatch(int id)
         {
             var result = await _medicineService.GetBatchByIdAsync(id);
@@ -99,7 +103,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPost("batches")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Medicines.Create")]
         public async Task<IActionResult> CreateBatch([FromBody] CreateBatchRequest request)
         {
             var result = await _medicineService.CreateBatchAsync(request);
@@ -111,7 +115,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPut("batches/{id}")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Medicines.Update")]
         public async Task<IActionResult> UpdateBatch(int id, [FromBody] UpdateBatchRequest request)
         {
             var result = await _medicineService.UpdateBatchAsync(id, request);
@@ -123,7 +127,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpDelete("batches/{id}")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Medicines.Delete")]
         public async Task<IActionResult> DeleteBatch(int id, [FromQuery] bool force = false)
         {
             var result = await _medicineService.DeleteBatchAsync(id, force);
@@ -135,6 +139,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpGet("categories")]
+        [HasPermission("Medicines.View")]
         public async Task<IActionResult> GetCategories()
         {
             var result = await _medicineService.GetCategoriesAsync();
@@ -146,7 +151,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPost]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Medicines.Create")]
         public async Task<IActionResult> CreateMedicine([FromForm] CreateMedicineRequest request, IFormFile? image)
         {
             var result = await _medicineService.CreateMedicineAsync(request, image);
@@ -158,7 +163,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Medicines.Update")]
         public async Task<IActionResult> UpdateMedicine(int id, [FromForm] UpdateMedicineRequest request, IFormFile? image)
         {
             var result = await _medicineService.UpdateMedicineAsync(id, request, image);
@@ -170,7 +175,7 @@ namespace SCMS.Domain.Features.Medicines
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Medicines.Delete")]
         public async Task<IActionResult> DeleteMedicine(int id)
         {
             var result = await _medicineService.DeleteMedicineAsync(id);
@@ -182,4 +187,3 @@ namespace SCMS.Domain.Features.Medicines
         }
     }
 }
-

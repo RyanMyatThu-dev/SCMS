@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Domain.Features.Documents;
+using SCMS.Domain.Security;
 using SCMS.Shared.Contracts.Payments;
 using SCMS.Shared;
 
@@ -22,7 +23,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpPost("gateway-callback")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Payments.Update")]
         public async Task<IActionResult> ProcessGatewayCallback([FromBody] ProcessPaymentCallbackRequest request)
         {
             var result = await _paymentService.ProcessGatewayCallbackAsync(request);
@@ -34,6 +35,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpPost("manual-proof")]
+        [HasPermission("Payments.Create")]
         public async Task<IActionResult> SubmitManualPaymentProof([FromBody] ManualPaymentProofRequest request)
         {
             var result = await _paymentService.SubmitManualPaymentProofAsync(request);
@@ -45,7 +47,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpPost("{id}/approve")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Payments.Update")]
         public async Task<IActionResult> ApprovePayment(int id)
         {
             var result = await _paymentService.ApprovePaymentAsync(id);
@@ -57,7 +59,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpGet]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Payments.View")]
         public async Task<IActionResult> GetPayments(
             [FromQuery] string? status, 
             [FromQuery] PaginationRequest paginationRequest,
@@ -77,6 +79,7 @@ namespace SCMS.Domain.Features.Payments
         }
 
         [HttpGet("{id}/invoice/pdf")]
+        [HasPermission("Payments.ExportPdf")]
         public async Task<IActionResult> GetInvoicePdf(int id)
         {
             var result = await _paymentService.GetPaymentByIdAsync(id);

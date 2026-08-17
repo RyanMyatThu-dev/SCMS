@@ -17,6 +17,9 @@ namespace SCMS.Domain.Features.Medicines
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // Allow application startup and database initialization to complete
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try

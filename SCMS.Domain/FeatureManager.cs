@@ -20,6 +20,8 @@ using Microsoft.AspNetCore.Builder;
 using CloudinaryDotNet;
 using SCMS.Domain.Features.Photo;
 using SCMS.Domain.Features.Mcp;
+using SCMS.Domain.Features.Roles;
+using SCMS.Domain.Features.Users;
 
 namespace SCMS.Domain
 {
@@ -36,9 +38,15 @@ namespace SCMS.Domain
         public static IServiceCollection AddScmsFeatureServices(this IServiceCollection services, IConfiguration configuration)
         {
 
+            services.AddMemoryCache();
             services.AddDbContext<AppDbContext>(options => ConfigureDatabaseProvider(options, configuration));
             services.AddSingleton<JwtTokenFactory>();
             services.AddSingleton<PasswordHashingService>();
+            services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider, PermissionAuthorizationPolicyProvider>();
+            services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionAuthorizationHandler>();
+            services.AddScoped<IPermissionService, PermissionService>();
+            services.AddScoped<RoleService>();
+            services.AddScoped<UserService>();
             services.AddScoped<AppointmentsService>();
             services.AddScoped<AuthService>();
             services.AddScoped<DashboardService>();
@@ -100,7 +108,205 @@ namespace SCMS.Domain
             }
 
             await SeedSqliteDemoUsersAsync(context, configuration);
+            await EnsureSystemPermissionsSeededAsync(context, logger);
+            await EnsureDefaultRolePermissionsAsync(context, logger);
             logger.LogInformation("Database initialization completed.");
+        }
+
+        private static readonly (string Menu, string Action)[] SystemPermissions = new[]
+        {
+            // Appointments
+            ("Appointments", "View"),
+            ("Appointments", "Create"),
+            ("Appointments", "Update"),
+            ("Appointments", "UpdateStatus"),
+            ("Appointments", "Delete"),
+
+            // Patients
+            ("Patients", "View"),
+            ("Patients", "Create"),
+            ("Patients", "Update"),
+            ("Patients", "Delete"),
+            ("Patients", "ExportPdf"),
+
+            // Prescriptions
+            ("Prescriptions", "View"),
+            ("Prescriptions", "Create"),
+            ("Prescriptions", "Update"),
+            ("Prescriptions", "Delete"),
+            ("Prescriptions", "ExportPdf"),
+
+            // Medicines
+            ("Medicines", "View"),
+            ("Medicines", "Create"),
+            ("Medicines", "Update"),
+            ("Medicines", "Delete"),
+            ("Medicines", "AdjustStock"),
+
+            // Payments
+            ("Payments", "View"),
+            ("Payments", "Create"),
+            ("Payments", "Update"),
+            ("Payments", "Delete"),
+            ("Payments", "ExportPdf"),
+
+            // FollowUps
+            ("FollowUps", "View"),
+            ("FollowUps", "Create"),
+            ("FollowUps", "Update"),
+            ("FollowUps", "Delete"),
+
+            // Diseases
+            ("Diseases", "View"),
+            ("Diseases", "Create"),
+            ("Diseases", "Update"),
+            ("Diseases", "Delete"),
+
+            // Notifications
+            ("Notifications", "View"),
+            ("Notifications", "Create"),
+            ("Notifications", "Update"),
+            ("Notifications", "Delete"),
+
+            // Dashboards
+            ("Dashboards", "View"),
+
+            // Reports
+            ("Reports", "View"),
+            ("Reports", "ExportPdf"),
+
+            // Roles
+            ("Roles", "View"),
+            ("Roles", "Create"),
+            ("Roles", "Update"),
+            ("Roles", "Delete"),
+
+            // Permissions
+            ("Permissions", "View"),
+
+            // Users
+            ("Users", "View"),
+            ("Users", "Create"),
+            ("Users", "Update"),
+            ("Users", "Delete"),
+
+            // Mcp
+            ("Mcp", "Access")
+        };
+
+        private static async Task EnsureSystemPermissionsSeededAsync(AppDbContext context, ILogger logger)
+        {
+            var existing = await context.TblPermissions.ToListAsync();
+            var existingKeys = new HashSet<string>(
+                existing.Select(p => $"{p.Menu.ToLowerInvariant()}.{p.Action.ToLowerInvariant()}"));
+
+            var added = false;
+            foreach (var (menu, action) in SystemPermissions)
+            {
+                var key = $"{menu.ToLowerInvariant()}.{action.ToLowerInvariant()}";
+                if (!existingKeys.Contains(key))
+                {
+                    context.TblPermissions.Add(new TblPermission
+                    {
+                        Menu = menu,
+                        Action = action
+                    });
+                    added = true;
+                }
+            }
+
+            if (added)
+            {
+                await context.SaveChangesAsync();
+                logger.LogInformation("Seeded system permissions into tbl_permission.");
+            }
+        }
+
+        private static async Task EnsureDefaultRolePermissionsAsync(AppDbContext context, ILogger logger)
+        {
+            var allPermissions = await context.TblPermissions.ToListAsync();
+            var permMap = allPermissions.ToDictionary(
+                p => $"{p.Menu.ToLowerInvariant()}.{p.Action.ToLowerInvariant()}",
+                p => p.Id);
+
+            // Default Doctor Permissions
+            var doctorPermKeys = new[]
+            {
+                "appointments.view", "appointments.create", "appointments.update", "appointments.updatestatus", "appointments.delete",
+                "patients.view", "patients.create", "patients.update", "patients.exportpdf",
+                "prescriptions.view", "prescriptions.create", "prescriptions.update", "prescriptions.delete", "prescriptions.exportpdf",
+                "medicines.view",
+                "followups.view", "followups.create", "followups.update", "followups.delete",
+                "diseases.view", "diseases.create", "diseases.update",
+                "notifications.view", "notifications.create", "notifications.update",
+                "dashboards.view",
+                "reports.view", "reports.exportpdf",
+                "mcp.access"
+            };
+
+            // Default User (Patient) Permissions
+            var userPermKeys = new[]
+            {
+                "appointments.view", "appointments.create",
+                "patients.view",
+                "prescriptions.view",
+                "payments.view", "payments.create",
+                "notifications.view", "notifications.update",
+                "dashboards.view"
+            };
+
+            await SeedRolePermissionsForRoleNameAsync(context, "doctor", doctorPermKeys, permMap);
+            await SeedRolePermissionsForRoleNameAsync(context, "user", userPermKeys, permMap);
+            await SeedRolePermissionsForRoleNameAsync(context, "owner", permMap.Keys.ToArray(), permMap);
+            await SeedRolePermissionsForRoleNameAsync(context, "admin", permMap.Keys.ToArray(), permMap);
+        }
+
+        private static async Task SeedRolePermissionsForRoleNameAsync(
+            AppDbContext context,
+            string roleName,
+            string[] permKeys,
+            Dictionary<string, int> permMap)
+        {
+            var userRoles = await context.TblUserRoles
+                .Where(r => r.Role.ToLower() == roleName.ToLower())
+                .ToListAsync();
+
+            if (userRoles.Count == 0) return;
+
+            var userRoleIds = userRoles.Select(ur => ur.Id).ToList();
+            var existingRolePerms = await context.TblRolePermissions
+                .Where(rp => userRoleIds.Contains(rp.RoleId))
+                .ToListAsync();
+
+            var existingMap = new HashSet<string>(
+                existingRolePerms.Select(rp => $"{rp.RoleId}_{rp.PermissionId}"));
+
+            var added = false;
+            foreach (var ur in userRoles)
+            {
+                foreach (var key in permKeys)
+                {
+                    if (permMap.TryGetValue(key.ToLowerInvariant(), out var permId))
+                    {
+                        var linkKey = $"{ur.Id}_{permId}";
+                        if (!existingMap.Contains(linkKey))
+                        {
+                            context.TblRolePermissions.Add(new TblRolePermission
+                            {
+                                RoleId = ur.Id,
+                                PermissionId = permId
+                            });
+                            existingMap.Add(linkKey);
+                            added = true;
+                        }
+                    }
+                }
+            }
+
+            if (added)
+            {
+                await context.SaveChangesAsync();
+            }
         }
 
         private static async Task EnsureSqliteSchemaCompatibilityAsync(AppDbContext context, ILogger logger)
@@ -174,6 +380,14 @@ namespace SCMS.Domain
                 "09979990001",
                 "admin@scms.demo",
                 "owner",
+                now);
+
+            var doctor = await EnsureDemoUserAsync(
+                context,
+                "Dr. Kyaw Zin",
+                "09770000002",
+                "doctor@scms.demo",
+                "doctor",
                 now);
 
             var patientUser = await EnsureDemoUserAsync(

@@ -9,197 +9,196 @@ using SCMS.Domain.Realtime;
 using SCMS.Shared;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-
-try
-{
-    var builder = WebApplication.CreateBuilder(args);
-
-    Log.Logger = new LoggerConfiguration()
+Log.Logger = new LoggerConfiguration()
         .MinimumLevel.Debug()
         .WriteTo.Console()
         .WriteTo.File("logs/scms_log.txt", rollingInterval: RollingInterval.Hour)
         .CreateLogger();
+
+try
+{
+    var builder = WebApplication.CreateBuilder(args);
 
     //Add Serilog
     builder.Services.AddSerilog();
 
 
 
-builder.Services.AddScmsFeatureControllers();
-builder.Services.AddScmsFeatureServices(builder.Configuration);
+    builder.Services.AddScmsFeatureControllers();
+    builder.Services.AddScmsFeatureServices(builder.Configuration);
 
-builder.Services.AddSignalR();
+    builder.Services.AddSignalR();
 
 
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("ScmsWeb", policy =>
+    builder.Services.AddCors(options =>
     {
-        policy
-            .SetIsOriginAllowed(_ => true)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+        options.AddPolicy("ScmsWeb", policy =>
+        {
+            policy
+                .SetIsOriginAllowed(_ => true)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        });
     });
-});
 
 
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        var issuer =
-            builder.Configuration["Jwt:Issuer"]
-            ?? "SCMS.Api";
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            var issuer =
+                builder.Configuration["Jwt:Issuer"]
+                ?? "SCMS.Api";
 
-        var audience =
-            builder.Configuration["Jwt:Audience"]
-            ?? "SCMS.Web";
+            var audience =
+                builder.Configuration["Jwt:Audience"]
+                ?? "SCMS.Web";
 
-        var signingKey =
-            builder.Configuration["Jwt:SigningKey"]
-            ?? "SCMS development signing key - 32 characters long!";
+            var signingKey =
+                builder.Configuration["Jwt:SigningKey"]
+                ?? "SCMS development signing key - 32 characters long!";
 
-        options.TokenValidationParameters =
-            new TokenValidationParameters
+            options.TokenValidationParameters =
+                new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = issuer,
+
+                    ValidateAudience = true,
+                    ValidAudience = audience,
+
+                    ValidateIssuerSigningKey = true,
+
+                    IssuerSigningKey =
+                        new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(signingKey)
+                        ),
+
+                    ValidateLifetime = true,
+
+                    ClockSkew = TimeSpan.FromMinutes(1)
+                };
+
+
+
+            options.Events = new JwtBearerEvents
             {
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
+                OnMessageReceived = context =>
+                {
+                    var accessToken =
+                        context.Request.Query["access_token"];
 
-                ValidateAudience = true,
-                ValidAudience = audience,
+                    var path =
+                        context.HttpContext.Request.Path;
 
-                ValidateIssuerSigningKey = true,
+                    if (
+                        !string.IsNullOrEmpty(accessToken)
+                        && path.StartsWithSegments("/hubs")
+                    )
+                    {
+                        context.Token = accessToken;
+                    }
 
-                IssuerSigningKey =
-                    new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(signingKey)
-                    ),
-
-                ValidateLifetime = true,
-
-                ClockSkew = TimeSpan.FromMinutes(1)
+                    return Task.CompletedTask;
+                }
             };
+        });
 
+    builder.Services.AddAuthorization();
 
+    builder.Services.AddEndpointsApiExplorer();
 
-        options.Events = new JwtBearerEvents
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
-            OnMessageReceived = context =>
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "Bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+        });
+
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
             {
-                var accessToken =
-                    context.Request.Query["access_token"];
-
-                var path =
-                    context.HttpContext.Request.Path;
-
-                if (
-                    !string.IsNullOrEmpty(accessToken)
-                    && path.StartsWithSegments("/hubs")
-                )
+                new OpenApiSecurityScheme
                 {
-                    context.Token = accessToken;
-                }
-
-                return Task.CompletedTask;
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
             }
-        };
+        });
     });
 
-builder.Services.AddAuthorization();
 
-builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    var app = builder.Build();
+
+
+    if (app.Environment.IsDevelopment())
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
-    });
+        app.MapSwagger("/openapi/{documentName}.json");
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+        app.MapScalarApiReference(options =>
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
+            options.AddPreferredSecuritySchemes(new[] { "Bearer" });
+        });
+    }
+
+    await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
 
 
 
-var app = builder.Build();
-
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapSwagger("/openapi/{documentName}.json");
-
-    app.MapScalarApiReference(options =>
+    app.UseExceptionHandler(errorApp =>
     {
-        options.AddPreferredSecuritySchemes(new[] { "Bearer" });
+        errorApp.Run(async context =>
+        {
+            context.Response.StatusCode =
+                StatusCodes.Status500InternalServerError;
+
+            context.Response.ContentType =
+                "application/json";
+
+            await context.Response.WriteAsJsonAsync(
+                Result.Failure(
+                    "An unexpected server error occurred. Check the API logs and database connection."
+                )
+            );
+        });
     });
-}
-
-//await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
 
 
-
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        context.Response.StatusCode =
-            StatusCodes.Status500InternalServerError;
-
-        context.Response.ContentType =
-            "application/json";
-
-        await context.Response.WriteAsJsonAsync(
-            Result.Failure(
-                "An unexpected server error occurred. Check the API logs and database connection."
-            )
-        );
-    });
-});
+    app.UseHttpsRedirection();
 
 
-app.UseHttpsRedirection();
+    app.UseCors("ScmsWeb");
 
+    app.UseAuthentication();
 
-app.UseCors("ScmsWeb");
-
-app.UseAuthentication();
-
-app.UseAuthorization();
+    app.UseAuthorization();
 
 
 
-app.MapControllers();
+    app.MapControllers();
 
 
 
-app.MapHub<QueueHub>("/hubs/queue");
+    app.MapHub<QueueHub>("/hubs/queue");
 
-app.MapHub<NotificationsHub>("/hubs/notifications");
+    app.MapHub<NotificationsHub>("/hubs/notifications");
 
 
 
-app.Run();
+    app.Run();
 }
 catch (Exception ex)
 {

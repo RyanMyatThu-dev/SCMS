@@ -19,6 +19,7 @@ namespace SCMS.Domain.Features.FollowUps
         }
 
         [HttpGet]
+        [HasPermission("FollowUps.View")]
         public async Task<IActionResult> GetFollowUp([FromQuery] int? patientId, [FromQuery] PaginationRequest paginationRequest)
         {
             var userId = User.GetUserId();
@@ -30,7 +31,7 @@ namespace SCMS.Domain.Features.FollowUps
         }
 
         [HttpPost]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("FollowUps.Create")]
         public async Task<IActionResult> CreateFollowUp([FromBody] FollowUpRequest request)
         {
             var result = await _followUpService.CreateFollowUpAsync(request);
@@ -38,8 +39,7 @@ namespace SCMS.Domain.Features.FollowUps
         }
 
         [HttpPost("{id}/complete")]
-        [Authorize(Roles = "owner,admin,doctor")]
-
+        [HasPermission("FollowUps.Update")]
         public async Task<IActionResult> CompleteFollowUp(int id)
         {
             var result = await _followUpService.CompleteFollowUpAsync(id);

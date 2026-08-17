@@ -21,6 +21,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpPost]
+        [HasPermission("Appointments.Create")]
         public async Task<IActionResult> BookAppointment([FromBody] BookAppointmentRequest request)
         {
             var userId = User.GetUserId();
@@ -38,6 +39,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpGet]
+        [HasPermission("Appointments.View")]
         public async Task<IActionResult> GetAppointments(
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
@@ -45,7 +47,6 @@ namespace SCMS.Domain.Features.Appointments
             [FromQuery] int? patientId,
             [FromQuery] PaginationRequest paginationRequest)
         {
-            // Bind fallback defaults if request properties are empty
             paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
@@ -65,7 +66,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpPatch("{id}/status")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Appointments.UpdateStatus")]
         public async Task<IActionResult> UpdateAppointmentStatus(int id, [FromBody] UpdateAppointmentStatusRequest request)
         {
             var result = await _appointmentsService.UpdateAppointmentStatusAsync(id, request);
@@ -77,7 +78,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpPost("{id}/reschedule")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Appointments.Update")]
         public async Task<IActionResult> RescheduleAppointment(int id, [FromBody] RescheduleAppointmentRequest request)
         {
             var result = await _appointmentsService.RescheduleAppointmentAsync(id, request);
@@ -89,6 +90,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpGet("{id}/queue-status")]
+        [HasPermission("Appointments.View")]
         public async Task<IActionResult> GetPatientQueueStatus(int id)
         {
             var result = await _appointmentsService.GetPatientQueueStatusAsync(id);
@@ -100,7 +102,7 @@ namespace SCMS.Domain.Features.Appointments
         }
 
         [HttpPost("call-next")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Appointments.UpdateStatus")]
         public async Task<IActionResult> CallNextPatient()
         {
             var result = await _appointmentsService.CallNextPatientAsync();
