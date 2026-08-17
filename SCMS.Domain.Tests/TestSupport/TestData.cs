@@ -213,7 +213,8 @@ public static class TestData
         TblAppointment appointment,
         string status = "pending",
         decimal amount = 10000m,
-        DateTime? paidAt = null)
+        DateTime? paidAt = null,
+        string paymentMethod = "kbzpay")
     {
         var payment = new TblPayment
         {
@@ -221,7 +222,7 @@ public static class TestData
             Amount = amount,
             Tax = amount * 0.05m,
             Charges = 0,
-            PaymentMethod = "kbzpay",
+            PaymentMethod = paymentMethod,
             PaymentStatus = status,
             PaymentScreenshot = status == "pending" ? "proof.png" : null,
             PaidAt = paidAt,
