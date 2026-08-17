@@ -9,6 +9,8 @@ using SCMS.Shared;
 using SCMS.Shared.Contracts.Mcp;
 using SCMS.Shared.Contracts.Prescriptions;
 
+using SCMS.Domain.Features.Dashboards;
+
 namespace SCMS.Domain.Features.Mcp
 {
     public class McpService
@@ -17,16 +19,24 @@ namespace SCMS.Domain.Features.Mcp
         private static readonly string DateTimeFormat = DateFormat + " hh:mm tt";
 
         private readonly AppDbContext _context;
+        private readonly DashboardService _dashboardService;
 
-        public McpService(AppDbContext context)
+        public McpService(AppDbContext context, DashboardService? dashboardService = null)
         {
             _context = context;
+            _dashboardService = dashboardService ?? new DashboardService(context);
         }
 
         public List<McpToolDefinition> GetAvailableTools()
         {
             return new List<McpToolDefinition>
             {
+                new()
+                {
+                    Name = "get_dashboard_summary",
+                    Description = "Retrieve clinic operational, financial, and clinical dashboard summary (total income, consultation fees, walk-in vs online patient counts, active queue tokens, stock alerts). Supports period: 'daily', 'weekly', 'monthly'.",
+                    InputSchema = SchemaGenerator.FromClass<PeriodInput>()
+                },
                 new()
                 {
                     Name = "get_today_appointments",
@@ -162,6 +172,7 @@ namespace SCMS.Domain.Features.Mcp
             {
                 object? data = request.Name switch
                 {
+                    "get_dashboard_summary" => await GetDashboardSummaryAsync(request.Arguments),
                     "get_today_appointments" => await GetTodayAppointmentsAsync(),
                     "get_waiting_queue" => await GetWaitingQueueAsync(),
                     "get_next_patient" => await GetNextPatientAsync(),
@@ -209,6 +220,51 @@ namespace SCMS.Domain.Features.Mcp
             {
                 return Result<McpToolCallResponse>.Failure($"Error executing tool {request.Name}: {ex.Message}");
             }
+        }
+
+        private async Task<object> GetDashboardSummaryAsync(Dictionary<string, object>? args)
+        {
+            string period = "daily";
+            if (args != null && args.TryGetValue("period", out var pVal) && pVal != null)
+            {
+                period = pVal.ToString() ?? "daily";
+            }
+
+            var result = await _dashboardService.GetDoctorDashboardAsync(period);
+            if (result.IsFailure || result.Data == null)
+            {
+                return new { error = "Unable to retrieve dashboard summary." };
+            }
+
+            var d = result.Data;
+            return new
+            {
+                period = d.Period,
+                totalIncome = d.TotalIncome,
+                doctorConsultationFees = d.DoctorConsultationFees,
+                totalAppointments = d.TotalAppointmentsCount,
+                walkInPatientsCount = d.WalkInPatientsCount,
+                onlineBookingCount = d.OnlineBookingCount,
+                totalPatientsAttended = d.TotalPatientsCount,
+                paymentBreakdown = new
+                {
+                    cashTotal = d.PaymentBreakdown.CashTotal,
+                    digitalTotal = d.PaymentBreakdown.DigitalTotal,
+                    cashTransactions = d.PaymentBreakdown.CashCount,
+                    digitalTransactions = d.PaymentBreakdown.DigitalCount
+                },
+                stockHealthStatus = d.StockRiskStatus,
+                lowStockMedicines = d.LowStockAlerts,
+                expiringBatches = d.ExpiringBatchesAlerts,
+                nextQueuedPatients = d.NextPatients.Select(p => new
+                {
+                    token = p.TokenNumber,
+                    code = p.AppointmentCode,
+                    patient = p.PatientName,
+                    time = p.Datetime,
+                    notes = p.Notes
+                }).ToList()
+            };
         }
 
         private async Task<object> GetTodayAppointmentsAsync()

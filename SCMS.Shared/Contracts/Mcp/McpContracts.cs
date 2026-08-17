@@ -48,6 +48,12 @@ namespace SCMS.Shared.Contracts.Mcp
     {
     }
 
+    public class PeriodInput
+    {
+        [Description("Aggregation period: 'daily' (default), 'weekly', 'monthly', or 'all'.")]
+        public string? Period { get; set; }
+    }
+
     public class PatientIdInput
     {
         [Required]
