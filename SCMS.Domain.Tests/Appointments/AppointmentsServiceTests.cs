@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Appointments;
-using SCMS.Shared.Contracts.Appointments;
+using SCMS.Domain.Features.Appointments.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
 

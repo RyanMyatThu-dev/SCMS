@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Payments;
-using SCMS.Shared.Contracts.Payments;
+using SCMS.Domain.Features.Payments.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
 

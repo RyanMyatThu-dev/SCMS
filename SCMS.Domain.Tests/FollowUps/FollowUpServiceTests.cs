@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.FollowUps;
+using SCMS.Domain.Features.FollowUps.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.FollowUps;
 
 namespace SCMS.Domain.Tests.FollowUps;
 

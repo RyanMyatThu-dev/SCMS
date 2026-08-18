@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SCMS.Database.Models;
 using SCMS.Domain.Features.Auth;
+using SCMS.Domain.Features.Auth.Models;
 using SCMS.Domain.Security;
 using SCMS.Domain.Tests.TestSupport;
-using SCMS.Shared.Contracts.Auth;
 
 namespace SCMS.Domain.Tests.Auth;
 

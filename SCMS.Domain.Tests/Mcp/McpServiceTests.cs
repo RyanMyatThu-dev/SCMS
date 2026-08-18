@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 using Xunit;
 using SCMS.Database.Models;
 using SCMS.Domain.Features.Mcp;
+using SCMS.Domain.Features.Mcp.Models;
 using SCMS.Domain.Tests.TestSupport;
-using SCMS.Shared.Contracts.Mcp;
 
 namespace SCMS.Domain.Tests.Mcp
 {

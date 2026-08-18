@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Patients;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Patients.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
 

@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Domain.Features.Diseases;
 using SCMS.Shared;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Diseases.Models;
 using SCMS.Domain.Tests.TestSupport;
 using Xunit;
 

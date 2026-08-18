@@ -1,7 +1,6 @@
 using SCMS.Domain.Features.Documents;
-
-using SCMS.Shared.Contracts.Payments;
-using SCMS.Shared.Contracts.Prescriptions;
+using SCMS.Domain.Features.Payments.Models;
+using SCMS.Domain.Features.Prescriptions.Models;
 
 namespace SCMS.Domain.Tests.Documents;
 
