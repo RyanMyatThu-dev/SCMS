@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "./components/AppShell";
+import DoctorShell from "./components/DoctorShell";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
@@ -18,6 +19,9 @@ import NotFound from "./pages/NotFound";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import AiAssistant from "./pages/AiAssistant";
+import DoctorDashboard from "./pages/doctor/DoctorDashboard";
+import DoctorConsultation from "./pages/doctor/DoctorConsultation";
+import DoctorPatients from "./pages/doctor/DoctorPatients";
 import UserLayout from "./pages/user/UserLayout";
 import UserDashboard from "./pages/user/UserDashboard";
 
@@ -28,6 +32,7 @@ export default function App() {
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
 
+      {/* Owner / Admin Workspace */}
       <Route
         path="/app"
         element={
@@ -52,6 +57,24 @@ export default function App() {
         <Route path="settings" element={<Settings />} />
       </Route>
 
+      {/* Doctor Workspace */}
+      <Route
+        path="/doctor"
+        element={
+          <ProtectedRoute>
+            <DoctorShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/doctor/dashboard" replace />} />
+        <Route path="dashboard" element={<DoctorDashboard />} />
+        <Route path="consult/:appointmentId" element={<DoctorConsultation />} />
+        <Route path="patients" element={<DoctorPatients />} />
+        <Route path="prescriptions" element={<PrescriptionsPage />} />
+        <Route path="ai-assistant" element={<AiAssistant />} />
+      </Route>
+
+      {/* Patient / Family Portal */}
       <Route
         path="/user"
         element={

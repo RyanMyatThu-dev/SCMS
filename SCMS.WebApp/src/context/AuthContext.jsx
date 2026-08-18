@@ -26,19 +26,23 @@ const pickToken = (data) =>
 const pickUser = (data, email) => {
   const user = data?.user || data?.data?.user || data?.result?.user || {};
   const roles = user?.roles || data?.roles || data?.data?.roles || [];
+  const rawRole = String(roles?.[0] || user?.role || data?.role || "admin").toLowerCase();
 
   return {
     ...user,
+    name: user?.name || user?.fullName || (email ? email.split("@")[0] : "User"),
     email: user?.email || email,
-    role: String(roles?.[0] || user?.role || data?.role || "admin").toLowerCase(),
+    role: rawRole,
   };
 };
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(localStorage.getItem("scms_token") || localStorage.getItem("token") || "");
+  const [token, setToken] = useState(
+    localStorage.getItem("scms_token") || localStorage.getItem("token") || ""
+  );
   const [user, setUser] = useState(readJson("scms_user", null));
 
-  const login = async ({ emailOrMobile, email, password }) => {
+  const login = async ({ emailOrMobile, email, password, roleHint }) => {
     const loginId = emailOrMobile || email;
     const data = await authApi.login({
       emailOrMobile: loginId,
@@ -51,6 +55,12 @@ export function AuthProvider({ children }) {
     }
 
     const nextUser = pickUser(data, loginId);
+    if (roleHint && (!nextUser.role || nextUser.role === "admin")) {
+      // Allow demo role override if specified
+      if (roleHint === "doctor") nextUser.role = "doctor";
+      if (roleHint === "user") nextUser.role = "user";
+    }
+
     localStorage.setItem("scms_token", nextToken);
     localStorage.setItem("token", nextToken);
     localStorage.setItem("scms_user", JSON.stringify(nextUser));
@@ -77,11 +87,14 @@ export function AuthProvider({ children }) {
       token,
       user,
       isAuthenticated: Boolean(token),
+      isOwner: user?.role === "admin" || user?.role === "owner",
+      isDoctor: user?.role === "doctor",
+      isPatient: user?.role === "user" || user?.role === "patient",
       login,
       logout,
       register,
     }),
-    [token, user],
+    [token, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
