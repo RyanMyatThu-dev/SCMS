@@ -116,7 +116,7 @@ namespace SCMS.Domain.Features.Auth
             var tokenHash = _tokens.HashToken(request.RefreshToken);
             var token = await _context.TblUserTokens
                 .Include(t => t.User)
-                    .ThenInclude(u => u.TblUserRoles)
+                .ThenInclude(u => u.TblUserRoles)
                 .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && !t.Revoked && t.ExpiresAt > DateTime.UtcNow);
 
             if (token == null || token.User.DeleteFlag == true)
