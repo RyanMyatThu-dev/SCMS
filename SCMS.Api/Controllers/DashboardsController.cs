@@ -3,15 +3,17 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Dashboards;
+using SCMS.Domain.Features.Dashboards.Models;
 using SCMS.Domain.Security;
 using SCMS.Shared;
 
-namespace SCMS.Domain.Features.Dashboards
+namespace SCMS.Api.Controllers
 {
     [ApiController]
     [Authorize]
     [Route("api/[controller]")]
+    [Produces("application/json")]
     public class DashboardsController : ControllerBase
     {
         private readonly IDashboardService _dashboardService;
@@ -21,11 +23,7 @@ namespace SCMS.Domain.Features.Dashboards
             _dashboardService = dashboardService;
         }
 
-        /// <summary>
-        /// Retrieves clinic operations, revenue/income summary, and live queue status for staff (Owner, Admin, Doctor).
-        /// </summary>
-        /// <param name="period">Aggregation period: "daily" (default), "weekly", "monthly", or "all".</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <summary>Retrieves clinic operations, revenue/income summary, and live queue status for staff.</summary>
         [HttpGet("dashboard")]
         [HasPermission("Dashboards.View")]
         [ProducesResponseType(typeof(Result<DoctorDashboardResponse>), StatusCodes.Status200OK)]
@@ -36,10 +34,7 @@ namespace SCMS.Domain.Features.Dashboards
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        /// <summary>
-        /// Retrieves upcoming appointments, prescription history, and unpaid balances for the logged-in patient.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <summary>Retrieves upcoming appointments, prescription history, and unpaid balances for the logged-in patient.</summary>
         [HttpGet("patient-dashboard")]
         [HasPermission("Dashboards.View")]
         [ProducesResponseType(typeof(Result<PatientDashboardResponse>), StatusCodes.Status200OK)]

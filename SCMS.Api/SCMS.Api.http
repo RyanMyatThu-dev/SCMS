@@ -1,6 +1,39 @@
 @SCMS_HostAddress = http://localhost:5140
 
-GET {{SCMS_HostAddress}}/weatherforecast/
+### 1. Login (Staff / Admin)
+# @name login
+POST {{SCMS_HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "emailOrMobile": "admin@scms.demo",
+  "password": "password"
+}
+
+### Store token from login
+@authToken = {{login.response.body.data.token}}
+
+### 2. Get Doctor Dashboard
+GET {{SCMS_HostAddress}}/api/Dashboards/dashboard?period=daily
+Authorization: Bearer {{authToken}}
 Accept: application/json
 
-###
+### 3. Search Medicines
+GET {{SCMS_HostAddress}}/api/Medicines?pageNumber=1&pageSize=10
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 4. Query Appointments
+GET {{SCMS_HostAddress}}/api/Appointments?pageNumber=1&pageSize=10
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 5. Get Patient Profiles
+GET {{SCMS_HostAddress}}/api/Patients?pageNumber=1&pageSize=10
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 6. Get Available MCP Tools
+GET {{SCMS_HostAddress}}/api/mcp/tools
+Authorization: Bearer {{authToken}}
+Accept: application/json

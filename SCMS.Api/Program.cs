@@ -7,6 +7,7 @@ using Scalar.AspNetCore;
 using SCMS.Domain;
 using SCMS.Domain.Realtime;
 using SCMS.Shared;
+using SCMS.Api.Middleware;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 Log.Logger = new LoggerConfiguration()
@@ -22,9 +23,9 @@ try
     //Add Serilog
     builder.Services.AddSerilog();
 
-
-
-    builder.Services.AddScmsFeatureControllers();
+    builder.Services.AddControllers();
+    builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+    builder.Services.AddProblemDetails();
     builder.Services.AddScmsFeatureServices(builder.Configuration);
 
     builder.Services.AddSignalR();
@@ -156,25 +157,17 @@ try
 
     await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
 
-
-
-    app.UseExceptionHandler(errorApp =>
+    if (args.Contains("--seed") || args.Contains("--mass-seed") || args.Contains("seed"))
     {
-        errorApp.Run(async context =>
-        {
-            context.Response.StatusCode =
-                StatusCodes.Status500InternalServerError;
+        using var scope = app.Services.CreateScope();
+        var seeder = scope.ServiceProvider.GetRequiredService<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
+        await seeder.Seed1YearDataAsync();
+        await app.Services.EnsureScmsDatabaseCreatedAsync(app.Configuration, app.Logger);
+        app.Logger.LogInformation("Database seeding completed successfully.");
+        return;
+    }
 
-            context.Response.ContentType =
-                "application/json";
-
-            await context.Response.WriteAsJsonAsync(
-                Result.Failure(
-                    "An unexpected server error occurred. Check the API logs and database connection."
-                )
-            );
-        });
-    });
+    app.UseExceptionHandler();
 
 
     app.UseHttpsRedirection();

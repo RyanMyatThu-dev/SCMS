@@ -1,24 +1,30 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Users;
+using SCMS.Domain.Features.Users.Models;
 using SCMS.Domain.Security;
 using SCMS.Shared;
 
-namespace SCMS.Domain.Features.Users
+namespace SCMS.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [Produces("application/json")]
     public class UsersController : ControllerBase
     {
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
 
-        public UsersController(UserService userService)
+        public UsersController(IUserService userService)
         {
             _userService = userService;
         }
 
+        /// <summary>List staff and admin users with role and text search filtering.</summary>
         [HttpGet]
         [HasPermission("Users.View")]
         [ProducesResponseType(typeof(Result<List<StaffUserResponse>>), StatusCodes.Status200OK)]
@@ -31,7 +37,8 @@ namespace SCMS.Domain.Features.Users
             return Ok(result);
         }
 
-        [HttpGet("{id}")]
+        /// <summary>Get user details by user ID.</summary>
+        [HttpGet("{id:int}")]
         [HasPermission("Users.View")]
         [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status404NotFound)]
@@ -42,6 +49,7 @@ namespace SCMS.Domain.Features.Users
             return Ok(result);
         }
 
+        /// <summary>Create a new staff user account with assigned roles.</summary>
         [HttpPost]
         [HasPermission("Users.Create")]
         [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status201Created)]
@@ -55,7 +63,8 @@ namespace SCMS.Domain.Features.Users
             return CreatedAtAction(nameof(GetUserById), new { id = result.Data!.UserId }, result);
         }
 
-        [HttpPut("{id}/roles")]
+        /// <summary>Update assigned security roles for a user.</summary>
+        [HttpPut("{id:int}/roles")]
         [HasPermission("Users.Update")]
         [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status400BadRequest)]
@@ -69,7 +78,8 @@ namespace SCMS.Domain.Features.Users
             return Ok(result);
         }
 
-        [HttpDelete("{id}")]
+        /// <summary>Soft-delete a user account.</summary>
+        [HttpDelete("{id:int}")]
         [HasPermission("Users.Delete")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]

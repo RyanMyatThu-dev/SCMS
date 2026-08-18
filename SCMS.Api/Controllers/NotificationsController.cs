@@ -1,15 +1,18 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SCMS.Domain.Features.Notifications;
+using SCMS.Domain.Features.Notifications.Models;
 using SCMS.Domain.Security;
 using SCMS.Shared;
-using SCMS.Domain.DTOs;
 
-namespace SCMS.Domain.Features.Notifications
+namespace SCMS.Api.Controllers
 {
     [ApiController]
     [Authorize]
     [Route("api/[controller]")]
+    [Produces("application/json")]
     public class NotificationsController : ControllerBase
     {
         private readonly INotificationService _notificationService;
@@ -19,10 +22,15 @@ namespace SCMS.Domain.Features.Notifications
             _notificationService = notificationService;
         }
 
+        /// <summary>Query notifications for the current user or clinic-wide broadcasts.</summary>
         [HttpGet]
         [HasPermission("Notifications.View")]
+        [ProducesResponseType(typeof(PagedResult<NotificationResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetNotifications([FromQuery] PaginationRequest paginationRequest, [FromQuery] bool includeAll = false)
         {
+            paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
@@ -35,15 +43,15 @@ namespace SCMS.Domain.Features.Notifications
             int? userId = includeAll && User.IsStaff() ? null : currentUserId;
 
             var result = await _notificationService.GetNotificationsAsync(userId, paginationRequest, User.IsStaff());
-            if (result.IsFailure)
-            {
-                return BadRequest(result);
-            }
-            return Ok(result);
+            return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
-        [HttpPost("{id}/read")]
+        /// <summary>Mark a notification as read / dismissed.</summary>
+        [HttpPost("{id:int}/read")]
         [HasPermission("Notifications.Update")]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> MarkAsRead(int id)
         {
             var userId = User.GetUserId();
@@ -53,28 +61,18 @@ namespace SCMS.Domain.Features.Notifications
             }
 
             var result = await _notificationService.MarkAsReadAsync(id, userId.Value);
-            if (result.IsFailure)
-            {
-                return BadRequest(result);
-            }
-            return Ok(result);
+            return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
+        /// <summary>Create and send a notification to a specific user or broadcast to clinic staff.</summary>
         [HttpPost]
         [HasPermission("Notifications.Create")]
+        [ProducesResponseType(typeof(Result<NotificationResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(Result.Failure("Invalid request data"));
-            }
-
             var result = await _notificationService.CreateNotificationAsync(request.UserId, request.Title, request.Description, request.ActionRoute);
-            if (result.IsFailure)
-            {
-                return BadRequest(result);
-            }
-            return Ok(result);
+            return result.IsFailure ? BadRequest(result) : Ok(result);
         }
     }
 }

@@ -7,38 +7,46 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using SCMS.Domain.Features.Mcp;
+using SCMS.Domain.Features.Mcp.Models;
 using SCMS.Domain.Security;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Mcp;
 
-namespace SCMS.Domain.Features.Mcp
+namespace SCMS.Api.Controllers
 {
     [ApiController]
     [Route("api/mcp")]
     [Authorize]
     [HasPermission("Mcp.Access")]
+    [Produces("application/json")]
     public class McpController : ControllerBase
     {
-        private readonly McpService _mcpService;
+        private readonly IMcpService _mcpService;
         private readonly IConfiguration _configuration;
         private static readonly HttpClient HttpClient = new();
 
-        public McpController(McpService mcpService, IConfiguration configuration)
+        public McpController(IMcpService mcpService, IConfiguration configuration)
         {
             _mcpService = mcpService;
             _configuration = configuration;
         }
 
+        /// <summary>Retrieve list of all available MCP tools and JSON schemas.</summary>
         [HttpGet("tools")]
+        [ProducesResponseType(typeof(Result<List<McpToolDefinition>>), StatusCodes.Status200OK)]
         public IActionResult GetAvailableTools()
         {
             var tools = _mcpService.GetAvailableTools();
             return Ok(Result<List<McpToolDefinition>>.Success(tools));
         }
 
+        /// <summary>Execute an MCP tool call by name with arguments.</summary>
         [HttpPost("tools/call")]
+        [ProducesResponseType(typeof(Result<McpToolCallResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CallToolAsync([FromBody] McpToolCallRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Name))
@@ -47,16 +55,13 @@ namespace SCMS.Domain.Features.Mcp
             }
 
             var result = await _mcpService.CallToolAsync(request);
-
-            if (result.IsFailure)
-            {
-                return BadRequest(result);
-            }
-
-            return Ok(result);
+            return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
+        /// <summary>Agentic AI assistant conversation endpoint with automatic tool-calling loop.</summary>
         [HttpPost("chat")]
+        [ProducesResponseType(typeof(Result<AiChatResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ChatAsync([FromBody] AiChatRequest request)
         {
             if (request == null || request.Messages == null || request.Messages.Count == 0)
@@ -64,7 +69,7 @@ namespace SCMS.Domain.Features.Mcp
                 return BadRequest(Result<AiChatResponse>.Failure("Chat messages are required."));
             }
 
-            // 1. Resolve Gemini API Key (support appsettings or env variable for robustness)
+            // 1. Resolve Gemini API Key
             var apiKey = _configuration["Gemini:ApiKey"];
             if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_GEMINI_API_KEY_HERE")
             {
@@ -93,7 +98,7 @@ namespace SCMS.Domain.Features.Mcp
                     }
                 };
 
-                // 3. Prepare System Prompt (low token usage & Myanmar language directive)
+                // 3. Prepare System Prompt
                 var systemInstruction = new GeminiInstruction
                 {
                     Parts = new List<GeminiPart>
@@ -108,13 +113,13 @@ namespace SCMS.Domain.Features.Mcp
                                    "- Always retrieve data using the provided MCP tools before answering. NEVER fabricate patient details, stock levels, or EMR data.\n" +
                                    "- Never diagnose patients or recommend prescription changes independently. Remind the user that clinical judgment belongs to the doctor.\n" +
                                    "- Always output all dates in 'dd-mm-yyyy' format in all your natural language replies (e.g., 24-06-2026 instead of 2026-06-24). Never output dates in 'yyyy-mm-dd' or other formats. This is extremely important.\n" +
-                                   "- For general clinic briefings, daily/weekly/monthly operations, revenue/income, walk-in vs booking counts, or doctor consultation fees (e.g., 'give me a morning briefing', 'how much income did we make this week?', 'ဒီနေ့ ဆေးခန်းအခြေအနေ ဘယ်လိုရှိလဲ'), use the `get_dashboard_summary` tool with the requested period ('daily', 'weekly', 'monthly').\n" +
-                                   "- For simple bulk rescheduling of today's active appointments (e.g., 'reschedule all appointments to start from 8:30 AM', or 'arrive clinic at 9 AM, reschedule today's appointments to start from 9:30 AM'), use the simple `reschedule_today_appointments` tool with the target start time. It will automatically shift all today's active slots relatively.\n" +
+                                   "- For general clinic briefings, daily/weekly/monthly operations, revenue/income, walk-in vs booking counts, or doctor consultation fees, use the `get_dashboard_summary` tool with the requested period ('daily', 'weekly', 'monthly').\n" +
+                                   "- For simple bulk rescheduling of today's active appointments, use the simple `reschedule_today_appointments` tool with the target start time.\n" +
                                    "- For fine-grained range-based rescheduling of specific time slots, use `reschedule_appointments_in_range`.\n" +
-                                   "- For status updates (confirm, cancel, complete) by Patient Name, use `update_appointment_status_by_patient_name` directly to search and apply changes.\n" +
-                                   "- For bulk status updates of all today's appointments at once (e.g. 'confirm all today's appointments', 'cancel all today's appointments', 'complete all visits today'), use the `bulk_update_today_appointments_status` tool directly with the desired status ('confirmed', 'completed', 'cancelled', 'pending').\n" +
-                                   "- For managing, showing, or recommending medication templates for specific diseases (e.g., 'what are the standard templates/pills for Asthma?', or 'save a template for Hypertension'), use `get_prescription_templates` and `create_prescription_template` tools.\n" +
-                                   "- For comprehensive Know Your Patient (KYP) clinical and behavioral intelligence summaries, patient briefs, profiles, or 360-degree patient reviews (e.g. 'brief me on today's next patient', 'give me a KYP brief on Aung Min', or 'what's Ko Aung Min's clinical and behavioral intelligence brief?'), use the `get_patient_kyp_brief` tool directly using the patient's ID or Name to analyze their adherence profiling, EMR Sentinel warnings, and financial or budget sensitivity context."
+                                   "- For status updates by Patient Name, use `update_appointment_status_by_patient_name` directly.\n" +
+                                   "- For bulk status updates of all today's appointments at once, use the `bulk_update_today_appointments_status` tool directly.\n" +
+                                   "- For managing medication templates, use `get_prescription_templates` and `create_prescription_template` tools.\n" +
+                                   "- For comprehensive Know Your Patient (KYP) clinical summaries, use `get_patient_kyp_brief` tool."
                         }
                     }
                 };
@@ -130,7 +135,7 @@ namespace SCMS.Domain.Features.Mcp
                     });
                 }
 
-                // 5. Run the Agentic Tool-Calling Loop (max 5 iterations to prevent infinite loops)
+                // 5. Run the Agentic Tool-Calling Loop (max 5 iterations)
                 string finalReply = "Sorry, I was unable to complete your request. Please try again.";
                 int maxIterations = 5;
 
@@ -161,7 +166,6 @@ namespace SCMS.Domain.Features.Mcp
 
                             errContent = await httpResponse.Content.ReadAsStringAsync();
 
-                            // Determine if error is transient (e.g. 503 or 429)
                             bool isRetryable = false;
                             try
                             {
@@ -187,16 +191,14 @@ namespace SCMS.Domain.Features.Mcp
 
                             if (!isRetryable)
                             {
-                                break; // Do not retry auth or client errors
+                                break;
                             }
 
-                            // Wait before retrying (exponential delay: 1s, 2s)
                             await Task.Delay(TimeSpan.FromSeconds(retry + 1));
                         }
                         catch (Exception ex)
                         {
                             errContent = $"Network/connection error: {ex.Message}";
-                            // Retry network/connection errors too
                             await Task.Delay(TimeSpan.FromSeconds(retry + 1));
                         }
                     }
@@ -256,20 +258,16 @@ namespace SCMS.Domain.Features.Mcp
                         break;
                     }
 
-                    // Add the model's turn to our conversation history
                     contents.Add(modelContent);
 
-                    // Check if the model wants to call functions
                     var functionCalls = modelContent.Parts.Where(p => p.FunctionCall != null).Select(p => p.FunctionCall!).ToList();
 
                     if (functionCalls.Count == 0)
                     {
-                        // No function calls, this is the final natural language answer
                         finalReply = modelContent.Parts.FirstOrDefault(p => !string.IsNullOrEmpty(p.Text))?.Text ?? finalReply;
                         break;
                     }
 
-                    // Execute tool calls and collect responses in a single turn
                     var toolResponseParts = new List<GeminiPart>();
 
                     foreach (var call in functionCalls)
@@ -301,7 +299,6 @@ namespace SCMS.Domain.Features.Mcp
                         });
                     }
 
-                    // Add the function responses back into the history under the 'user' role
                     contents.Add(new GeminiContent
                     {
                         Role = "user",
@@ -309,7 +306,6 @@ namespace SCMS.Domain.Features.Mcp
                     });
                 }
 
-                // Auto-convert any remaining yyyy-mm-dd date formats to dd-mm-yyyy in the final reply for absolute format consistency
                 if (!string.IsNullOrEmpty(finalReply))
                 {
                     finalReply = System.Text.RegularExpressions.Regex.Replace(
@@ -331,9 +327,6 @@ namespace SCMS.Domain.Features.Mcp
         {
             try
             {
-                // Adjust parameter schema naming to suit Gemini API if needed.
-                // Gemini expects the type parameter in uppercase (e.g. "OBJECT", "STRING"),
-                // so we do a quick replace in the serialized JSON to keep it fully compliant.
                 var rawJson = JsonSerializer.Serialize(originalSchema);
                 rawJson = rawJson
                     .Replace("\"type\":\"object\"", "\"type\":\"OBJECT\"")

@@ -1,13 +1,16 @@
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SCMS.Domain.Security;
+using SCMS.Domain.Features.Auth;
+using SCMS.Domain.Features.Auth.Models;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Auth;
 
-namespace SCMS.Domain.Features.Auth
+namespace SCMS.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Produces("application/json")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -17,38 +20,37 @@ namespace SCMS.Domain.Features.Auth
             _authService = authService;
         }
 
+        /// <summary>Register a new patient user.</summary>
         [AllowAnonymous]
         [HttpPost("register")]
+        [ProducesResponseType(typeof(Result<AuthResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             var result = await _authService.RegisterAsync(request);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
+        /// <summary>Authenticate user with email/password credentials.</summary>
         [AllowAnonymous]
         [HttpPost("login")]
+        [ProducesResponseType(typeof(Result<AuthResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var result = await _authService.LoginAsync(request);
             return result.IsSuccess ? Ok(result) : Unauthorized(result);
         }
 
+        /// <summary>Obtain a new access token using a refresh token.</summary>
         [AllowAnonymous]
         [HttpPost("refresh")]
+        [ProducesResponseType(typeof(Result<AuthResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
         {
             var result = await _authService.RefreshAsync(request);
             return result.IsSuccess ? Ok(result) : Unauthorized(result);
         }
-
-        //[Authorize]
-        //[HttpPost("logout")]
-        //public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
-        //{
-        //    var result = await _authService.LogoutAsync(request.RefreshToken);
-        //    return Ok(result);
-        //}
-        // don't need to consdier the logout . frontend will just delete the token from local storage and the backend will handle the expired token when it comes in with a request.
-
     }
 }
