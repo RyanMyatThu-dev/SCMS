@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
-using SCMS.Shared.Contracts.Mcp;
+using SCMS.Domain.Features.Mcp.Models;
 
 namespace SCMS.Domain.Features.Mcp
 {

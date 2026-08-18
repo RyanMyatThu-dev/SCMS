@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
-using SCMS.Domain.DTOs;
 using SCMS.Shared;
+using SCMS.Domain.Features.Notifications.Models;
 
 namespace SCMS.Domain.Features.Notifications
 {

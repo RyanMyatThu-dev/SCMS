@@ -1,19 +1,20 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Roles;
+using SCMS.Domain.Features.Roles.Models;
 
 namespace SCMS.Domain.Features.Roles
 {
     public interface IRoleService
     {
-        Task<Result<IEnumerable<RoleDto>>> GetRolesAsync();
-        Task<Result<RoleDto>> GetRoleByIdAsync(int id);
-        Task<Result<RoleDto>> CreateRoleAsync(CreateRoleRequest request);
-        Task<Result<RoleDto>> UpdateRoleAsync(int id, UpdateRoleRequest request);
-        Task<Result> DeleteRoleAsync(int id);
-        Task<Result<IEnumerable<PermissionDto>>> GetAllPermissionsAsync();
-        Task<Result<IEnumerable<PermissionDto>>> GetRolePermissionsAsync(int roleId);
-        Task<Result> UpdateRolePermissionsAsync(int roleId, UpdateRolePermissionsRequest request);
+        Task<Result<List<RoleResponse>>> GetRolesAsync(CancellationToken cancellationToken = default);
+        Task<Result<RoleResponse>> GetRoleByNameAsync(string roleName, CancellationToken cancellationToken = default);
+        Task<Result<RoleResponse>> CreateRoleAsync(CreateRoleRequest request, CancellationToken cancellationToken = default);
+        Task<Result> DeleteRoleAsync(string roleName, CancellationToken cancellationToken = default);
+        Task<Result<List<PermissionResponse>>> GetPermissionsAsync(CancellationToken cancellationToken = default);
+        Task<Result<RoleResponse>> AssignPermissionsToRoleAsync(string roleName, AssignRolePermissionsRequest request, CancellationToken cancellationToken = default);
+        Task<Result> GrantPermissionToRoleAsync(string roleName, string permissionKey, CancellationToken cancellationToken = default);
+        Task<Result> RevokePermissionFromRoleAsync(string roleName, string permissionKey, CancellationToken cancellationToken = default);
     }
 }

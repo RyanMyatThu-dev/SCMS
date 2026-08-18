@@ -1,15 +1,15 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Payments;
+using SCMS.Domain.Features.Payments.Models;
 
 namespace SCMS.Domain.Features.Payments
 {
     public interface IPaymentService
     {
-        Task<Result<IEnumerable<PaymentResponse>>> GetAllAsync(int? appointmentId, string? status, int currentUserId, bool isStaff);
-        Task<Result<PaymentResponse>> GetByIdAsync(int id, int currentUserId, bool isStaff);
-        Task<Result<PaymentResponse>> CreateAsync(CreatePaymentRequest request, int currentUserId);
-        Task<Result<PaymentResponse>> UpdateStatusAsync(int id, UpdatePaymentStatusRequest request, int currentUserId, bool isStaff);
+        Task<Result<PaymentDetailsResponse>> ProcessGatewayCallbackAsync(ProcessPaymentCallbackRequest request);
+        Task<Result<PaymentDetailsResponse>> SubmitManualPaymentProofAsync(ManualPaymentProofRequest request);
+        Task<Result<PaymentDetailsResponse>> ApprovePaymentAsync(int paymentId);
+        Task<PagedResult<PaymentDetailsResponse>> GetPaymentsAsync(string? status, PaginationRequest paginationRequest, string? dateFilter = null, string? searchQuery = null);
+        Task<Result<PaymentDetailsResponse>> GetPaymentByIdAsync(int id);
     }
 }

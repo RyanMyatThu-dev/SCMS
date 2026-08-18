@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.FollowUps;
+using SCMS.Domain.Features.FollowUps.Models;
 
 namespace SCMS.Domain.Features.FollowUps
 {

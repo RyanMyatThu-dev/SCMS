@@ -3,7 +3,7 @@ using SCMS.Database.Models;
 using SCMS.Domain.Common;
 using SCMS.Domain.Security;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Auth;
+using SCMS.Domain.Features.Auth.Models;
 
 namespace SCMS.Domain.Features.Auth
 {

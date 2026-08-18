@@ -6,14 +6,13 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Mcp;
-using SCMS.Shared.Contracts.Prescriptions;
-
+using SCMS.Domain.Features.Mcp.Models;
+using SCMS.Domain.Features.Prescriptions.Models;
 using SCMS.Domain.Features.Dashboards;
 
 namespace SCMS.Domain.Features.Mcp
 {
-    public class McpService
+    public class McpService : IMcpService
     {
         private static readonly string DateFormat = Common.FormatHelper.DateFormat;
         private static readonly string DateTimeFormat = DateFormat + " hh:mm tt";

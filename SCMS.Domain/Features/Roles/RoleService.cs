@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Roles.Models;
 using SCMS.Domain.Security;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Roles
 {
-    public class RoleService
+    public class RoleService : IRoleService
     {
         private readonly AppDbContext _context;
         private readonly IPermissionService _permissionService;

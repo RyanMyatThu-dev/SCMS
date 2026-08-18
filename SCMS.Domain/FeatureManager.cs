@@ -27,14 +27,6 @@ namespace SCMS.Domain
 {
     public static class FeatureManager
     {
-        public static IMvcBuilder AddScmsFeatureControllers(this IServiceCollection services)
-        {
-
-            return services
-                .AddControllers()
-                .AddApplicationPart(typeof(FeatureManager).Assembly);
-        }
-
         public static IServiceCollection AddScmsFeatureServices(this IServiceCollection services, IConfiguration configuration)
         {
 
@@ -45,22 +37,37 @@ namespace SCMS.Domain
             services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider, PermissionAuthorizationPolicyProvider>();
             services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionAuthorizationHandler>();
             services.AddScoped<IPermissionService, PermissionService>();
+            services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<RoleService>();
+            services.AddScoped<IUserService, UserService>();
             services.AddScoped<UserService>();
+            services.AddScoped<IAppointmentsService, AppointmentsService>();
             services.AddScoped<AppointmentsService>();
+            services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<AuthService>();
+            services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<DashboardService>();
+            services.AddScoped<IDiseaseService, DiseaseService>();
             services.AddScoped<DiseaseService>();
+            services.AddScoped<IFollowUpService, FollowUpService>();
             services.AddScoped<FollowUpService>();
-
+            services.AddScoped<IMedicineService, MedicineService>();
             services.AddScoped<MedicineService>();
+            services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<NotificationService>();
+            services.AddScoped<IPatientService, PatientService>();
             services.AddScoped<PatientService>();
+            services.AddScoped<IPaymentService, PaymentService>();
             services.AddScoped<PaymentService>();
+            services.AddScoped<IPdfDocumentService, PdfDocumentService>();
             services.AddScoped<PdfDocumentService>();
+            services.AddScoped<IReportService, ReportService>();
             services.AddScoped<ReportService>();
+            services.AddScoped<IPrescriptionService, PrescriptionService>();
             services.AddScoped<PrescriptionService>();
+            services.AddScoped<IPhotoService, PhotoService>();
             services.AddScoped<PhotoService>();
+            services.AddScoped<IMcpService, McpService>();
             services.AddScoped<McpService>();
             services.AddScoped<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
             services.AddHostedService<InventoryMonitorService>();

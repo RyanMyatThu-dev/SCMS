@@ -1,12 +1,17 @@
 using System.Threading.Tasks;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Reports;
+using SCMS.Domain.Features.Documents.Models;
 
 namespace SCMS.Domain.Features.Documents
 {
     public interface IReportService
     {
-        Task<Result<MonthlyReportDto>> GetMonthlyReportAsync(int year, int month);
-        Task<Result<WeeklyReportDto>> GetWeeklyReportAsync(int year, int week);
+        Task<Result<AppointmentReportResponse>> GetAppointmentReportAsync(AppointmentReportRequest request);
+        Task<Result<RevenueReportResponse>> GetRevenueReportAsync(RevenueReportRequest request);
+        Task<Result<PatientListReportResponse>> GetPatientListReportAsync();
+        Task<Result<MedicineStockReportResponse>> GetMedicineStockReportAsync();
+        Task<Result<FollowUpReportResponse>> GetFollowUpReportAsync(FollowUpReportRequest request);
+        Task<Result<BusinessSummaryReportResponse>> GetBusinessSummaryReportAsync(BusinessSummaryReportRequest request);
+        Task<Result<PrescriptionReportResponse>> GetPrescriptionReportAsync();
     }
 }

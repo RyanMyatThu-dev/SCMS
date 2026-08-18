@@ -4,14 +4,14 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-using SCMS.Domain.DTOs;
-using SCMS.Shared.Contracts.Payments;
-using SCMS.Shared.Contracts.Prescriptions;
-using SCMS.Shared.Contracts.Reports;
+using SCMS.Domain.Features.Documents.Models;
+using SCMS.Domain.Features.Patients.Models;
+using SCMS.Domain.Features.Payments.Models;
+using SCMS.Domain.Features.Prescriptions.Models;
 
 namespace SCMS.Domain.Features.Documents
 {
-    public class PdfDocumentService
+    public class PdfDocumentService : IPdfDocumentService
     {
         // ── Clinic branding constants ──────────────────────────────────
         private const string ClinicName = "Smart Clinic Management System";

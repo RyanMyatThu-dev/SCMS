@@ -1,16 +1,16 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Prescriptions;
+using SCMS.Domain.Features.Prescriptions.Models;
 
 namespace SCMS.Domain.Features.Prescriptions
 {
     public interface IPrescriptionService
     {
-        Task<Result<IEnumerable<PrescriptionListDto>>> GetAllAsync(PrescriptionFilterDto filter, int currentUserId, bool isStaff);
-        Task<Result<PrescriptionDetailDto>> GetByIdAsync(int id, int currentUserId, bool isStaff);
-        Task<Result<PrescriptionDetailDto>> CreateAsync(CreatePrescriptionDto dto, int currentUserId);
-        Task<Result<PrescriptionDetailDto>> UpdateAsync(int id, UpdatePrescriptionDto dto, int currentUserId, bool isStaff);
-        Task<Result> DeleteAsync(int id, int currentUserId, bool isStaff);
+        Task<Result<PrescriptionResponse>> CreatePrescriptionAsync(CreatePrescriptionRequest request);
+        Task<Result<PrescriptionResponse>> GetPrescriptionDetailsAsync(int id);
+        Task<PagedResult<PrescriptionResponse>> GetPrescriptionsAsync(int? patientId, PaginationRequest paginationRequest);
+        Task<Result<PrescriptionTemplateResponse>> SaveTemplateAsync(SaveTemplateRequest request);
+        Task<Result<bool>> DeleteTemplateAsync(int id);
+        Task<PagedResult<PrescriptionTemplateResponse>> GetTemplatesAsync(int? diseaseId, PaginationRequest paginationRequest);
     }
 }

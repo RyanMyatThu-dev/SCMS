@@ -4,13 +4,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Shared.Contracts.Payments;
+using SCMS.Domain.Features.Payments.Models;
 using SCMS.Shared;
 using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.Payments
 {
-    public class PaymentService
+    public class PaymentService : IPaymentService
     {
         private readonly AppDbContext _context;
         private readonly NotificationService? _notificationService;

@@ -6,10 +6,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Dashboards.Models;
+using SCMS.Domain.Features.Appointments.Models;
+using SCMS.Domain.Features.Patients.Models;
+using SCMS.Domain.Features.Prescriptions.Models;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Appointments;
-using SCMS.Shared.Contracts.Prescriptions;
 
 namespace SCMS.Domain.Features.Dashboards
 {

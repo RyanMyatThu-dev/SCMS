@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Reports;
+using SCMS.Domain.Features.Documents.Models;
 
 namespace SCMS.Domain.Features.Documents
 {
-    public class ReportService
+    public class ReportService : IReportService
     {
         private readonly AppDbContext _context;
 

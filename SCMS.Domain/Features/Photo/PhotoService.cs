@@ -9,7 +9,7 @@ using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Photo
 {
-    public class PhotoService
+    public class PhotoService : IPhotoService
     {
         private readonly Cloudinary? _cloudinary;
         private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
@@ -109,11 +109,5 @@ namespace SCMS.Domain.Features.Photo
                 return Result.Failure($"Failed to delete photo: {ex.Message}");
             }
         }
-    }
-
-    public class PhotoUploadResult
-    {
-        public string PublicId { get; set; } = null!;
-        public string Url { get; set; } = null!;
     }
 }

@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SCMS.Shared;
-using SCMS.Shared.Contracts.Mcp;
+using SCMS.Domain.Features.Mcp.Models;
 
 namespace SCMS.Domain.Features.Mcp
 {
     public interface IMcpService
     {
-        Task<Result<IEnumerable<McpToolDefinition>>> GetToolsAsync();
-        Task<Result<McpToolExecutionResponse>> ExecuteToolAsync(McpToolExecutionRequest request);
+        List<McpToolDefinition> GetAvailableTools();
+        Task<Result<McpToolCallResponse>> CallToolAsync(McpToolCallRequest request);
     }
 }

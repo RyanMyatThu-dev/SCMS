@@ -6,13 +6,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Shared.Contracts.Prescriptions;
+using SCMS.Domain.Features.Prescriptions.Models;
 using SCMS.Shared;
 using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.Prescriptions
 {
-    public class PrescriptionService
+    public class PrescriptionService : IPrescriptionService
     {
         private readonly AppDbContext _context;
         private readonly NotificationService? _notificationService;
@@ -34,11 +34,8 @@ namespace SCMS.Domain.Features.Prescriptions
             {
                 return Result<PrescriptionResponse>.Failure("Appointment id is required.");
             }
-            if (request.Items == null)
-            {
-                request.Items = new List<PrescriptionItemDto>();
-            }
-            foreach (var item in request.Items)
+            var items = request.Items ?? new List<PrescriptionItemDto>();
+            foreach (var item in items)
             {
                 if (item.MedicineId <= 0)
                 {

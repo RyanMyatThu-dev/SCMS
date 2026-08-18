@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
-using SCMS.Domain.DTOs;
 using SCMS.Shared;
+using SCMS.Domain.Features.Diseases.Models;
 
 namespace SCMS.Domain.Features.Diseases
 {

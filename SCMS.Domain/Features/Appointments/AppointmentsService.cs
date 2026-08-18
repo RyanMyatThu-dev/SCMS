@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 // using Microsoft.Data.Sqlite;
 using SCMS.Database.Models;
-using SCMS.Shared.Contracts.Appointments;
+using SCMS.Domain.Features.Appointments.Models;
 using SCMS.Shared;
 using SCMS.Domain.Features.Notifications;
 

@@ -5,14 +5,16 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Patients.Models;
+using SCMS.Domain.Features.Appointments.Models;
+using SCMS.Domain.Features.Prescriptions.Models;
 using SCMS.Shared;
 using SCMS.Domain.Features.Appointments;
 using SCMS.Domain.Features.Prescriptions;
 
 namespace SCMS.Domain.Features.Patients
 {
-    public class PatientService
+    public class PatientService : IPatientService
     {
         private readonly AppDbContext _context;
         private readonly AppointmentsService _appointmentsService;
@@ -147,7 +149,7 @@ namespace SCMS.Domain.Features.Patients
 
             // 1. Fetch Appointments via AppointmentsService
             var appointmentsResult = await _appointmentsService.GetAppointmentsAsync(null, null, null, patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 }, userId, true);
-            var appointments = appointmentsResult.Data ?? new List<SCMS.Shared.Contracts.Appointments.AppointmentDetailsResponse>();
+            var appointments = appointmentsResult.Data ?? new List<AppointmentDetailsResponse>();
 
             foreach (var a in appointments)
             {
@@ -163,7 +165,7 @@ namespace SCMS.Domain.Features.Patients
 
             // 2. Fetch Prescriptions & Vitals via PrescriptionService
             var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 });
-            var prescriptions = prescriptionsResult.Data ?? new List<SCMS.Shared.Contracts.Prescriptions.PrescriptionResponse>();
+            var prescriptions = prescriptionsResult.Data ?? new List<PrescriptionResponse>();
 
             foreach (var p in prescriptions)
             {
@@ -237,7 +239,7 @@ namespace SCMS.Domain.Features.Patients
 
             // Fetch prescriptions to aggregate Vitals history and Active prescriptions
             var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 });
-            var prescriptions = prescriptionsResult.Data ?? new List<SCMS.Shared.Contracts.Prescriptions.PrescriptionResponse>();
+            var prescriptions = prescriptionsResult.Data ?? new List<PrescriptionResponse>();
             
             // Order chronologically (GetPrescriptionsAsync might return desc)
             prescriptions = prescriptions.OrderBy(p => p.CreatedAt).ToList();

@@ -1,13 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Domain.Common;
-using SCMS.Domain.DTOs;
+using SCMS.Domain.Features.Users.Models;
 using SCMS.Domain.Security;
 using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Users
 {
-    public class UserService
+    public class UserService : IUserService
     {
         private readonly AppDbContext _context;
         private readonly PasswordHashingService _passwords;
