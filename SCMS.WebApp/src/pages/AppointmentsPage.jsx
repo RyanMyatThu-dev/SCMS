@@ -1,32 +1,24 @@
 import { useState, useEffect } from "react";
 import {
-  CalendarDays,
-  Plus,
-  RefreshCcw,
-  LayoutGrid,
-  List,
-  Info,
-  Check,
-  Stethoscope,
-  Heart,
-  Droplet,
-  Download,
-  AlertTriangle,
-  User,
-  Sparkles,
-  ClipboardList,
-  Pill,
-  Trash2,
-  Bookmark,
-  X
-} from "lucide-react";
+  CalendarIcon,
+  PlusIcon,
+  GridIcon,
+  ListBulletIcon,
+  ActivityLogIcon,
+  HeartIcon,
+  MagicWandIcon,
+  FileTextIcon,
+  ArchiveIcon,
+  TrashIcon,
+  BookmarkIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
 import PaginationControls from "../components/PaginationControls";
 import SearchForm from "../components/SearchForm";
 import {
   appointmentsApi,
-  patientsApi,
   diseasesApi,
   medicinesApi,
   prescriptionsApi,
@@ -93,7 +85,6 @@ export default function AppointmentsPage() {
 
   // Template State
   const [templates, setTemplates] = useState([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
 
@@ -106,13 +97,10 @@ export default function AppointmentsPage() {
     if (selectedDiseaseId) {
       const fetchTemplates = async () => {
         try {
-          setLoadingTemplates(true);
           const res = await prescriptionsApi.templates({ diseaseId: selectedDiseaseId });
           setTemplates(toArray(res));
         } catch (e) {
           console.error("Failed to load templates", e);
-        } finally {
-          setLoadingTemplates(false);
         }
       };
       fetchTemplates();
@@ -192,7 +180,7 @@ export default function AppointmentsPage() {
           setTotalCount(res.pagination.totalCount || items.length);
         }
       }
-    } catch (error) {
+    } catch {
       showError("Failed to fetch appointments list.");
     } finally {
       setLoading(false);
@@ -519,20 +507,20 @@ export default function AppointmentsPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl ml-auto md:ml-0 shrink-0">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl ml-auto md:ml-0 shrink-0">
             <button
               onClick={() => setViewMode("table")}
-              className={`p-2 rounded-lg transition ${viewMode === "table" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              className={`p-2 rounded-lg transition btn-target ${viewMode === "table" ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               title="Table view"
             >
-              <List size={16} />
+              <ListBulletIcon className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("card")}
-              className={`p-2 rounded-lg transition ${viewMode === "card" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              className={`p-2 rounded-lg transition btn-target ${viewMode === "card" ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               title="Slot Cards view"
             >
-              <LayoutGrid size={16} />
+              <GridIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -540,13 +528,13 @@ export default function AppointmentsPage() {
 
       {/* Main content view */}
       {loading ? (
-        <div className="grid place-items-center h-60 bg-white rounded-2xl border border-scms-border">
-          <span className="loading loading-spinner loading-md text-scms-primary" />
+        <div className="grid place-items-center h-60 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
         </div>
       ) : appointments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-scms-border">
-          <CalendarDays size={48} className="text-slate-300 mb-2 animate-pulse" />
-          <p className="text-sm font-bold text-scms-muted">No appointments found for the selected query.</p>
+        <div className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <CalendarIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
+          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">No appointments found for the selected query.</p>
         </div>
       ) : viewMode === "table" ? (
         /* TABLE LAYOUT */
@@ -589,10 +577,10 @@ export default function AppointmentsPage() {
                           <>
                             <button
                               onClick={() => openConsulting(appt)}
-                              className="btn btn-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg border-0 px-3 flex items-center gap-1 font-black"
+                              className="btn btn-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg border-0 px-3 flex items-center gap-1 font-black btn-target"
                               title="EMR Consultation Wizard"
                             >
-                              <Stethoscope size={12} />
+                              <ActivityLogIcon className="w-3.5 h-3.5" />
                               EMR
                             </button>
                             <button
@@ -642,7 +630,7 @@ export default function AppointmentsPage() {
                 <div className="mt-4">
                   <h4 className="font-black text-scms-text text-sm">{appt.patientName || appt.patient?.name || appt.patientId}</h4>
                   <div className="mt-2 text-xs flex items-center gap-1 text-slate-500 font-semibold">
-                    <CalendarDays size={13} className="text-slate-400" />
+                    <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
                     {formatDate(appt.datetime)}
                   </div>
                   {appt.tokenNumber > 0 && (
@@ -658,9 +646,9 @@ export default function AppointmentsPage() {
                   <>
                     <button
                       onClick={() => openConsulting(appt)}
-                      className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex-1"
+                      className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex-1 btn-target"
                     >
-                      <Stethoscope size={13} />
+                      <ActivityLogIcon className="w-3.5 h-3.5" />
                       Consult EMR
                     </button>
                   </>
@@ -701,9 +689,9 @@ export default function AppointmentsPage() {
               </div>
               <button
                 onClick={() => setDetailOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition btn-target"
               >
-                <X size={16} />
+                <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
 
@@ -722,7 +710,7 @@ export default function AppointmentsPage() {
                 <div className="mt-2 pt-2 border-t border-slate-100">
                   <span className="text-slate-500 font-bold block mb-1">Doctor/Visit Notes:</span>
                   <p className="text-scms-muted font-medium bg-slate-50 border border-slate-100 p-2.5 rounded-lg italic">
-                    "{selectedAppt.notes}"
+                    &ldquo;{selectedAppt.notes}&rdquo;
                   </p>
                 </div>
               )}
@@ -740,7 +728,7 @@ export default function AppointmentsPage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center bg-indigo-50 text-indigo-600 rounded-xl">
-                  <Stethoscope size={20} />
+                  <ActivityLogIcon className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-md font-black text-scms-text">
@@ -754,10 +742,10 @@ export default function AppointmentsPage() {
               <button
                 type="button"
                 onClick={() => setEmrOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition btn-target"
                 aria-label="Close"
               >
-                <X size={18} />
+                <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
 
@@ -768,7 +756,7 @@ export default function AppointmentsPage() {
               <div className="space-y-5">
                 <div className="bg-slate-50/50 rounded-2xl border border-slate-200/60 p-4 space-y-4">
                   <h4 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                    <Heart size={16} className="text-rose-500 fill-rose-500" />
+                    <HeartIcon className="w-4 h-4 text-rose-500" />
                     Patient Vitals & Measurements
                   </h4>
                   
@@ -861,7 +849,7 @@ export default function AppointmentsPage() {
 
                 <div className="bg-slate-50/50 rounded-2xl border border-slate-200/60 p-4 space-y-4">
                   <h4 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                    <ClipboardList size={16} className="text-indigo-600" />
+                    <FileTextIcon className="w-4 h-4 text-indigo-600" />
                     Consultation & Diagnosis
                   </h4>
 
@@ -893,7 +881,7 @@ export default function AppointmentsPage() {
                             onClick={() => applyTemplate(tpl)}
                             className="px-3 py-1.5 bg-white hover:bg-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 text-indigo-700 font-extrabold rounded-xl transition shadow-sm text-xs flex items-center gap-1"
                           >
-                            <Bookmark size={10} />
+                            <BookmarkIcon className="w-3 h-3" />
                             {tpl.name}
                           </button>
                         ))}
@@ -951,7 +939,7 @@ export default function AppointmentsPage() {
               <div className="bg-slate-50/50 rounded-2xl border border-slate-200/60 p-4 flex flex-col justify-between min-h-[350px]">
                 <div>
                   <h4 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-4">
-                    <Pill size={16} className="text-emerald-600" />
+                    <ArchiveIcon className="w-4 h-4 text-emerald-600" />
                     Prescribe Medication
                   </h4>
 
@@ -972,9 +960,9 @@ export default function AppointmentsPage() {
                     <button
                       type="button"
                       onClick={addPrescribedMedicine}
-                      className="btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white h-10 px-4 rounded-xl border-0 font-extrabold text-xs flex items-center gap-1"
+                      className="btn btn-sm bg-scms-primary hover:bg-scms-primaryDark text-white h-10 px-4 rounded-xl border-0 font-extrabold text-xs flex items-center gap-1 btn-target"
                     >
-                      <Plus size={14} />
+                      <PlusIcon className="w-3.5 h-3.5" />
                       Add
                     </button>
                   </div>
@@ -983,7 +971,7 @@ export default function AppointmentsPage() {
                   <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                     {prescribedItems.length === 0 ? (
                       <div className="text-center py-12 text-slate-400 text-xs font-semibold">
-                        <Pill size={32} className="mx-auto mb-2 opacity-40 animate-pulse" />
+                        <ArchiveIcon className="w-8 h-8 mx-auto mb-2 opacity-40 animate-pulse" />
                         No medicines added to this prescription yet.
                       </div>
                     ) : (
@@ -992,10 +980,10 @@ export default function AppointmentsPage() {
                           <button
                             type="button"
                             onClick={() => removePrescribedMedicine(item.medicineId)}
-                            className="absolute right-2 top-2 p-1 text-red-500 hover:bg-red-50 rounded-lg"
+                            className="absolute right-2 top-2 p-1 text-red-500 hover:bg-red-50 rounded-lg btn-target"
                             title="Remove item"
                           >
-                            <Trash2 size={13} />
+                            <TrashIcon className="w-3.5 h-3.5" />
                           </button>
 
                           <div className="flex items-center gap-2">
@@ -1105,7 +1093,7 @@ export default function AppointmentsPage() {
                   <span className="loading loading-spinner loading-xs" />
                 ) : (
                   <>
-                    <Sparkles size={16} />
+                    <MagicWandIcon className="w-4 h-4" />
                     Complete consult & download prescription PDF
                   </>
                 )}

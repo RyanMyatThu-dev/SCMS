@@ -1,26 +1,22 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Pill,
-  Plus,
-  RefreshCcw,
-  LayoutGrid,
-  List,
-  ShieldAlert,
-  Edit,
-  Trash2,
-  Layers,
-  Upload,
-  Sparkles,
-  AlertTriangle,
-  X
-} from "lucide-react";
+  ArchiveIcon,
+  PlusIcon,
+  GridIcon,
+  ListBulletIcon,
+  ExclamationTriangleIcon,
+  Pencil1Icon,
+  TrashIcon,
+  LayersIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
-import SearchForm from "../components/SearchForm";
+import SegmentedControl from "../components/SegmentedControl";
 import { medicinesApi } from "../services/scmsApi";
-import { showAlert, showError, showConfirm } from "../services/dialogs";
+import { showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
-import { useNavigate } from "react-router-dom";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -33,362 +29,299 @@ const toArray = (data) => {
 export default function MedicinesPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const pageSize = 10;
-  
+  const pageSize = 8;
   const [medicines, setMedicines] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState("table");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState("grid"); // "table" or "grid"
-  
-  // Search & Filter State
-  const [query, setQuery] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  
+
   // Pagination State
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // CRUD Modal State
+  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
   const [form, setForm] = useState({
     name: "",
-    description: "",
+    genericName: "",
+    category: "",
     unitPrice: "",
-    categoryId: ""
+    description: "",
   });
-
-  const loadCategories = async () => {
-    try {
-      const res = await medicinesApi.categories();
-      setCategories(toArray(res));
-    } catch (e) {
-      console.error("Failed to load medicine categories", e);
-    }
-  };
 
   const loadMedicines = async (pageNum = page) => {
     try {
       setLoading(true);
       const res = await medicinesApi.list({
-        query: query.trim() || undefined,
         pageNumber: pageNum,
-        pageSize: 10
+        pageSize,
+        name: query || undefined,
       });
-
       if (res) {
-        let items = res.data || [];
-        
-        // Category client-side filter since server list is search-only
-        if (selectedCategoryId) {
-          items = items.filter(m => String(m.categoryId) === String(selectedCategoryId));
-        }
-
-        setMedicines(items);
+        setMedicines(toArray(res));
         if (res.pagination) {
           setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || items.length);
+          setTotalCount(res.pagination.totalCount || 0);
         }
       }
     } catch (error) {
-      showError("Failed to load medicine catalog.");
+      console.error("Medicines loading error:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadCategories();
-  }, []);
-
-  useEffect(() => {
     loadMedicines(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, selectedCategoryId]);
+  }, [page]);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
     setPage(1);
     loadMedicines(1);
   };
 
-  const handleQuarantine = async () => {
-    const ok = await showConfirm("Are you sure you want to quarantine all expired medicine batches?");
-    if (!ok) return;
+  const handleQuarantineExpired = async () => {
+    const confirmed = await showConfirm(
+      t.quarantineConfirm || "This will isolate all expired medicine batches from active inventory.",
+      t.quarantineExpired
+    );
+    if (!confirmed) return;
+
     try {
+      setLoading(true);
       await medicinesApi.quarantineExpired();
-      await showAlert("All expired batches have been quarantined successfully.");
+      showSuccess("Expired medicine batches quarantined successfully.");
       loadMedicines(page);
-    } catch (e) {
-      showError("Failed to quarantine expired batches.");
+    } catch (err) {
+      showError(err?.response?.data?.message || "Failed to quarantine expired batches.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const openCreate = () => {
+  const openCreateModal = () => {
     setEditingMedicine(null);
-    setImageFile(null);
     setForm({
       name: "",
-      description: "",
+      genericName: "",
+      category: "Antibiotics",
       unitPrice: "",
-      categoryId: ""
+      description: "",
     });
     setModalOpen(true);
   };
 
-  const openEdit = (med) => {
+  const openEditModal = (med) => {
     setEditingMedicine(med);
-    setImageFile(null);
     setForm({
-      name: med.name || "",
+      name: med.name || med.medicineName || "",
+      genericName: med.genericName || "",
+      category: med.category || "Antibiotics",
+      unitPrice: med.unitPrice || med.price || "",
       description: med.description || "",
-      unitPrice: med.unitPrice || "",
-      categoryId: med.categoryId || ""
     });
     setModalOpen(true);
   };
 
-  const handleDelete = async (med) => {
-    const ok = await showConfirm(`Are you sure you want to delete "${med.name}" from catalog?`);
-    if (!ok) return;
-    try {
-      await medicinesApi.remove(med.medicineId || med.id);
-      await showAlert("Medicine deleted successfully.");
-      loadMedicines(page);
-    } catch (e) {
-      showError("Failed to delete medicine.");
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSaveMedicine = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.unitPrice) {
-      showAlert("Please fill in required fields.");
+    if (!form.name.trim()) {
+      showError("Medicine name is required.");
       return;
     }
 
     try {
       setSaving(true);
-      const dataPayload = new FormData();
-      dataPayload.append("name", form.name.trim());
-      dataPayload.append("description", form.description.trim());
-      dataPayload.append("unitPrice", form.unitPrice);
-      if (form.categoryId) {
-        dataPayload.append("categoryId", form.categoryId);
-      }
-      if (imageFile) {
-        dataPayload.append("image", imageFile);
-      }
+      const formData = new FormData();
+      formData.append("name", form.name.trim());
+      if (form.genericName) formData.append("genericName", form.genericName.trim());
+      if (form.category) formData.append("category", form.category.trim());
+      if (form.unitPrice) formData.append("unitPrice", form.unitPrice);
+      if (form.description) formData.append("description", form.description.trim());
 
       if (editingMedicine) {
-        await medicinesApi.update(editingMedicine.medicineId || editingMedicine.id, dataPayload);
-        await showAlert("Medicine updated successfully.");
+        const id = editingMedicine.id || editingMedicine.medicineId;
+        await medicinesApi.update(id, formData);
+        showSuccess("Medicine catalog updated successfully.");
       } else {
-        await medicinesApi.create(dataPayload);
-        await showAlert("New medicine registered successfully.");
+        await medicinesApi.create(formData);
+        showSuccess("New medicine added to inventory catalog.");
       }
 
       setModalOpen(false);
-      setPage(1);
-      loadMedicines(1);
-    } catch (error) {
-      showError(error?.response?.data?.message || "Failed to save medicine catalog record.");
+      loadMedicines(page);
+    } catch (err) {
+      showError(err?.response?.data?.message || "Failed to save medicine.");
     } finally {
       setSaving(false);
     }
   };
 
+  const handleDelete = async (e, med) => {
+    e.stopPropagation();
+    const confirmed = await showConfirm(
+      `Are you sure you want to remove "${med.name || "this medicine"}" from the catalog?`,
+      "Delete Medicine Record"
+    );
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      const id = med.id || med.medicineId;
+      await medicinesApi.remove(id);
+      showSuccess("Medicine removed from catalog.");
+      loadMedicines(page);
+    } catch (err) {
+      showError(err?.response?.data?.message || "Failed to delete medicine.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Page Header */}
       <PageHeader
         title={t.medicines}
-        subtitle="Complete catalog visibility, categories, stock, and smart batch tracking."
+        subtitle="Pharmaceutical inventory catalog, unit pricing, batch tracking, and expiry control."
         actions={
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleQuarantine}
-              className="scms-btn-outline border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800"
-              title="Move expired batches to quarantine status"
+              onClick={handleQuarantineExpired}
+              className="scms-btn-outline text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 flex items-center gap-1.5 text-xs font-bold btn-target"
+              title="Quarantine Expired Stock"
             >
-              <ShieldAlert size={16} />
-              Quarantine Expired
+              <ExclamationTriangleIcon className="w-4 h-4" />
+              <span>{t.quarantineExpired}</span>
             </button>
+
             <button
               onClick={() => navigate("/app/medicines/batches")}
-              className="scms-btn-outline bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-extrabold"
+              className="scms-btn-outline flex items-center gap-1.5 text-xs font-bold btn-target"
             >
-              <Layers size={16} />
-              Manage Batches
+              <LayersIcon className="w-4 h-4" />
+              <span>{t.batches}</span>
             </button>
-            <button onClick={openCreate} className="scms-btn-primary">
-              <Plus size={16} />
-              Add Medicine
+
+            <button
+              onClick={openCreateModal}
+              className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target"
+            >
+              <PlusIcon className="w-4 h-4" />
+              <span>{t.create}</span>
             </button>
           </div>
         }
       />
 
-      {/* Advanced Filters */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <SearchForm
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onSubmit={handleSearchSubmit}
-          placeholder="Search medicine catalog..."
-          submitLabel={t.search}
-          className="w-full max-w-2xl flex-1"
+      {/* Search & Layout Toggles */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
+        <form onSubmit={handleSearch} className="relative flex-1 w-full">
+          <input
+            type="text"
+            className="scms-input w-full pl-4 text-xs"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search medicines by trade or generic name..."
+          />
+        </form>
+
+        <SegmentedControl
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { label: "Table", value: "table", icon: ListBulletIcon },
+            { label: "Cards", value: "card", icon: GridIcon },
+          ]}
         />
-
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Category Filter */}
-          <div className="relative w-full sm:w-56">
-            <select
-              className="select select-bordered h-11 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
-              value={selectedCategoryId}
-              onChange={(e) => { setSelectedCategoryId(e.target.value); setPage(1); }}
-            >
-              <option value="">All Categories</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 ml-auto md:ml-0">
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-2 rounded-lg transition ${viewMode === "table" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="Table view"
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg transition ${viewMode === "grid" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="Grid Cards view"
-            >
-              <LayoutGrid size={16} />
-            </button>
-          </div>
-        </div>
       </div>
 
-      {/* Main Content Layout */}
+      {/* Main Table / Grid View */}
       {loading ? (
-        <div className="grid place-items-center h-60 bg-white rounded-2xl border border-scms-border">
-          <span className="loading loading-spinner loading-md text-scms-primary" />
+        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
         </div>
       ) : medicines.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-scms-border">
-          <Pill size={48} className="text-slate-300 mb-2 animate-bounce" />
-          <p className="text-sm font-bold text-scms-muted">No medicines found matching the filters.</p>
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <ArchiveIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Medicines Cataloged</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+            Add pharmaceuticals and link inventory batches to track stock levels.
+          </p>
         </div>
       ) : viewMode === "table" ? (
-        /* TABLE VIEW */
-        <div className="scms-card overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="table table-zebra w-full">
-              <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th>No.</th>
-                  <th>Visual</th>
-                  <th>Medicine Name</th>
-                  <th>Category</th>
-                  <th>Unit Price</th>
-                  <th>Stock In Hand</th>
-                  <th>Alerts</th>
-                  <th className="text-right">Actions</th>
+                  <th className="px-4 py-3.5 w-12 text-center">No.</th>
+                  <th className="px-4 py-3.5">Medicine Name</th>
+                  <th className="px-4 py-3.5">Category</th>
+                  <th className="px-4 py-3.5">Unit Price</th>
+                  <th className="px-4 py-3.5">Current Stock</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {medicines.map((med, index) => {
-                  const rowNo = ((page - 1) * pageSize) + index + 1;
-                  const hasAlert = med.hasLowStockWarning || med.hasNearExpiryWarning;
+                  const stock = med.totalStock ?? med.stock ?? med.stockQuantity ?? 0;
                   return (
-                    <tr key={med.medicineId || med.id} className="hover:bg-slate-50/70 transition">
-                      <td className="font-black text-xs text-scms-muted">{rowNo}</td>
-                      <td>
-                        <div className="relative group w-12 h-12 shrink-0 cursor-zoom-in">
-                          {/* Small thumbnail wrapper that clips scale-up */}
-                          <div className="w-full h-full rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
-                            {med.imageUrl ? (
-                              <img
-                                src={med.imageUrl}
-                                alt={med.name}
-                                className="object-cover w-full h-full transition duration-300 group-hover:scale-125"
-                              />
-                            ) : (
-                              <Pill className="text-slate-400" size={20} />
-                            )}
-                          </div>
-                          {/* Large Zoom Popover on Hover (Placed outside overflow-hidden) */}
-                          <div className="absolute left-16 top-1/2 -translate-y-1/2 hidden group-hover:block z-50 p-1.5 bg-white border border-scms-border rounded-2xl shadow-2xl w-44 h-44 animate-fadeIn pointer-events-none">
-                            {med.imageUrl ? (
-                              <img src={med.imageUrl} alt={med.name} className="object-cover w-full h-full rounded-xl" />
-                            ) : (
-                              <div className="w-full h-full bg-slate-50 rounded-xl flex items-center justify-center">
-                                <Pill className="text-slate-300" size={48} />
-                              </div>
-                            )}
-                          </div>
+                    <tr
+                      key={med.id || med.medicineId || index}
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                        {(page - 1) * pageSize + index + 1}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="font-bold text-slate-900 dark:text-white">
+                          {med.name || med.medicineName}
                         </div>
-                      </td>
-                      <td className="font-extrabold text-scms-text">
-                        <div>
-                          <div>{med.name}</div>
-                          {med.description && <div className="text-[10px] text-scms-muted truncate max-w-xs mt-0.5 font-medium">{med.description}</div>}
-                        </div>
-                      </td>
-                      <td className="font-semibold text-xs text-slate-500">
-                        {med.categoryName || "Uncategorized"}
-                      </td>
-                      <td className="font-mono font-bold text-scms-text text-sm">
-                        MMK {Number(med.unitPrice).toLocaleString()}
-                      </td>
-                      <td className="font-black">
-                        <span className={med.totalStock < 20 ? "text-amber-600" : "text-emerald-600"}>
-                          {med.totalStock ?? 0} units
-                        </span>
-                      </td>
-                      <td>
-                        {hasAlert ? (
-                          <div className="flex gap-1">
-                            {med.hasLowStockWarning && (
-                              <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200">
-                                LOW STOCK
-                              </span>
-                            )}
-                            {med.hasNearExpiryWarning && (
-                              <span className="bg-rose-100 text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-rose-200">
-                                EXPIRE SOON
-                              </span>
-                            )}
+                        {med.genericName && (
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {med.genericName}
                           </div>
-                        ) : (
-                          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-200">
-                            STABLE
-                          </span>
                         )}
                       </td>
-                      <td className="text-right">
-                        <div className="flex justify-end gap-1.5">
+                      <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-300">
+                        <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 font-semibold text-slate-700 dark:text-slate-300">
+                          {med.category || "General"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {Number(med.unitPrice || med.price || 0).toLocaleString()} MMK
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`font-mono text-xs font-bold px-2 py-0.5 rounded-md ${
+                            stock <= 10
+                              ? "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
+                          }`}
+                        >
+                          {stock} units
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => openEdit(med)}
-                            className="btn btn-xs rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
-                            title="Edit Medicine details"
+                            onClick={() => openEditModal(med)}
+                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                            title="Edit"
                           >
-                            <Edit size={12} />
+                            <Pencil1Icon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(med)}
-                            className="btn btn-xs rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border-0"
-                            title="Remove Medicine"
+                            onClick={(e) => handleDelete(e, med)}
+                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
+                            title="Delete"
                           >
-                            <Trash2 size={12} />
+                            <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -400,104 +333,56 @@ export default function MedicinesPage() {
           </div>
         </div>
       ) : (
-        /* GRID CARDS VIEW */
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        /* Card Grid View */
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {medicines.map((med, index) => {
-            const rowNo = ((page - 1) * pageSize) + index + 1;
-            const hasAlert = med.hasLowStockWarning || med.hasNearExpiryWarning;
+            const stock = med.totalStock ?? med.stock ?? med.stockQuantity ?? 0;
             return (
               <div
-                key={med.medicineId || med.id}
-                className="bg-white border border-scms-border hover:border-indigo-600 rounded-3xl p-5 hover:shadow-lg transition flex flex-col justify-between"
+                key={med.id || med.medicineId || index}
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-3"
               >
-                <div>
-                  <div className="flex gap-4">
-                    <span className="text-[10px] font-black text-scms-muted">No. {rowNo}</span>
-                    {/* Zoomable Image Container */}
-                    <div className="relative group w-20 h-20 shrink-0 cursor-zoom-in">
-                      {/* Small thumbnail wrapper that clips scale-up */}
-                      <div className="w-full h-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center shadow-sm">
-                        {med.imageUrl ? (
-                          <img
-                            src={med.imageUrl}
-                            alt={med.name}
-                            className="object-cover w-full h-full transition duration-300 group-hover:scale-125"
-                          />
-                        ) : (
-                          <Pill className="text-slate-400" size={32} />
-                        )}
-                      </div>
-                      {/* Large zoom preview popup (Placed outside overflow-hidden) */}
-                      <div className="absolute left-24 top-1/2 -translate-y-1/2 hidden group-hover:block z-50 p-2 bg-white border border-scms-border rounded-3xl shadow-2xl w-48 h-48 animate-fadeIn pointer-events-none">
-                        {med.imageUrl ? (
-                          <img src={med.imageUrl} alt={med.name} className="object-cover w-full h-full rounded-2xl" />
-                        ) : (
-                          <div className="w-full h-full bg-slate-50 rounded-2xl flex items-center justify-center">
-                            <Pill className="text-slate-300" size={56} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
-                        {med.categoryName || "Uncategorized"}
-                      </span>
-                      <h4 className="font-black text-scms-text text-md mt-0.5 truncate">{med.name}</h4>
-                      <p className="text-xs text-scms-muted line-clamp-2 mt-1 font-medium">{med.description || "No medicine description provided."}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-2 gap-4 bg-slate-50/70 border border-slate-100 p-3.5 rounded-2xl text-xs">
-                    <div>
-                      <span className="text-slate-500 font-bold block">Unit Price</span>
-                      <strong className="text-scms-text text-sm font-mono">MMK {Number(med.unitPrice).toLocaleString()}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 font-bold block">Stock Available</span>
-                      <strong className={`text-sm ${med.totalStock < 20 ? "text-amber-600" : "text-emerald-600"}`}>
-                        {med.totalStock ?? 0} units
-                      </strong>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    {med.category || "Medicine"}
+                  </span>
+                  <span
+                    className={`font-mono text-xs font-bold px-2 py-0.5 rounded-md ${
+                      stock <= 10
+                        ? "bg-rose-50 text-rose-700 dark:bg-rose-950/50"
+                        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50"
+                    }`}
+                  >
+                    {stock} in stock
+                  </span>
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <div className="flex gap-1">
-                    {hasAlert ? (
-                      <>
-                        {med.hasLowStockWarning && (
-                          <span className="bg-amber-50 text-amber-700 text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-100">
-                            LOW STOCK
-                          </span>
-                        )}
-                        {med.hasNearExpiryWarning && (
-                          <span className="bg-rose-50 text-rose-700 text-[9px] font-black px-2 py-0.5 rounded-full border border-rose-100">
-                            EXPIRED
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="bg-emerald-50 text-emerald-700 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-100">
-                        STABLE INVENTORY
-                      </span>
-                    )}
-                  </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white">{med.name || med.medicineName}</h3>
+                  {med.genericName && (
+                    <p className="text-xs text-slate-500 italic">{med.genericName}</p>
+                  )}
+                </div>
 
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => openEdit(med)}
-                      className="btn btn-sm btn-ghost btn-square rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100"
-                    >
-                      <Edit size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(med)}
-                      className="btn btn-sm btn-ghost btn-square rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                <div className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  {Number(med.unitPrice || med.price || 0).toLocaleString()} MMK / unit
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5">
+                  <button
+                    onClick={() => openEditModal(med)}
+                    className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                    title="Edit"
+                  >
+                    <Pencil1Icon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(e, med)}
+                    className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 btn-target"
+                    title="Delete"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             );
@@ -509,116 +394,106 @@ export default function MedicinesPage() {
         page={page}
         totalPages={totalPages}
         totalCount={totalCount}
-        label="items"
-        loading={loading}
+        label="medicines"
         onPageChange={setPage}
       />
 
-      {/* --- ADD / EDIT MEDICINE FORM MODAL --- */}
+      {/* Create / Edit Medicine Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <form
-            onSubmit={handleSubmit}
-            className="w-full max-w-md bg-white rounded-3xl border border-scms-border p-6 shadow-2xl space-y-4"
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-lg font-black text-scms-text flex items-center gap-2">
-                <Pill size={20} className="text-scms-primary" />
-                {editingMedicine ? "Edit Medicine Details" : "Register New Medicine"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                {editingMedicine ? "Edit Medicine Record" : "Add Medicine to Catalog"}
               </h3>
               <button
-                type="button"
                 onClick={() => setModalOpen(false)}
-                className="text-xs font-bold text-slate-400 hover:text-slate-600"
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
               >
-                <X size={16} />
+                <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <form onSubmit={handleSaveMedicine} className="space-y-3.5 text-xs">
               <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">
-                  Medicine Name <span className="scms-required">*</span>
+                <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
+                  Trade / Brand Name <span className="text-rose-500">*</span>
                 </span>
                 <input
-                  required
-                  placeholder="e.g. Paracetamol 500mg"
-                  className="input input-bordered h-11 rounded-xl text-sm w-full"
+                  className="scms-input w-full text-xs"
                   value={form.name}
-                  onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Paracetamol 500mg"
+                  required
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">
-                  Unit Price (MMK) <span className="scms-required">*</span>
+                <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
+                  Generic Formula Name
                 </span>
                 <input
-                  type="number"
-                  required
-                  min="0"
-                  placeholder="e.g. 500"
-                  className="input input-bordered h-11 rounded-xl text-sm w-full font-mono"
-                  value={form.unitPrice}
-                  onChange={(e) => setForm(p => ({ ...p, unitPrice: e.target.value }))}
+                  className="scms-input w-full text-xs"
+                  value={form.genericName}
+                  onChange={(e) => setForm({ ...form, genericName: e.target.value })}
+                  placeholder="e.g. Acetaminophen"
                 />
               </label>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">Medicine Category</span>
-                <select
-                  className="select select-bordered h-11 rounded-xl text-sm w-full bg-white border-slate-300"
-                  value={form.categoryId}
-                  onChange={(e) => setForm(p => ({ ...p, categoryId: e.target.value }))}
-                >
-                  <option value="">Select Category</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">Medicine Description</span>
-                <textarea
-                  placeholder="Usage instructions, side effects warnings, etc."
-                  className="textarea textarea-bordered rounded-xl text-sm w-full min-h-16"
-                  value={form.description}
-                  onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">Upload Medicine Image</span>
-                <input
-                  id="medicine-image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="medicine-image-upload"
-                  className="scms-btn-outline h-11 flex items-center justify-center gap-2"
-                >
-                  <Upload size={16} />
-                  Attach Image
-                  {imageFile && (
-                    <span className="ml-auto max-w-[170px] truncate text-left text-scms-muted">{imageFile.name}</span>
-                  )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
+                    Category
+                  </span>
+                  <input
+                    className="scms-input w-full text-xs"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    placeholder="e.g. Analgesic"
+                  />
                 </label>
-              </label>
-            </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="scms-btn-primary w-full h-11 font-black text-sm"
-            >
-              {saving && <span className="loading loading-spinner loading-xs" />}
-              Save Medicine Info
-            </button>
-          </form>
+                <label className="block">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
+                    Unit Price (MMK)
+                  </span>
+                  <input
+                    type="number"
+                    className="scms-input w-full text-xs font-mono"
+                    value={form.unitPrice}
+                    onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
+                    placeholder="e.g. 500"
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
+                  Clinical Description / Dosage Notes
+                </span>
+                <textarea
+                  className="scms-textarea w-full text-xs"
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Optional notes on administration or packaging..."
+                />
+              </label>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="scms-btn-outline text-xs"
+                >
+                  {t.cancel}
+                </button>
+                <button type="submit" disabled={saving} className="scms-btn-primary text-xs">
+                  {saving ? <span className="loading loading-spinner loading-xs" /> : t.save}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
 import {
-  BarChart3,
-  Download,
-  Calendar,
-  Layers,
-  FileText,
-  TrendingUp,
-  Activity,
-  CheckCircle,
-  Eye,
-  X
-} from "lucide-react";
+  BarChartIcon,
+  DownloadIcon,
+  ActivityLogIcon,
+  EyeOpenIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
 import { useLanguage } from "../context/LanguageContext";
@@ -34,42 +29,42 @@ const reportConfigs = {
     load: reportsApi.businessSummary,
     pdf: reportsApi.businessSummaryPdf,
     file: "business-summary.pdf",
-    description: "Holistic overview of revenue metrics, top diagnoses, and medicine inventory."
+    description: "Holistic overview of revenue metrics, top diagnoses, and medicine inventory.",
   },
   appointments: {
     label: "Appointments Status Report",
     load: reportsApi.appointments,
     pdf: reportsApi.appointmentPdf,
     file: "appointments-report.pdf",
-    description: "Detailed slots booking statistics, doctor consultation, and queue durations."
+    description: "Detailed slots booking statistics, doctor consultation, and queue durations.",
   },
   revenue: {
     label: "Financial Revenue Report",
     load: reportsApi.revenue,
     pdf: reportsApi.revenuePdf,
     file: "revenue-report.pdf",
-    description: "Invoiced totals, commercial taxes, system fees, and manual payment summaries."
+    description: "Invoiced totals, commercial taxes, system fees, and manual payment summaries.",
   },
   patients: {
     label: "Patients Directory Report",
     load: reportsApi.patients,
     pdf: reportsApi.patientsPdf,
     file: "patients-report.pdf",
-    description: "Demographics, new registrations, gender splits, and clinical histories."
+    description: "Demographics, new registrations, gender splits, and clinical histories.",
   },
   medicineStock: {
     label: "Inventory Medicine Stock Report",
     load: reportsApi.medicineStock,
     pdf: reportsApi.medicineStockPdf,
     file: "medicine-stock-report.pdf",
-    description: "Low-stock warnings, quarantine batch counts, and expiry milestones."
+    description: "Low-stock warnings, quarantine batch counts, and expiry milestones.",
   },
   followUps: {
     label: "Patient Follow-Ups Report",
     load: reportsApi.followUps,
     pdf: reportsApi.followUpsPdf,
     file: "follow-ups-report.pdf",
-    description: "Schedules, completion rates, and routine revisit alerts."
+    description: "Schedules, completion rates, and routine revisit alerts.",
   },
 };
 
@@ -110,20 +105,18 @@ export default function Reports() {
       const response = await reportConfigs[reportKey].pdf(params());
       downloadBlob(response, reportConfigs[reportKey].file);
       showAlert("PDF Report downloaded successfully.");
-    } catch (error) {
+    } catch {
       showError("Failed to export PDF report.");
     }
   };
 
   const formatDate = (val) => {
     if (!val) return "-";
-    // Avoid formatting standard numbers or IDs as dates
     if (typeof val === "number" || /^\d+$/.test(val)) return String(val);
-    
+
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    
-    // Check if it looks like a date string (YYYY-MM-DD or ISO)
+
     const isIsoOrHyphenated = String(val).includes("-") || String(val).includes("T");
     if (!isIsoOrHyphenated) return String(val);
 
@@ -140,19 +133,20 @@ export default function Reports() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Page Header */}
       <PageHeader
         title={t.reports}
         subtitle="Access clinical analytics, business revenue splits, and download structured audits."
       />
 
       {/* Filter panel */}
-      <section className="bg-white border border-scms-border rounded-3xl p-5 shadow-sm">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm">
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-end">
           <label className="block">
-            <span className="mb-2 block text-xs font-black text-scms-text">Select Report Domain</span>
+            <span className="mb-2 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Select Report Domain
+            </span>
             <select
-              className="select select-bordered h-11 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
+              className="scms-select w-full text-xs"
               value={reportKey}
               onChange={(e) => setReportKey(e.target.value)}
             >
@@ -166,9 +160,11 @@ export default function Reports() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-xs font-black text-scms-text">Aggregation Interval</span>
+            <span className="mb-2 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Aggregation Interval
+            </span>
             <select
-              className="select select-bordered h-11 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
+              className="scms-select w-full text-xs"
               value={reportType}
               onChange={(e) => setReportType(e.target.value)}
             >
@@ -179,55 +175,59 @@ export default function Reports() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-xs font-black text-scms-text">Report Target Date</span>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-              <DateInput
-                className="input input-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border font-mono"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
+            <span className="mb-2 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Report Target Date
+            </span>
+            <DateInput
+              className="scms-input w-full text-xs font-mono"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </label>
 
           <button
             onClick={handleDownloadPdf}
-            className="scms-btn-primary h-11 font-black text-sm flex items-center justify-center gap-2"
+            className="scms-btn-primary h-10 text-xs font-bold flex items-center justify-center gap-2 btn-target"
           >
-            <Download size={16} />
-            Export PDF Report
+            <DownloadIcon className="w-4 h-4" />
+            <span>Export PDF Report</span>
           </button>
         </div>
 
-        <div className="mt-4 text-xs font-medium text-scms-muted bg-slate-50 p-3.5 rounded-2xl border border-slate-100 flex items-center gap-2">
-          <Activity size={15} className="text-scms-primary" />
-          <span><strong>Active Config:</strong> {reportConfigs[reportKey].description}</span>
+        <div className="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-2">
+          <ActivityLogIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+          <span>
+            <strong>Active Domain:</strong> {reportConfigs[reportKey].description}
+          </span>
         </div>
       </section>
 
       {/* Structured data table */}
       {loading ? (
-        <div className="grid place-items-center h-60 bg-white rounded-2xl border border-scms-border">
-          <span className="loading loading-spinner loading-md text-scms-primary" />
+        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-scms-border">
-          <BarChart3 size={48} className="text-slate-300 mb-2 animate-bounce" />
-          <p className="text-sm font-bold text-scms-muted">No analytical rows fetched for the selected configuration.</p>
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <BarChartIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-bounce" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Analytics Rows Found</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+            Adjust the interval dates or select a different report domain above.
+          </p>
         </div>
       ) : (
-        <div className="scms-card overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="table table-zebra w-full font-sans">
-              <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th>No.</th>
-                  <th>Report Metric / Record Key</th>
-                  <th>Aggregated Value / Summary</th>
-                  <th className="text-right">Actions</th>
+                  <th className="px-4 py-3.5 w-12 text-center">No.</th>
+                  <th className="px-4 py-3.5">Report Metric / Record Key</th>
+                  <th className="px-4 py-3.5">Aggregated Value / Summary</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {rows.map((row, index) => {
                   const metric = row.metric || row.name || row.patientName || row.id || `Metric #${index + 1}`;
                   let val = row.value ?? row.total ?? row.amount ?? row.count ?? row.status;
@@ -239,22 +239,24 @@ export default function Reports() {
                     <tr
                       key={index}
                       onClick={() => openPreview(row)}
-                    className="hover:bg-slate-50/70 cursor-pointer transition text-xs"
-                  >
-                      <td className="font-black text-xs text-scms-muted">{index + 1}</td>
-                    <td className="font-extrabold text-scms-text">
-                        {formatDate(metric)}
-                    </td>
-                      <td className="font-semibold text-scms-muted max-w-sm truncate">
-                        {typeof val === "object" ? "JSON details" : formatDate(val)}
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors text-xs"
+                    >
+                      <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                        {index + 1}
                       </td>
-                      <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                        {formatDate(metric)}
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 max-w-sm truncate font-mono">
+                        {typeof val === "object" ? "Structured JSON" : formatDate(val)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => openPreview(row)}
-                          className="btn btn-xs rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-extrabold px-2.5 flex items-center gap-1"
+                          className="scms-btn-outline px-2.5 h-8 min-h-8 text-xs font-semibold flex items-center gap-1.5 ml-auto btn-target"
                         >
-                          <Eye size={12} />
-                          Preview Detail
+                          <EyeOpenIcon className="w-3.5 h-3.5" />
+                          <span>Preview</span>
                         </button>
                       </td>
                     </tr>
@@ -266,70 +268,65 @@ export default function Reports() {
         </div>
       )}
 
-      {/* --- DETAILED JSON PREVIEW MODAL --- */}
+      {/* Detailed Modal Preview */}
       {previewOpen && selectedRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto font-sans">
-            <button
-              onClick={() => setPreviewOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
-            >
-              <X size={18} />
-            </button>
-
-            {/* Header */}
-            <div className="flex gap-3 items-center border-b border-slate-100 pb-3 mb-4">
-              <div className="grid h-10 w-10 place-items-center bg-scms-primaryLight text-scms-primary rounded-xl shrink-0">
-                <BarChart3 size={20} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                  <BarChartIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Metric Breakdown</h3>
+                  <span className="text-xs text-slate-500">{reportConfigs[reportKey].label}</span>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-black text-scms-text">Metric Breakdown Preview</h3>
-                <span className="text-[10px] font-bold text-scms-muted">Domain: {reportConfigs[reportKey].label}</span>
-              </div>
+              <button
+                onClick={() => setPreviewOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                <Cross2Icon className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Structured details display */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-xs font-sans space-y-3.5">
-              <div className="flex justify-between border-b border-slate-200/60 pb-2">
-                <span className="font-extrabold text-slate-500">Metric ID / Key:</span>
-                <strong className="text-scms-text">{formatDate(selectedRow.metric || selectedRow.name || selectedRow.patientName || selectedRow.id || "N/A")}</strong>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <span className="font-bold text-slate-500">Metric Key:</span>
+                <strong className="text-slate-900 dark:text-white">
+                  {formatDate(selectedRow.metric || selectedRow.name || selectedRow.patientName || selectedRow.id || "N/A")}
+                </strong>
               </div>
 
-              <div className="space-y-2">
-                <span className="font-extrabold text-slate-500 block mb-1">Analytical Values:</span>
-                
+              <div>
+                <span className="font-bold text-slate-500 block mb-1.5">Detailed Values:</span>
                 {typeof selectedRow === "object" ? (
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 max-h-60 overflow-y-auto space-y-2 font-mono text-[10px]">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 max-h-56 overflow-y-auto space-y-2 font-mono text-[11px]">
                     {Object.entries(selectedRow).map(([k, v]) => (
-                      <div key={k} className="flex justify-between border-b border-slate-100 last:border-0 pb-1.5 last:pb-0">
-                        <span className="font-bold text-indigo-700 capitalize">{k}:</span>
-                        <span className="text-slate-700 font-extrabold">{typeof v === "object" ? JSON.stringify(v) : formatDate(v)}</span>
+                      <div key={k} className="flex justify-between border-b border-slate-200/40 dark:border-slate-700/40 pb-1.5 last:border-0 last:pb-0">
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400 capitalize">{k}:</span>
+                        <span className="text-slate-800 dark:text-slate-200 font-semibold">{typeof v === "object" ? JSON.stringify(v) : formatDate(v)}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-scms-text font-black text-sm bg-white p-3 rounded-xl border border-slate-200">
+                  <p className="text-slate-900 dark:text-white font-bold p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl">
                     {formatDate(selectedRow)}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Action footer */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-2">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
               <button
                 onClick={handleDownloadPdf}
-                className="scms-btn-primary h-10 text-xs font-black flex items-center gap-1.5"
+                className="scms-btn-primary text-xs flex items-center gap-1.5 btn-target"
               >
-                <Download size={14} />
-                Download PDF Report
+                <DownloadIcon className="w-4 h-4" />
+                <span>Download Report PDF</span>
               </button>
-              <button
-                onClick={() => setPreviewOpen(false)}
-                className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center"
-                aria-label="Close Preview"
-              >
-                <X size={16} />
+              <button onClick={() => setPreviewOpen(false)} className="scms-btn-outline text-xs">
+                {t.close}
               </button>
             </div>
           </div>

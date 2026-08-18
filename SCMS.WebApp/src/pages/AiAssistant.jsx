@@ -1,15 +1,12 @@
 import {
-  Sparkles,
-  Send,
-  Wand2,
-  AlertCircle,
-  HelpCircle,
-  Play,
-  CheckCircle2,
-  Terminal,
-  RefreshCw,
-  Info,
-} from "lucide-react";
+  MagicWandIcon,
+  PaperPlaneIcon,
+  ExclamationTriangleIcon,
+  QuestionMarkCircledIcon,
+  PlayIcon,
+  CodeIcon,
+  ReloadIcon,
+} from "@radix-ui/react-icons";
 import { useEffect, useRef, useState } from "react";
 import { mcpApi } from "../services/scmsApi";
 import { useLanguage } from "../context/LanguageContext";
@@ -41,7 +38,7 @@ const renderMessageContent = (content) => {
         parts.push(lineContent.substring(lastIndex, matchIndex));
       }
       parts.push(
-        <strong key={matchIndex} className="font-extrabold">
+        <strong key={matchIndex} className="font-extrabold text-slate-900 dark:text-white">
           {match[1]}
         </strong>
       );
@@ -57,13 +54,13 @@ const renderMessageContent = (content) => {
     if (isBullet) {
       return (
         <ul key={lineIdx} className="list-disc pl-5 my-0.5">
-          <li className="font-medium">{contentNode}</li>
+          <li className="font-medium text-slate-700 dark:text-slate-200">{contentNode}</li>
         </ul>
       );
     }
 
     return (
-      <p key={lineIdx} className="min-h-[1.25rem] font-medium">
+      <p key={lineIdx} className="min-h-[1.25rem] font-medium text-slate-700 dark:text-slate-200">
         {contentNode}
       </p>
     );
@@ -71,14 +68,14 @@ const renderMessageContent = (content) => {
 };
 
 export default function AiAssistant() {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const [messages, setMessages] = useState([
     {
       role: "model",
       content:
         language === "mm"
           ? "မင်္ဂလာပါ! ကျွန်တော်ကတော့ ကုမယ် AI အကူအညီပေးသူ ဖြစ်ပါတယ်။ ဆေးခန်းလည်ပတ်မှုတွေ၊ ချိန်းဆိုမှုတွေနဲ့ ဆေးဝါးလက်ကျန်တွေကို ရှာဖွေစုံစမ်းဖို့ ဘယ်လိုကူညီပေးရမလဲခင်ဗျာ။"
-          : "Hello! I am your intelligent ကုမယ် assistant. How can I help you manage clinic operations, reschedule appointments, or check inventory levels today?",
+          : "Hello! I am your intelligent assistant. How can I help you manage clinic operations, reschedule appointments, or check inventory levels today?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -185,7 +182,6 @@ export default function AiAssistant() {
     setToolResponse(null);
 
     try {
-      // Cast inputs to correct types if needed (e.g. number for IDs)
       const parsedArgs = {};
       const props = selectedTool.inputSchema?.properties || {};
 
@@ -234,27 +230,27 @@ export default function AiAssistant() {
   ];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-      {/* --- Chat Window --- */}
-      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-scms-border bg-white p-4 shadow-scms shadow-indigo-50/50">
-        <div className="flex items-center gap-3 border-b border-scms-border pb-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-purple-100 text-purple-600">
-            <Sparkles size={20} />
+    <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr] animate-fadeIn">
+      {/* Chat Window */}
+      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm">
+        <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+            <MagicWandIcon className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-md font-black text-scms-text">
+            <h1 className="text-base font-bold text-slate-900 dark:text-white">
               {language === "mm" ? "AI ဆေးခန်းအကူ" : "AI Operations Assistant"}
             </h1>
-            <p className="text-xs font-semibold text-scms-muted">
+            <p className="text-xs text-slate-500">
               Powered by Gemini & Model Context Protocol (MCP)
             </p>
           </div>
           <button
             onClick={() => setMessages([messages[0]])}
-            className="ml-auto btn btn-ghost btn-sm btn-circle"
+            className="ml-auto scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
             title="Reset Chat"
           >
-            <RefreshCw size={15} />
+            <ReloadIcon className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -268,8 +264,8 @@ export default function AiAssistant() {
               }`}
             >
               <div
-                className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-black text-white shrink-0 ${
-                  msg.role === "user" ? "bg-scms-primary" : "bg-purple-600"
+                className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white shrink-0 ${
+                  msg.role === "user" ? "bg-indigo-600" : "bg-purple-600"
                 }`}
               >
                 {msg.role === "user" ? "U" : "AI"}
@@ -277,8 +273,8 @@ export default function AiAssistant() {
               <div
                 className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
                   msg.role === "user"
-                    ? "bg-scms-primary text-white rounded-tr-none"
-                    : "bg-[#F2F4F7] text-scms-text rounded-tl-none"
+                    ? "bg-indigo-600 text-white rounded-tr-none"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none"
                 }`}
               >
                 <div className="space-y-1">{renderMessageContent(msg.content)}</div>
@@ -287,10 +283,10 @@ export default function AiAssistant() {
           ))}
           {loadingChat && (
             <div className="flex gap-3 mr-auto max-w-[85%]">
-              <div className="grid h-8 w-8 place-items-center rounded-lg text-xs font-black text-white bg-purple-600 shrink-0 animate-pulse">
+              <div className="grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white bg-purple-600 shrink-0 animate-pulse">
                 AI
               </div>
-              <div className="rounded-2xl rounded-tl-none bg-[#F2F4F7] px-4 py-3 text-sm text-scms-text">
+              <div className="rounded-2xl rounded-tl-none bg-slate-100 dark:bg-slate-800 px-4 py-3 text-sm">
                 <span className="loading loading-dots loading-xs" />
               </div>
             </div>
@@ -305,7 +301,7 @@ export default function AiAssistant() {
               <button
                 key={idx}
                 onClick={() => setInput(qp.prompt)}
-                className="rounded-full border border-purple-200 bg-purple-50/50 px-3 py-1.5 text-xs font-extrabold text-purple-700 hover:bg-purple-50 transition"
+                className="rounded-full border border-purple-200 dark:border-purple-900 bg-purple-50/60 dark:bg-purple-950/40 px-3 py-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition btn-target"
               >
                 {qp.label}
               </button>
@@ -320,76 +316,80 @@ export default function AiAssistant() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              language === "mm" ? "မေးမြန်းလိုသောအချက် ရေးပါ..." : "Ask AI to check stock, reschedule visits..."
+              language === "mm" ? "မေးမြန်းလိုသောအချက် ရေးပါ..." : "Ask AI to check stock, query diagnoses..."
             }
-            className="scms-input w-full pr-14 pl-4"
+            className="scms-input w-full pr-14 pl-4 text-xs"
             disabled={loadingChat}
           />
           <button
             type="submit"
             disabled={!input.trim() || loadingChat}
-            className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg bg-scms-primary text-white hover:bg-scms-primaryDark disabled:bg-[#EAECF0] disabled:text-[#98A2B3] transition-colors"
+            className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors btn-target"
           >
-            <Send size={15} />
+            <PaperPlaneIcon className="w-3.5 h-3.5" />
           </button>
         </form>
       </section>
 
-      {/* --- MCP Console / Sidebar --- */}
-      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-scms-border bg-white p-4 shadow-scms">
-        <div className="flex items-center gap-3 border-b border-scms-border pb-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
-            <Terminal size={20} />
+      {/* MCP Tools Sidebar */}
+      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm">
+        <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+            <CodeIcon className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-md font-black text-scms-text">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
               {language === "mm" ? "အလိုအလျောက် လုပ်ဆောင်ချက်များ" : "MCP Tool Center"}
             </h2>
-            <p className="text-xs font-semibold text-scms-muted">
-              Live backend integration controllers
-            </p>
+            <p className="text-xs text-slate-500">Live backend integration endpoints</p>
           </div>
-          <button onClick={loadTools} className="ml-auto btn btn-ghost btn-xs btn-square" title="Reload Tools">
-            <RefreshCw size={12} className={loadingTools ? "animate-spin" : ""} />
+          <button
+            onClick={loadTools}
+            className="ml-auto scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+            title="Reload Tools"
+          >
+            <ReloadIcon className={`w-3.5 h-3.5 ${loadingTools ? "animate-spin" : ""}`} />
           </button>
         </div>
 
         {error && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-xs font-bold text-red-700">
-            <AlertCircle size={15} />
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">
+            <ExclamationTriangleIcon className="w-4 h-4" />
             {error}
           </div>
         )}
 
         {/* Tools Selector */}
-        <div className="mt-4 flex-1 overflow-y-auto space-y-3">
+        <div className="mt-4 flex-1 overflow-y-auto space-y-3 pr-1">
           {loadingTools ? (
             <div className="grid place-items-center h-40">
-              <span className="loading loading-spinner loading-md text-scms-primary" />
+              <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
             </div>
           ) : tools.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center text-scms-muted text-xs font-semibold">
-              <HelpCircle size={36} className="mb-2 opacity-40" />
-              No backend tools found. Please check Api Status.
+            <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400 text-xs font-semibold">
+              <QuestionMarkCircledIcon className="w-8 h-8 mb-2 opacity-40" />
+              No backend tools found. Please check API status.
             </div>
           ) : (
             tools.map((tool) => (
               <button
                 key={tool.name}
                 onClick={() => handleToolSelect(tool)}
-                className={`w-full text-left rounded-2xl border p-3.5 transition ${
+                className={`w-full text-left rounded-2xl border p-3.5 transition btn-target ${
                   selectedTool?.name === tool.name
-                    ? "border-scms-primary bg-scms-primaryLight/30"
-                    : "border-scms-border hover:bg-[#F9FAFB]"
+                    ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40"
+                    : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-indigo-100/60 px-2 py-0.5 text-[10px] font-black text-indigo-700 font-mono">
+                  <div className="rounded-md bg-indigo-100 dark:bg-indigo-900/60 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 font-mono">
                     TOOL
                   </div>
-                  <strong className="text-xs font-black text-scms-text">{tool.name}</strong>
+                  <strong className="text-xs font-bold text-slate-900 dark:text-white">
+                    {tool.name}
+                  </strong>
                 </div>
-                <p className="mt-2 text-xs leading-5 text-scms-muted font-medium">
+                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed line-clamp-2">
                   {tool.description}
                 </p>
               </button>
@@ -399,14 +399,14 @@ export default function AiAssistant() {
 
         {/* Tool Playground Modal/Footer */}
         {selectedTool && (
-          <div className="border-t border-scms-border pt-4 mt-3">
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-4 mt-3">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-black text-scms-text">
-                Playground: <span className="text-indigo-600 font-mono">{selectedTool.name}</span>
+              <div className="text-xs font-bold text-slate-900 dark:text-white">
+                Playground: <span className="text-indigo-600 dark:text-indigo-400 font-mono">{selectedTool.name}</span>
               </div>
               <button
                 onClick={() => setSelectedTool(null)}
-                className="text-xs font-extrabold text-scms-muted hover:text-scms-text"
+                className="text-xs font-bold text-slate-400 hover:text-slate-600 btn-target"
               >
                 Clear
               </button>
@@ -414,15 +414,15 @@ export default function AiAssistant() {
 
             {/* Dynamic Inputs */}
             {selectedTool.inputSchema?.properties && (
-              <div className="space-y-3 max-h-[160px] overflow-y-auto mb-3">
+              <div className="space-y-2.5 max-h-[140px] overflow-y-auto mb-3 pr-1">
                 {Object.entries(selectedTool.inputSchema.properties).map(([k, prop]) => (
-                  <label key={k} className="block">
-                    <span className="block text-[10px] font-extrabold text-scms-muted uppercase mb-1">
-                      {k} {prop.type ? `(${prop.type})` : ""} {prop.description ? `- ${prop.description}` : ""}
+                  <label key={k} className="block text-xs">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                      {k} {prop.type ? `(${prop.type})` : ""}
                     </span>
                     <input
                       type="text"
-                      className="input input-bordered input-sm h-8 rounded-lg text-xs w-full"
+                      className="scms-input w-full text-xs h-8"
                       value={toolInputs[k] || ""}
                       onChange={(e) => handleToolInput(k, e.target.value)}
                     />
@@ -434,28 +434,28 @@ export default function AiAssistant() {
             <button
               onClick={handleCallTool}
               disabled={loadingToolCall}
-              className="scms-btn-primary min-h-9 h-9 w-full flex items-center justify-center gap-2 text-xs font-bold"
+              className="scms-btn-primary min-h-9 h-9 w-full flex items-center justify-center gap-2 text-xs font-bold btn-target"
             >
               {loadingToolCall ? (
                 <span className="loading loading-spinner loading-xs" />
               ) : (
                 <>
-                  <Play size={12} />
-                  Execute Tool
+                  <PlayIcon className="w-3.5 h-3.5" />
+                  <span>Execute Tool</span>
                 </>
               )}
             </button>
 
             {toolResponse && (
-              <div className="mt-3 rounded-xl border border-scms-border bg-[#F8F9FC] p-3 text-xs font-mono max-h-[150px] overflow-auto">
-                <div className="flex items-center gap-1.5 text-xs font-black text-[#344054] border-b border-scms-border pb-1.5 mb-1.5">
-                  <Terminal size={12} />
-                  Result Output
+              <div className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 p-3 text-xs font-mono max-h-[140px] overflow-auto">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-1.5 mb-1.5">
+                  <CodeIcon className="w-3.5 h-3.5" />
+                  <span>Output</span>
                 </div>
                 {toolResponse.isError ? (
-                  <div className="text-scms-danger">{toolResponse.error}</div>
+                  <div className="text-rose-600 font-semibold">{toolResponse.error}</div>
                 ) : (
-                  <pre className="text-scms-text text-[11px] leading-5 whitespace-pre-wrap">
+                  <pre className="text-slate-800 dark:text-slate-200 text-[11px] whitespace-pre-wrap">
                     {JSON.stringify(toolResponse, null, 2)}
                   </pre>
                 )}

@@ -1,24 +1,19 @@
 import { useState, useEffect } from "react";
 import {
-  CreditCard,
-  RefreshCcw,
-  LayoutGrid,
-  List,
-  Download,
-  CheckCircle,
-  FileText,
-  Clock,
-  Check,
-  Calendar,
-  X,
-  AlertCircle
-} from "lucide-react";
+  CardStackIcon,
+  ReloadIcon,
+  GridIcon,
+  ListBulletIcon,
+  DownloadIcon,
+  CheckIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
-import SearchForm from "../components/SearchForm";
+import SegmentedControl from "../components/SegmentedControl";
 import { paymentsApi, downloadBlob } from "../services/scmsApi";
-import { showAlert, showError, showConfirm } from "../services/dialogs";
+import { showAlert, showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
 
 const toArray = (data) => {
@@ -36,42 +31,40 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
-  const [viewMode, setViewMode] = useState("table"); // "table" or "card"
-  
-  // Search & Filter State
-  const [query, setQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [dateFilter, setDateFilter] = useState(""); // YYYY-MM-DD
+  const [viewMode, setViewMode] = useState("table");
 
-  // Pagination State
+  // Filters
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
+
+  // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Detailed Modal State
-  const [detailOpen, setDetailOpen] = useState(false);
+  // Detail Modal State
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const loadPayments = async (pageNum = page) => {
     try {
       setLoading(true);
       const res = await paymentsApi.list({
-        status: selectedStatus || undefined,
-        query: query.trim() || undefined,
-        dateFilter: dateFilter || undefined,
         pageNumber: pageNum,
-        pageSize: 10
+        pageSize,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        date: dateFilter || undefined,
       });
 
       if (res) {
-        setPayments(res.data || []);
+        setPayments(toArray(res));
         if (res.pagination) {
           setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || (res.data || []).length);
+          setTotalCount(res.pagination.totalCount || 0);
         }
       }
-    } catch (error) {
-      showError("Failed to fetch payments journal.");
+    } catch (err) {
+      console.error("Payments load error:", err);
     } finally {
       setLoading(false);
     }
@@ -80,27 +73,22 @@ export default function PaymentsPage() {
   useEffect(() => {
     loadPayments(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, selectedStatus, dateFilter]);
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    setPage(1);
-    loadPayments(1);
-  };
+  }, [page, statusFilter, dateFilter]);
 
   const handleApprove = async (e, paymentId) => {
     e.stopPropagation();
-    const ok = await showConfirm("Are you sure you want to approve this payment proof?");
-    if (!ok) return;
+    const confirmed = await showConfirm(
+      "Confirm and approve this mobile payment transaction? This will mark the invoice as settled.",
+      "Approve Payment Transfer"
+    );
+    if (!confirmed) return;
 
     try {
       setApprovingId(paymentId);
       await paymentsApi.approve(paymentId);
-      await showAlert("Payment approved successfully!");
-      if (selectedPayment && (selectedPayment.id === paymentId || selectedPayment.paymentId === paymentId)) {
-        setDetailOpen(false);
-      }
+      showSuccess("Payment transaction approved and settled.");
       loadPayments(page);
+      if (selectedPayment) setDetailOpen(false);
     } catch (err) {
       showError(err?.response?.data?.message || "Failed to approve payment.");
     } finally {
@@ -108,192 +96,165 @@ export default function PaymentsPage() {
     }
   };
 
-  const downloadInvoice = async (e, paymentId) => {
+  const handleDownloadInvoice = async (e, paymentId) => {
     e.stopPropagation();
     try {
-      const response = await paymentsApi.invoicePdf(paymentId);
-      downloadBlob(response, `invoice-${paymentId}.pdf`);
-      showAlert("Invoice downloaded successfully.");
-    } catch (error) {
+      const blob = await paymentsApi.invoicePdf(paymentId);
+      downloadBlob(blob, `invoice-${paymentId}.pdf`);
+      showAlert("Invoice receipt PDF downloaded successfully.");
+    } catch {
       showError("Failed to download invoice PDF.");
     }
   };
 
-  const formatDate = (val) => {
-    if (!val) return "-";
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  const getStatusClass = (status) => {
-    const s = String(status || "").toLowerCase();
-    if (s === "completed" || s === "paid" || s === "success") {
-      return "bg-[#ECFDF3] text-[#027A48] border-[#A9EFC5]";
-    }
-    if (s === "approved" || s === "confirmed" || s === "active") {
-      return "bg-[#EBF2FF] text-[#0052CC] border-[#B2CCFF]";
-    }
-    if (s === "cancelled" || s === "failed" || s === "rejected") {
-      return "bg-[#FFF1F0] text-[#D92D20] border-[#FECDCA]";
-    }
-    if (s === "pending" || s === "requested") {
-      return "bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]";
-    }
-    return "bg-[#F2F4F7] text-[#667085] border-[#E4E7EC]";
-  };
-
-  const openDetail = (p) => {
-    setSelectedPayment(p);
-    setDetailOpen(true);
-  };
-
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Page Header */}
       <PageHeader
         title={t.payments}
-        subtitle="Track ledger transactions, approve manual payment screenshots, and export invoices."
+        subtitle="Clinic billing, invoice settlements, mobile KBZPay/WavePay transfer verification, and receipts."
       />
 
-      {/* Advanced Filters */}
-      <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <SearchForm
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onSubmit={handleSearchSubmit}
-          placeholder="Search by patient name or appointment code..."
-          submitLabel={t.search}
-          className="w-full max-w-2xl flex-1"
-        />
+      {/* Filter and View Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
+        <div className="flex flex-1 flex-wrap items-center gap-3 w-full">
+          <select
+            className="scms-select min-w-[160px] text-xs font-semibold"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">-- All Statuses --</option>
+            <option value="Pending">Pending Verification</option>
+            <option value="Paid">Paid / Settled</option>
+            <option value="Failed">Failed / Rejected</option>
+          </select>
 
-        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* Status dropdown */}
-          <div className="relative w-full sm:w-44">
-            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <select
-              className="select select-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
-              value={selectedStatus}
-              onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }}
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending Proof</option>
-              <option value="paid">Approved / Paid</option>
-              <option value="failed">Failed / Cancelled</option>
-            </select>
-          </div>
+          <DateInput
+            className="scms-input min-w-[150px] text-xs font-mono"
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+              setPage(1);
+            }}
+          />
 
-          {/* Date Picker */}
-          <div className="relative w-full sm:w-44">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <DateInput
-              className="input input-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
-              value={dateFilter}
-              onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
-            />
-          </div>
-
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 ml-auto xl:ml-0">
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-2 rounded-lg transition ${viewMode === "table" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="Table view"
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode("card")}
-              className={`p-2 rounded-lg transition ${viewMode === "card" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="Grid Cards view"
-            >
-              <LayoutGrid size={16} />
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setStatusFilter("all");
+              setDateFilter("");
+              setPage(1);
+            }}
+            className="scms-btn-outline px-3 btn-target"
+            title={t.refresh}
+          >
+            <ReloadIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
         </div>
+
+        <SegmentedControl
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { label: "Table", value: "table", icon: ListBulletIcon },
+            { label: "Cards", value: "card", icon: GridIcon },
+          ]}
+        />
       </div>
 
-      {/* Main content display */}
+      {/* Main Content */}
       {loading ? (
-        <div className="grid place-items-center h-60 bg-white rounded-2xl border border-scms-border">
-          <span className="loading loading-spinner loading-md text-scms-primary" />
+        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
         </div>
       ) : payments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-scms-border">
-          <CreditCard size={48} className="text-slate-300 mb-2 animate-pulse" />
-          <p className="text-sm font-bold text-scms-muted">No transaction logs found.</p>
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <CardStackIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Payment Records</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+            Transactions and patient payment screenshot submissions will appear here.
+          </p>
         </div>
       ) : viewMode === "table" ? (
-        /* TABLE VIEW */
-        <div className="scms-card overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="table table-zebra w-full font-sans">
-              <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th>No.</th>
-                  <th>Invoice ID</th>
-                  <th>Patient Name</th>
-                  <th>Appointment</th>
-                  <th>Paid Date</th>
-                  <th>Total Amount</th>
-                  <th>Status</th>
-                  <th className="text-right">Actions</th>
+                  <th className="px-4 py-3.5 w-12 text-center">No.</th>
+                  <th className="px-4 py-3.5">Invoice / Payment ID</th>
+                  <th className="px-4 py-3.5">Patient Details</th>
+                  <th className="px-4 py-3.5">Payment Method</th>
+                  <th className="px-4 py-3.5">Amount (MMK)</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {payments.map((p, index) => {
+                  const isPending =
+                    String(p.status || "").toLowerCase() === "pending" ||
+                    String(p.paymentStatus || "").toLowerCase() === "pending";
                   const pId = p.id || p.paymentId;
-                  const status = p.paymentStatus || p.status;
-                  const isPending = String(status).toLowerCase() === "pending";
-                  const rowNo = ((page - 1) * pageSize) + index + 1;
+
                   return (
                     <tr
-                      key={pId}
-                      onClick={() => openDetail(p)}
-                      className="hover:bg-slate-50/70 cursor-pointer transition"
+                      key={pId || index}
+                      onClick={() => {
+                        setSelectedPayment(p);
+                        setDetailOpen(true);
+                      }}
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
                     >
-                      <td className="font-black text-xs text-scms-muted">{rowNo}</td>
-                      <td className="font-extrabold text-mono text-scms-primary text-sm">
-                        INV-{pId}
+                      <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                        {(page - 1) * pageSize + index + 1}
                       </td>
-                      <td className="font-extrabold text-scms-text">
-                        {p.patientName || `Patient #${p.patientId}`}
+                      <td className="px-4 py-3.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        INV-{String(pId).padStart(4, "0")}
                       </td>
-                      <td className="font-bold text-slate-600 font-mono text-xs">
-                        #{p.appointmentCode}
+                      <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                        {p.patientName || p.patient?.name || `Appointment #${p.appointmentId}`}
                       </td>
-                      <td className="font-semibold text-xs">
-                        {formatDate(p.paidAt || p.createdAt)}
+                      <td className="px-4 py-3.5 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">
+                        {p.paymentMethod || "Cash / KBZPay"}
                       </td>
-                      <td className="font-black text-sm text-scms-text">
-                        {Number(p.amount || p.totalAmount).toLocaleString()} MMK
+                      <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-900 dark:text-white">
+                        {Number(p.amount || 0).toLocaleString()} MMK
                       </td>
-                      <td>
-                        <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(status)}`}>
-                          {String(status).toUpperCase()}
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                            isPending
+                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                          }`}
+                        >
+                          {p.status || "Settled"}
                         </span>
                       </td>
-                      <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1.5">
+                      <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
                           {isPending && (
                             <button
-                              disabled={approvingId === pId}
                               onClick={(e) => handleApprove(e, pId)}
-                              className="btn btn-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border-0 px-3 flex items-center gap-1 font-black"
-                              title="Approve Manual Payment Proof"
+                              disabled={approvingId === pId}
+                              className="scms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-3 h-8 min-h-8 text-xs font-bold flex items-center gap-1 btn-target"
                             >
-                              <Check size={12} />
-                              Approve
+                              {approvingId === pId ? (
+                                <span className="loading loading-spinner loading-xs" />
+                              ) : (
+                                <CheckIcon className="w-3.5 h-3.5" />
+                              )}
+                              <span>Approve</span>
                             </button>
                           )}
                           <button
-                            onClick={(e) => downloadInvoice(e, pId)}
-                            className="btn btn-xs rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
-                            title="Download PDF invoice"
+                            onClick={(e) => handleDownloadInvoice(e, pId)}
+                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-slate-600 dark:text-slate-300 btn-target"
+                            title="Download Invoice PDF"
                           >
-                            <Download size={12} />
+                            <DownloadIcon className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -305,70 +266,67 @@ export default function PaymentsPage() {
           </div>
         </div>
       ) : (
-        /* GRID CARDS VIEW */
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        /* Card Grid View */
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {payments.map((p, index) => {
+            const isPending =
+              String(p.status || "").toLowerCase() === "pending" ||
+              String(p.paymentStatus || "").toLowerCase() === "pending";
             const pId = p.id || p.paymentId;
-            const status = p.paymentStatus || p.status;
-            const isPending = String(status).toLowerCase() === "pending";
-            const rowNo = ((page - 1) * pageSize) + index + 1;
+
             return (
               <div
-                key={pId}
-                onClick={() => openDetail(p)}
-                className="bg-white border border-scms-border hover:border-indigo-600 rounded-3xl p-5 hover:shadow-lg cursor-pointer transition flex flex-col justify-between"
+                key={pId || index}
+                onClick={() => {
+                  setSelectedPayment(p);
+                  setDetailOpen(true);
+                }}
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-md cursor-pointer transition-all space-y-3"
               >
-                <div>
-                  <div className="flex justify-between items-center gap-2">
-                    <span className="text-xs font-black text-scms-muted">No. {rowNo}</span>
-                    <span className="text-xs font-black text-indigo-600 font-mono">INV-{pId}</span>
-                    <span className={`text-[9px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(status)}`}>
-                      {String(status).toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className="mt-4">
-                    <h4 className="font-black text-scms-text text-sm">{p.patientName || `Patient #${p.patientId}`}</h4>
-                    <span className="text-[10px] text-scms-muted font-bold block mt-1">Visit Code: #{p.appointmentCode}</span>
-                  </div>
-
-                  <div className="mt-4 bg-slate-50 p-3.5 rounded-2xl text-xs space-y-2">
-                    <div className="flex justify-between text-slate-500 font-semibold">
-                      <span>Total Amount:</span>
-                      <strong className="text-scms-text text-sm font-mono">{Number(p.amount || p.totalAmount).toLocaleString()} MMK</strong>
-                    </div>
-                    <div className="flex justify-between text-slate-500 font-semibold">
-                      <span>Transaction Date:</span>
-                      <strong className="text-scms-text">{formatDate(p.paidAt || p.createdAt)}</strong>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                    INV-{String(pId).padStart(4, "0")}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      isPending
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                        : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    }`}
+                  >
+                    {p.status || "Settled"}
+                  </span>
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-slate-100 flex justify-between items-center" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => openDetail(p)}
-                    className="btn btn-sm btn-ghost rounded-xl text-xs font-extrabold text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50"
-                  >
-                    View Breakdown
-                  </button>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white">
+                    {p.patientName || p.patient?.name || `Appt #${p.appointmentId}`}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">{p.paymentMethod || "Mobile Transfer"}</p>
+                </div>
 
-                  <div className="flex gap-1.5">
-                    {isPending && (
-                      <button
-                        disabled={approvingId === pId}
-                        onClick={(e) => handleApprove(e, pId)}
-                        className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold px-3 border-0 h-9"
-                      >
-                        Approve
-                      </button>
-                    )}
+                <div className="font-mono text-base font-bold text-slate-900 dark:text-white">
+                  {Number(p.amount || 0).toLocaleString()} MMK
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  {isPending && (
                     <button
-                      onClick={(e) => downloadInvoice(e, pId)}
-                      className="btn btn-sm btn-ghost btn-square rounded-xl border border-scms-border"
+                      onClick={(e) => handleApprove(e, pId)}
+                      disabled={approvingId === pId}
+                      className="scms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 h-8 min-h-8 text-xs font-bold flex items-center gap-1 btn-target"
                     >
-                      <Download size={14} />
+                      <CheckIcon className="w-3.5 h-3.5" />
+                      <span>Approve</span>
                     </button>
-                  </div>
+                  )}
+                  <button
+                    onClick={(e) => handleDownloadInvoice(e, pId)}
+                    className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                    title="Download Invoice"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             );
@@ -380,134 +338,79 @@ export default function PaymentsPage() {
         page={page}
         totalPages={totalPages}
         totalCount={totalCount}
-        label="payments"
-        loading={loading}
+        label="transactions"
         onPageChange={setPage}
       />
 
-      {/* --- DETAILED PAYMENT BREAKDOWN PREVIEW MODAL --- */}
+      {/* Payment Detail & Screenshot Verification Modal */}
       {detailOpen && selectedPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-xl bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto font-sans">
-            <button
-              onClick={() => setDetailOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
-            >
-              <X size={18} />
-            </button>
-
-            {/* Header */}
-            <div className="flex gap-4 items-center border-b border-slate-100 pb-4 mb-4">
-              <div className="grid h-12 w-12 place-items-center bg-indigo-50 text-indigo-600 rounded-2xl shrink-0">
-                <CreditCard size={22} />
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h3 className="text-lg font-black text-scms-text">Ledger Invoice INV-{selectedPayment.id || selectedPayment.paymentId}</h3>
-                <span className={`inline-flex text-[9px] font-black border px-2 py-0.5 mt-1 rounded-full ${getStatusClass(selectedPayment.paymentStatus || selectedPayment.status)}`}>
-                  {String(selectedPayment.paymentStatus || selectedPayment.status).toUpperCase()}
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Invoice INV-{String(selectedPayment.id || selectedPayment.paymentId).padStart(4, "0")}
+                </h3>
+                <span className="text-xs text-slate-500">
+                  Patient: {selectedPayment.patientName || selectedPayment.patient?.name}
                 </span>
               </div>
+              <button
+                onClick={() => setDetailOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                <Cross2Icon className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Breakdown Invoice Grid */}
-            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4 text-xs font-sans">
-              <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 border-b border-slate-200 pb-2">
-                <FileText size={14} className="text-scms-primary" />
-                Ledger Breakdown
-              </h4>
-
-              <div className="space-y-2.5 font-semibold text-slate-600">
-                <div className="flex justify-between">
-                  <span>Patient Name:</span>
-                  <strong className="text-scms-text">{selectedPayment.patientName}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Appointment Slot:</span>
-                  <strong className="text-scms-text font-mono">#{selectedPayment.appointmentCode}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Transaction Date:</span>
-                  <strong className="text-scms-text">{formatDate(selectedPayment.paidAt || selectedPayment.createdAt)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Payment Gateway:</span>
-                  <strong className="text-scms-text capitalize">{selectedPayment.paymentMethod || "Manual Proof"}</strong>
-                </div>
-
-                 <div className="border-t border-slate-200 pt-3 space-y-2.5">
-                  <div className="flex justify-between">
-                    <span>Clinical Base Charge:</span>
-                    <strong className="text-scms-text font-mono">{Number(selectedPayment.amount || selectedPayment.totalAmount).toLocaleString()} MMK</strong>
-                  </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>Commercial Service Tax (5%):</span>
-                    <strong className="text-scms-text font-mono">{Number(selectedPayment.tax || 0).toLocaleString()} MMK</strong>
-                  </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>System Surcharge / Fees:</span>
-                    <strong className="text-scms-text font-mono">{Number(selectedPayment.charges || 0).toLocaleString()} MMK</strong>
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-200 pt-3 flex justify-between text-sm">
-                  <span className="font-black text-slate-800">Grand Total Invoiced:</span>
-                  <strong className="text-indigo-600 font-mono font-black">
-                    {Number(
-                      (selectedPayment.amount || selectedPayment.totalAmount) +
-                      (selectedPayment.tax || 0) +
-                      (selectedPayment.charges || 0)
-                    ).toLocaleString()} MMK
+            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl">
+                <div>
+                  <span className="text-slate-400 font-semibold block">Total Bill Amount</span>
+                  <strong className="font-mono text-sm text-slate-900 dark:text-white">
+                    {Number(selectedPayment.amount || 0).toLocaleString()} MMK
                   </strong>
                 </div>
-              </div>
-            </div>
-
-            {/* Proof screenshot if it exists */}
-            {(selectedPayment.paymentScreenshot || selectedPayment.screenshot) && (
-              <div className="mt-5 space-y-2 text-xs">
-                <span className="font-black text-slate-700 block flex items-center gap-1">
-                  <AlertCircle size={14} className="text-indigo-600" />
-                  Uploaded Bank Transaction Transfer Screenshot Proof:
-                </span>
-                <div className="w-full h-64 border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center relative group">
-                  <img
-                    src={selectedPayment.paymentScreenshot || selectedPayment.screenshot}
-                    alt="Manual payment proof screenshot transfer"
-                    className="object-contain w-full h-full cursor-zoom-in transition duration-300 group-hover:scale-110"
-                  />
+                <div>
+                  <span className="text-slate-400 font-semibold block">Method</span>
+                  <strong className="uppercase">{selectedPayment.paymentMethod || "KBZPay / Wave"}</strong>
                 </div>
               </div>
-            )}
 
-            {/* Footer action bar */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-2">
-              {String(selectedPayment.paymentStatus || selectedPayment.status).toLowerCase() === "pending" && (
+              {/* Transfer Screenshot Proof if available */}
+              {selectedPayment.screenshotUrl && (
+                <div className="space-y-1">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 block">
+                    Patient Transfer Receipt Screenshot:
+                  </span>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 max-h-52 bg-slate-100 dark:bg-slate-800">
+                    <img
+                      src={selectedPayment.screenshotUrl}
+                      alt="Payment transfer proof"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              {String(selectedPayment.status || "").toLowerCase() === "pending" && (
                 <button
-                  disabled={approvingId === (selectedPayment.id || selectedPayment.paymentId)}
                   onClick={(e) => handleApprove(e, selectedPayment.id || selectedPayment.paymentId)}
-                  className="scms-btn-primary h-10 text-xs font-black flex items-center gap-1.5"
+                  disabled={approvingId === (selectedPayment.id || selectedPayment.paymentId)}
+                  className="scms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 btn-target"
                 >
-                  {approvingId === (selectedPayment.id || selectedPayment.paymentId) ? (
-                    <span className="loading loading-spinner loading-xs" />
-                  ) : (
-                    <Check size={14} />
-                  )}
-                  Approve Transaction Proof
+                  <CheckIcon className="w-4 h-4" />
+                  <span>Confirm & Settle Payment</span>
                 </button>
               )}
               <button
-                onClick={(e) => downloadInvoice(e, selectedPayment.id || selectedPayment.paymentId)}
-                className="scms-btn-outline h-10 text-xs font-black flex items-center gap-1"
+                onClick={(e) => handleDownloadInvoice(e, selectedPayment.id || selectedPayment.paymentId)}
+                className="scms-btn-outline text-xs flex items-center gap-1.5 btn-target"
               >
-                <Download size={13} />
-                Download PDF
-              </button>
-              <button
-                onClick={() => setDetailOpen(false)}
-                className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center animate-scaleIn"
-                aria-label="Close Invoice"
-              >
-                <X size={16} />
+                <DownloadIcon className="w-4 h-4" />
+                <span>Invoice PDF</span>
               </button>
             </div>
           </div>

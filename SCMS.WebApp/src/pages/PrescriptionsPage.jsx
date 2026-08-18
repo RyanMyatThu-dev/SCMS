@@ -1,27 +1,20 @@
 import { useState, useEffect } from "react";
 import {
-  FileText,
-  RefreshCcw,
-  LayoutGrid,
-  List,
-  Download,
-  Info,
-  Activity,
-  Heart,
-  Droplet,
-  User,
-  Calendar,
-  Pill,
-  X
-} from "lucide-react";
+  FileTextIcon,
+  ReloadIcon,
+  GridIcon,
+  ListBulletIcon,
+  DownloadIcon,
+  ArchiveIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
 import PaginationControls from "../components/PaginationControls";
-import SearchForm from "../components/SearchForm";
-import { prescriptionsApi, patientsApi, diseasesApi, downloadBlob } from "../services/scmsApi";
+import SegmentedControl from "../components/SegmentedControl";
+import { prescriptionsApi, diseasesApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
-import { formatTemperatureF } from "../utils/clinical";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -38,327 +31,253 @@ export default function PrescriptionsPage() {
   const [prescriptions, setPrescriptions] = useState([]);
   const [diseases, setDiseases] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("table"); // "table" or "card"
-  
-  // Search & Filter State
-  const [patientSearch, setPatientSearch] = useState("");
-  const [selectedDiseaseId, setSelectedDiseaseId] = useState("");
-  const [dateFilter, setDateFilter] = useState(""); // YYYY-MM-DD
+  const [viewMode, setViewMode] = useState("table");
 
-  // Pagination State
+  // Filters
+  const [selectedDisease, setSelectedDisease] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+
+  // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Detailed Modal State
+  // Detail Modal State
+  const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedRx, setSelectedRx] = useState(null);
-
-  const loadFilterCatalog = async () => {
-    try {
-      const diseasesRes = await diseasesApi.list({ pageSize: 100 });
-      setDiseases(toArray(diseasesRes));
-    } catch (e) {
-      console.error("Failed to load filter catalogs", e);
-    }
-  };
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const loadPrescriptions = async (pageNum = page) => {
     try {
       setLoading(true);
-      
-      const params = {
+      const res = await prescriptionsApi.list({
         pageNumber: pageNum,
-        pageSize: 10,
-      };
-
-      const res = await prescriptionsApi.list(params);
+        pageSize,
+        diseaseId: selectedDisease || undefined,
+        startDate: dateFilter || undefined,
+      });
 
       if (res) {
-        let items = res.data || [];
-
-        // Apply client filters for fields not supported directly by backend list API
-        if (patientSearch.trim()) {
-          items = items.filter(rx => rx.patientName?.toLowerCase().includes(patientSearch.toLowerCase()));
-        }
-        if (selectedDiseaseId) {
-          items = items.filter(rx => String(rx.diseaseId) === String(selectedDiseaseId));
-        }
-        if (dateFilter) {
-          items = items.filter(rx => rx.createdAt?.split("T")[0] === dateFilter);
-        }
-
-        setPrescriptions(items);
+        setPrescriptions(toArray(res));
         if (res.pagination) {
           setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || items.length);
+          setTotalCount(res.pagination.totalCount || 0);
         }
       }
-    } catch (error) {
-      showError("Failed to fetch prescriptions records.");
+    } catch (err) {
+      console.error("Prescriptions load error:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadFilterCatalog();
+    diseasesApi.list({ pageSize: 100 }).then((res) => setDiseases(toArray(res)));
   }, []);
 
   useEffect(() => {
     loadPrescriptions(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, selectedDiseaseId, dateFilter]);
+  }, [page, selectedDisease, dateFilter]);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    setPage(1);
-    loadPrescriptions(1);
-  };
-
-  const downloadRxPdf = async (e, rxId) => {
+  const handleDownloadPdf = async (e, id) => {
     e.stopPropagation();
     try {
-      const response = await prescriptionsApi.pdf(rxId);
-      downloadBlob(response, `prescription-${rxId}.pdf`);
+      const blob = await prescriptionsApi.pdf(id);
+      downloadBlob(blob, `prescription-${id}.pdf`);
       showAlert("Prescription PDF downloaded successfully.");
-    } catch (err) {
-      showError("Failed to download PDF document.");
+    } catch {
+      showError("Failed to export prescription PDF.");
     }
   };
 
-  const formatDate = (val) => {
-    if (!val) return "-";
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  const openDetail = async (rx) => {
+  const openDetailModal = async (pres) => {
+    setSelectedPrescription(pres);
+    setDetailOpen(true);
     try {
-      const res = await prescriptionsApi.get(rx.id || rx.prescriptionId);
-      setSelectedRx(res.data || res);
-      setDetailOpen(true);
-    } catch (e) {
-      // Fallback to loaded object
-      setSelectedRx(rx);
-      setDetailOpen(true);
+      setDetailLoading(true);
+      const presId = pres.id || pres.prescriptionId;
+      const full = await prescriptionsApi.get(presId);
+      setSelectedPrescription(full?.data || full || pres);
+    } catch (err) {
+      console.error("Failed to load prescription items:", err);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Page Header */}
       <PageHeader
         title={t.prescriptions}
-        subtitle="Review clinical prescriptions catalog, drug schedules, and downloadable records."
+        subtitle="Issued clinical prescriptions, dosage schedules, medical instructions, and PDF audit records."
       />
 
-      {/* Advanced Filters */}
-      <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <SearchForm
-          value={patientSearch}
-          onChange={(e) => setPatientSearch(e.target.value)}
-          onSubmit={handleSearchSubmit}
-          placeholder="Search by patient name..."
-          submitLabel={t.search}
-          className="w-full max-w-2xl flex-1"
-        />
+      {/* Filter and View Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
+        <div className="flex flex-1 flex-wrap items-center gap-3 w-full">
+          <select
+            className="scms-select flex-1 min-w-[200px] text-xs"
+            value={selectedDisease}
+            onChange={(e) => {
+              setSelectedDisease(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">-- Filter by Diagnosis --</option>
+            {diseases.map((d) => (
+              <option key={d.id || d.diseaseId} value={d.id || d.diseaseId}>
+                {d.name || d.diseaseName}
+              </option>
+            ))}
+          </select>
 
-        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* Disease filter */}
-          <div className="relative w-full sm:w-48">
-            <Activity className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <select
-              className="select select-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
-              value={selectedDiseaseId}
-              onChange={(e) => { setSelectedDiseaseId(e.target.value); setPage(1); }}
-            >
-              <option value="">All Diseases</option>
-              {diseases.map(d => (
-                <option key={d.diseaseId || d.id} value={d.diseaseId || d.id}>{d.name || d.diseaseName}</option>
-              ))}
-            </select>
-          </div>
+          <DateInput
+            className="scms-input min-w-[150px] text-xs font-mono"
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+              setPage(1);
+            }}
+          />
 
-          {/* Date Picker */}
-          <div className="relative w-full sm:w-40">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-            <DateInput
-              className="input input-bordered h-11 pl-9 rounded-xl text-xs font-semibold w-full bg-white border-scms-border"
-              value={dateFilter}
-              onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
-            />
-          </div>
-
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 ml-auto xl:ml-0">
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-2 rounded-lg transition ${viewMode === "table" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="Table view"
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode("card")}
-              className={`p-2 rounded-lg transition ${viewMode === "card" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="Grid Cards view"
-            >
-              <LayoutGrid size={16} />
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setSelectedDisease("");
+              setDateFilter("");
+              setPage(1);
+            }}
+            className="scms-btn-outline px-3 btn-target"
+            title={t.refresh}
+          >
+            <ReloadIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
         </div>
+
+        <SegmentedControl
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { label: "Table", value: "table", icon: ListBulletIcon },
+            { label: "Cards", value: "card", icon: GridIcon },
+          ]}
+        />
       </div>
 
-      {/* Main Listing View */}
+      {/* Main Table / Grid */}
       {loading ? (
-        <div className="grid place-items-center h-60 bg-white rounded-2xl border border-scms-border">
-          <span className="loading loading-spinner loading-md text-scms-primary" />
+        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
         </div>
       ) : prescriptions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-scms-border">
-          <FileText size={48} className="text-slate-300 mb-2 animate-pulse" />
-          <p className="text-sm font-bold text-scms-muted">No prescriptions records found.</p>
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <FileTextIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Prescriptions Issued</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+            Completed doctor consultations will generate prescription records here.
+          </p>
         </div>
       ) : viewMode === "table" ? (
-        /* TABLE VIEW */
-        <div className="scms-card overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="table table-zebra w-full font-sans">
-              <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th>No.</th>
-                  <th>Prescription Code</th>
-                  <th>Patient Name</th>
-                  <th>Diagnosed Disease</th>
-                  <th>Consultation Date</th>
-                  <th>Prescribed Drugs Count</th>
-                  <th className="text-right">Actions</th>
+                  <th className="px-4 py-3.5 w-12 text-center">No.</th>
+                  <th className="px-4 py-3.5">Prescription ID</th>
+                  <th className="px-4 py-3.5">Patient Name</th>
+                  <th className="px-4 py-3.5">Diagnosis</th>
+                  <th className="px-4 py-3.5">Prescribed Date</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {prescriptions.map((rx, index) => {
-                  const rowNo = ((page - 1) * pageSize) + index + 1;
-                  return (
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {prescriptions.map((p, index) => (
                   <tr
-                    key={rx.id || rx.prescriptionId}
-                    onClick={() => openDetail(rx)}
-                    className="hover:bg-slate-50/70 cursor-pointer transition"
+                    key={p.id || p.prescriptionId || index}
+                    onClick={() => openDetailModal(p)}
+                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
                   >
-                    <td className="font-black text-xs text-scms-muted">{rowNo}</td>
-                    <td className="font-extrabold text-scms-primary font-mono text-sm">
-                      RX-{rx.id || rx.prescriptionId}
+                    <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                      {(page - 1) * pageSize + index + 1}
                     </td>
-                    <td className="font-extrabold text-scms-text">
-                      {rx.patientName || `Patient ID: ${rx.patientId}`}
+                    <td className="px-4 py-3.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                      RX-{String(p.id || p.prescriptionId).padStart(4, "0")}
                     </td>
-                    <td>
-                      <span className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                        <Activity size={12} />
-                        {rx.diseaseName || "General Symptomatic"}
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      {p.patientName || p.patient?.name || `Patient #${p.patientId}`}
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-300">
+                      <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 font-semibold">
+                        {p.diseaseName || p.disease?.name || "General Medical"}
                       </span>
                     </td>
-                    <td className="font-semibold text-xs">
-                      {formatDate(rx.createdAt || rx.date)}
+                    <td className="px-4 py-3.5 font-mono text-xs text-slate-500">
+                      {p.prescribedAt ? String(p.prescribedAt).slice(0, 10) : "-"}
                     </td>
-                    <td className="font-extrabold text-slate-700">
-                      {rx.items?.length || 0} items
-                    </td>
-                    <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1.5">
+                    <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => openDetail(rx)}
-                          className="btn btn-xs rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                          onClick={(e) => handleDownloadPdf(e, p.id || p.prescriptionId)}
+                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-slate-600 dark:text-slate-300 btn-target"
+                          title="Download Prescription PDF"
                         >
-                          <Info size={12} />
-                          Review
+                          <DownloadIcon className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={(e) => downloadRxPdf(e, rx.id || rx.prescriptionId)}
-                          className="btn btn-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border-0"
+                          onClick={() => openDetailModal(p)}
+                          className="scms-btn-outline px-3 h-8 min-h-8 text-xs font-bold btn-target"
                         >
-                          <Download size={12} />
-                          PDF
+                          View Details
                         </button>
                       </div>
                     </td>
                   </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       ) : (
-        /* GRID CARDS VIEW */
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {prescriptions.map((rx, index) => {
-            const rowNo = ((page - 1) * pageSize) + index + 1;
-            return (
+        /* Card Grid View */
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {prescriptions.map((p, index) => (
             <div
-              key={rx.id || rx.prescriptionId}
-              onClick={() => openDetail(rx)}
-              className="bg-white border border-scms-border hover:border-indigo-600 rounded-3xl p-5 hover:shadow-lg cursor-pointer transition flex flex-col justify-between"
+              key={p.id || p.prescriptionId || index}
+              onClick={() => openDetailModal(p)}
+              className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-md cursor-pointer transition-all space-y-3"
             >
-              <div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-xs font-black text-scms-muted">No. {rowNo}</span>
-                  <span className="text-xs font-black text-indigo-600 font-mono">RX-{rx.id || rx.prescriptionId}</span>
-                  <span className="text-[10px] text-scms-muted font-bold flex items-center gap-1">
-                    <Calendar size={12} />
-                    {formatDate(rx.createdAt || rx.date)}
-                  </span>
-                </div>
-
-                <div className="mt-4">
-                  <h4 className="font-black text-scms-text text-sm">{rx.patientName || `Patient ID: ${rx.patientId}`}</h4>
-                  <div className="mt-2.5">
-                    <span className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
-                      <Activity size={11} />
-                      {rx.diseaseName || "General Symptomatic"}
-                    </span>
-                  </div>
-                </div>
-
-                {rx.items?.length > 0 && (
-                  <div className="mt-4 space-y-1.5">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Prescribed Medication</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {rx.items.slice(0, 3).map((item, idx) => (
-                        <span key={idx} className="bg-slate-50 border border-slate-100 text-slate-600 text-[9px] font-bold px-2 py-0.5 rounded-md">
-                          {item.medicineName}
-                        </span>
-                      ))}
-                      {rx.items.length > 3 && (
-                        <span className="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded-md">
-                          +{rx.items.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  RX-{String(p.id || p.prescriptionId).padStart(4, "0")}
+                </span>
+                <span className="font-mono text-[10px] text-slate-400">
+                  {p.prescribedAt ? String(p.prescribedAt).slice(0, 10) : "Recent"}
+                </span>
               </div>
 
-              <div className="mt-6 pt-3 border-t border-slate-100 flex justify-between items-center" onClick={(e) => e.stopPropagation()}>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white">
+                  {p.patientName || p.patient?.name || `Patient #${p.patientId}`}
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  {p.diseaseName || p.disease?.name || "Clinical Rx"}
+                </p>
+              </div>
+
+              {p.notes && <p className="text-xs text-slate-400 italic truncate">{p.notes}</p>}
+
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => openDetail(rx)}
-                  className="btn btn-sm btn-ghost rounded-xl text-xs font-extrabold text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50"
+                  onClick={(e) => handleDownloadPdf(e, p.id || p.prescriptionId)}
+                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                  title="Download PDF"
                 >
-                  View Details
-                </button>
-                <button
-                  onClick={(e) => downloadRxPdf(e, rx.id || rx.prescriptionId)}
-                  className="btn btn-sm btn-ghost btn-square rounded-xl border border-scms-border"
-                >
-                  <Download size={14} />
+                  <DownloadIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
-          );
-          })}
+          ))}
         </div>
       )}
 
@@ -367,129 +286,106 @@ export default function PrescriptionsPage() {
         totalPages={totalPages}
         totalCount={totalCount}
         label="prescriptions"
-        loading={loading}
         onPageChange={setPage}
       />
 
-      {/* --- DETAILED PRESCRIPTION REVIEW MODAL --- */}
-      {detailOpen && selectedRx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-3xl bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto font-sans">
-            <button
-              onClick={() => setDetailOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
-            >
-              <X size={18} />
-            </button>
-
-            {/* Title / Brief */}
-            <div className="flex gap-4 items-center border-b border-slate-100 pb-4 mb-4">
-              <div className="grid h-12 w-12 place-items-center bg-indigo-50 text-indigo-600 rounded-2xl shrink-0">
-                <FileText size={22} />
+      {/* Prescription Detail Modal */}
+      {detailOpen && selectedPrescription && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-2xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white">
+                  <FileTextIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Prescription RX-{String(selectedPrescription.id || selectedPrescription.prescriptionId).padStart(4, "0")}
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    Patient: {selectedPrescription.patientName || selectedPrescription.patient?.name}
+                  </span>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-black text-scms-text">Prescription Review RX-{selectedRx.id || selectedRx.prescriptionId}</h3>
-                <p className="text-xs font-semibold text-scms-muted mt-0.5">
-                  Consultation Date: <strong className="text-scms-text">{formatDate(selectedRx.createdAt || selectedRx.date)}</strong> | Visit Code: <strong className="text-scms-text">#{selectedRx.appointmentCode}</strong>
-                </p>
-              </div>
+              <button
+                onClick={() => setDetailOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                <Cross2Icon className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Demographics / Details Grid */}
-            <div className="grid gap-6 sm:grid-cols-2 text-xs">
-              
-              {/* Vitals Summary Card */}
-              <div className="space-y-4">
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
-                  <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 border-b border-slate-200 pb-2">
-                    <Heart size={14} className="text-rose-500 fill-rose-500" />
-                    Clinical Vitals & Measurements
+            {detailLoading ? (
+              <div className="py-8 text-center text-xs text-slate-400">Loading prescription details...</div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                {selectedPrescription.notes && (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                    <span className="font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                      Doctor Advice / Diagnostic Notes:
+                    </span>
+                    <p className="text-slate-600 dark:text-slate-400 italic">
+                      &ldquo;{selectedPrescription.notes}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-1.5">
+                    <ArchiveIcon className="w-4 h-4 text-emerald-600" />
+                    <span>Medications & Dosage Schedule</span>
                   </h4>
 
-                  <div className="grid grid-cols-2 gap-2 text-slate-600 font-semibold leading-loose">
-                    <div>Weight: <strong className="text-scms-text">{selectedRx.weightKg ? `${selectedRx.weightKg} kg` : "-"}</strong></div>
-                    <div>Height: <strong className="text-scms-text">{selectedRx.heightCm ? `${selectedRx.heightCm} cm` : "-"}</strong></div>
-                    <div>BP Systolic: <strong className="text-scms-text">{selectedRx.bloodPressureSystolic ? `${selectedRx.bloodPressureSystolic} mmHg` : "-"}</strong></div>
-                    <div>BP Diastolic: <strong className="text-scms-text">{selectedRx.bloodPressureDiastolic ? `${selectedRx.bloodPressureDiastolic} mmHg` : "-"}</strong></div>
-                    <div>Pulse Rate: <strong className="text-scms-text">{selectedRx.pulseBpm ? `${selectedRx.pulseBpm} bpm` : "-"}</strong></div>
-                    <div>Temp (°F): <strong className="text-scms-text">{formatTemperatureF(selectedRx.temperatureC)}</strong></div>
-                    <div>SpO2: <strong className="text-scms-text">{selectedRx.spo2Percent ? `${selectedRx.spo2Percent} %` : "-"}</strong></div>
-                    <div>BMI Score: <strong className="text-indigo-600 font-extrabold">{selectedRx.bmi || "-"}</strong></div>
-                  </div>
-                </div>
-
-                <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/60">
-                  <h4 className="font-extrabold text-indigo-800 flex items-center gap-1.5 mb-1.5">
-                    <Activity size={14} className="text-indigo-600" />
-                    Medical Assessment
-                  </h4>
-                  <div className="space-y-1.5 text-slate-600 font-semibold">
-                    <div>Diagnosis: <strong className="text-indigo-950 font-black">{selectedRx.diseaseName || "General clinical visit"}</strong></div>
-                    <div className="mt-2 text-xs">
-                      <span className="font-bold text-slate-500 block mb-1">Clinical Assessment Notes:</span>
-                      <p className="text-scms-muted font-medium bg-white p-2.5 rounded-lg border border-slate-200 italic leading-relaxed">
-                        "{selectedRx.notes || "No visit notes registered."}"
-                      </p>
+                  {selectedPrescription.items?.length ? (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50 dark:bg-slate-800/60 font-bold uppercase tracking-wider text-slate-500">
+                          <tr>
+                            <th className="p-3">Medicine</th>
+                            <th className="p-3">Dosage</th>
+                            <th className="p-3">Duration</th>
+                            <th className="p-3">Quantity</th>
+                            <th className="p-3">Instructions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {selectedPrescription.items.map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="p-3 font-bold text-slate-900 dark:text-white">
+                                {item.medicineName || item.medicine?.name || `Med #${item.medicineId}`}
+                              </td>
+                              <td className="p-3 font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                                {item.dosage}
+                              </td>
+                              <td className="p-3 font-mono">{item.durationDays || item.days || "-"} days</td>
+                              <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">
+                                {item.quantity} units
+                              </td>
+                              <td className="p-3 text-slate-500 italic">{item.instructions || "Standard"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  </div>
+                  ) : (
+                    <p className="text-slate-400 italic">No specific medication line items found.</p>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                  <button
+                    onClick={(e) => handleDownloadPdf(e, selectedPrescription.id || selectedPrescription.prescriptionId)}
+                    className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target"
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                    <span>Download PDF</span>
+                  </button>
+                  <button onClick={() => setDetailOpen(false)} className="scms-btn-outline text-xs">
+                    {t.close}
+                  </button>
                 </div>
               </div>
-
-              {/* Prescribed Medicine block */}
-              <div className="space-y-4 flex flex-col">
-                <div className="flex-1 bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col justify-between">
-                  <div>
-                    <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 border-b border-slate-200 pb-2 mb-3">
-                      <Pill size={14} className="text-indigo-600" />
-                      Prescribed Drug Checklist
-                    </h4>
-                    
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                      {selectedRx.items?.map((item) => (
-                        <div key={item.id} className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-black text-slate-800 text-[11px]">{item.medicineName}</span>
-                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                              {item.dosage}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-scms-muted font-bold flex justify-between">
-                            <span>Duration: {item.days} days</span>
-                            <span>Qty: {item.quantity} {item.doseUnit || "units"}</span>
-                          </div>
-                          {item.instruction && (
-                            <p className="text-[9px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md italic font-semibold mt-1">
-                              Instruction: {item.instruction}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
-              <span className="text-[10px] font-bold text-scms-muted">Patient: <strong className="text-scms-text">{selectedRx.patientName}</strong></span>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={(e) => downloadRxPdf(e, selectedRx.id || selectedRx.prescriptionId)}
-                  className="scms-btn-primary h-10 text-xs font-black flex items-center gap-1.5"
-                >
-                  <Download size={14} />
-                  Download PDF
-                </button>
-                <button
-                  onClick={() => setDetailOpen(false)}
-                  className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

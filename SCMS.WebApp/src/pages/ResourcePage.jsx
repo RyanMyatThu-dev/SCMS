@@ -1,12 +1,18 @@
-import { Download, Edit, Plus, RefreshCcw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  DownloadIcon,
+  Pencil1Icon,
+  PlusIcon,
+  ReloadIcon,
+  TrashIcon,
+} from "@radix-ui/react-icons";
 import DataTable from "../components/DataTable";
 import PageHeader from "../components/PageHeader";
 import RecordModal from "../components/RecordModal";
 import SearchForm from "../components/SearchForm";
 import { useLanguage } from "../context/LanguageContext";
 import { downloadBlob } from "../services/scmsApi";
-import { showAlert, showConfirm, showError } from "../services/dialogs";
+import { showAlert, showConfirm, showError, showSuccess } from "../services/dialogs";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -53,7 +59,7 @@ export default function ResourcePage({ config }) {
 
   const visibleRows = useMemo(
     () => (query ? rows.filter((row) => includesQuery(row, query)) : rows),
-    [rows, query],
+    [rows, query]
   );
 
   const openCreate = () => {
@@ -84,7 +90,7 @@ export default function ResourcePage({ config }) {
       }
 
       setModalOpen(false);
-      await showAlert(t.saved);
+      showSuccess(t.saved);
       await load();
     } catch (error) {
       await showError(error?.response?.data?.message || error?.response?.data?.title || error?.message || "Save failed.");
@@ -125,39 +131,45 @@ export default function ResourcePage({ config }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title={config.title}
         subtitle={config.subtitle}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             {config.extraHeaderActions?.map((action) => (
-              <button key={action.label} className={action.primary ? "scms-btn-primary" : "scms-btn-outline"} onClick={() => runAction(action)}>
+              <button
+                key={action.label}
+                className={`flex items-center gap-1.5 text-xs font-bold btn-target ${
+                  action.primary ? "scms-btn-primary" : "scms-btn-outline"
+                }`}
+                onClick={() => runAction(action)}
+              >
                 {action.icon}
-                {action.label}
+                <span>{action.label}</span>
               </button>
             ))}
-            <button className="scms-btn-outline" onClick={load}>
-              <RefreshCcw size={16} />
-              {t.refresh}
+            <button className="scms-btn-outline flex items-center gap-1.5 text-xs btn-target" onClick={load}>
+              <ReloadIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <span>{t.refresh}</span>
             </button>
             {config.create && (
-              <button className="scms-btn-primary" onClick={openCreate}>
-                <Plus size={16} />
-                {t.create}
+              <button className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target" onClick={openCreate}>
+                <PlusIcon className="w-4 h-4" />
+                <span>{t.create}</span>
               </button>
             )}
-          </>
+          </div>
         }
       />
 
-      <div className="scms-card p-4">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
         <SearchForm
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={t.search}
           showButton={false}
-          className="w-full max-w-2xl"
+          className="w-full max-w-2xl text-xs"
         />
       </div>
 
@@ -167,21 +179,33 @@ export default function ResourcePage({ config }) {
         showIndex
         loading={loading}
         actions={(row) => (
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-1.5">
             {config.rowActions?.map((action) => (
-              <button key={action.label} className="btn btn-sm rounded-lg border-scms-border bg-white text-scms-text" onClick={() => (action.download ? download(action, row) : runAction(action, row))}>
-                {action.download ? <Download size={15} /> : action.icon}
-                {action.label}
+              <button
+                key={action.label}
+                className="scms-btn-outline px-2.5 h-8 min-h-8 text-xs font-semibold flex items-center gap-1 btn-target"
+                onClick={() => (action.download ? download(action, row) : runAction(action, row))}
+              >
+                {action.download ? <DownloadIcon className="w-3.5 h-3.5" /> : action.icon}
+                <span>{action.label}</span>
               </button>
             ))}
             {config.update && (
-              <button className="btn btn-sm rounded-lg border-scms-border bg-white text-scms-primary" onClick={() => openEdit(row)}>
-                <Edit size={15} />
+              <button
+                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                onClick={() => openEdit(row)}
+                title={t.edit}
+              >
+                <Pencil1Icon className="w-4 h-4" />
               </button>
             )}
             {config.remove && (
-              <button className="btn btn-sm rounded-lg border-[#FECDCA] bg-[#FFF1F0] text-scms-danger" onClick={() => remove(row)}>
-                <Trash2 size={15} />
+              <button
+                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
+                onClick={() => remove(row)}
+                title="Delete"
+              >
+                <TrashIcon className="w-4 h-4" />
               </button>
             )}
           </div>

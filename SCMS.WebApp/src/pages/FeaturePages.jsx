@@ -1,4 +1,10 @@
-import { Bell, Check, Download, PhoneCall, ShieldAlert } from "lucide-react";
+import {
+  BellIcon,
+  CheckIcon,
+  DownloadIcon,
+  ReloadIcon,
+  ExclamationTriangleIcon,
+} from "@radix-ui/react-icons";
 import ResourcePage from "./ResourcePage";
 import { useLanguage } from "../context/LanguageContext";
 import {
@@ -102,7 +108,7 @@ export function AppointmentsPage() {
         extraHeaderActions: [
           {
             label: t.callNext,
-            icon: <PhoneCall size={16} />,
+            icon: <ReloadIcon className="w-4 h-4" />,
             primary: true,
             run: appointmentsApi.callNext,
             success: "Next appointment called.",
@@ -111,7 +117,7 @@ export function AppointmentsPage() {
         rowActions: [
           {
             label: t.complete,
-            icon: <Check size={15} />,
+            icon: <CheckIcon className="w-4 h-4" />,
             run: (row) => appointmentsApi.updateStatus(row.appointmentId || row.id, { status: "completed", notes: row.notes || "" }),
           },
         ],
@@ -160,7 +166,7 @@ export function MedicinesPage() {
         extraHeaderActions: [
           {
             label: t.quarantineExpired,
-            icon: <ShieldAlert size={16} />,
+            icon: <ExclamationTriangleIcon className="w-4 h-4" />,
             run: medicinesApi.quarantineExpired,
             success: "Expired batches quarantined.",
           },
@@ -222,7 +228,7 @@ export function PrescriptionsPage() {
           {
             label: t.downloadPdf,
             download: true,
-            icon: <Download size={15} />,
+            icon: <DownloadIcon className="w-4 h-4" />,
             run: (row) => prescriptionsApi.pdf(row.prescriptionId || row.id),
             fileName: (row) => `prescription-${row.prescriptionId || row.id}.pdf`,
           },
@@ -249,7 +255,7 @@ export function PaymentsPage() {
           { label: t.status, key: "status", type: "status" },
         ],
         rowActions: [
-          { label: t.approve, icon: <Check size={15} />, run: (row) => paymentsApi.approve(row.paymentId || row.id) },
+          { label: t.approve, icon: <CheckIcon className="w-4 h-4" />, run: (row) => paymentsApi.approve(row.paymentId || row.id) },
           {
             label: t.downloadPdf,
             download: true,
@@ -292,7 +298,7 @@ export function FollowUpsPage() {
           { label: t.notes, key: (row) => row.note || row.notes },
           { label: t.status, key: "status", type: "status" },
         ],
-        rowActions: [{ label: t.complete, icon: <Check size={15} />, run: (row) => followUpsApi.complete(row.followUpId || row.id) }],
+        rowActions: [{ label: t.complete, icon: <CheckIcon className="w-4 h-4" />, run: (row) => followUpsApi.complete(row.followUpId || row.id) }],
       }}
     />
   );
@@ -328,7 +334,7 @@ export function NotificationsPage() {
           { label: "Route", key: (row) => row.actionRoute || "-" },
           { label: t.status, key: (row) => (row.isRead || row.read ? "read" : "unread"), type: "status" },
         ],
-        rowActions: [{ label: t.markRead, icon: <Bell size={15} />, run: (row) => notificationsApi.read(row.notificationId || row.id) }],
+        rowActions: [{ label: t.markRead, icon: <BellIcon className="w-4 h-4" />, run: (row) => notificationsApi.read(row.notificationId || row.id) }],
       }}
     />
   );

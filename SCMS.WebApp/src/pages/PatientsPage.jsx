@@ -1,24 +1,28 @@
 import { useState, useEffect } from "react";
 import {
-  Users,
-  Plus,
-  RefreshCcw,
-  LayoutGrid,
-  List,
-  Eye,
-  Trash2,
-  Droplet,
-  Download,
-  User,
-  Activity,
-  HeartHandshake
-} from "lucide-react";
+  PersonIcon,
+  PlusIcon,
+  ReloadIcon,
+  GridIcon,
+  ListBulletIcon,
+  TrashIcon,
+  DownloadIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
-import SearchForm from "../components/SearchForm";
+import SegmentedControl from "../components/SegmentedControl";
 import { patientsApi, downloadBlob } from "../services/scmsApi";
-import { showAlert, showError, showSuccess, showConfirm } from "../services/dialogs";
+import { showError, showSuccess, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+
+const toArray = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.result)) return data.result;
+  return [];
+};
 
 export default function PatientsPage() {
   const { t } = useLanguage();
@@ -58,19 +62,18 @@ export default function PatientsPage() {
       setLoading(true);
       const res = await patientsApi.list({
         pageNumber: pageNum,
-        pageSize: 8,
-        query: query.trim() || undefined,
+        pageSize,
+        name: query || undefined,
       });
-
       if (res) {
-        setPatients(res.data || []);
+        setPatients(toArray(res));
         if (res.pagination) {
           setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || (res.data || []).length);
+          setTotalCount(res.pagination.totalCount || 0);
         }
       }
     } catch (error) {
-      showError("Failed to load patient directory.");
+      console.error("Patients load error:", error);
     } finally {
       setLoading(false);
     }
@@ -82,57 +85,41 @@ export default function PatientsPage() {
   }, [page]);
 
   const handleSearchSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setPage(1);
     loadPatients(1);
   };
 
-  const updateFormField = (key, val) => {
-    setForm(p => ({ ...p, [key]: val }));
-    if (errors[key]) {
-      setErrors(p => ({ ...p, [key]: false }));
-    }
-  };
-
-  const handleCreate = async (e) => {
+  const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    
-    // Strict inline required validations
     const newErrors = {};
-    if (!form.name.trim()) newErrors.name = true;
-    if (!form.age) newErrors.age = true;
-    if (!form.gender) newErrors.gender = true;
-    if (!form.phone.trim()) newErrors.phone = true;
+
+    if (!form.name.trim()) newErrors.name = "Patient full name is required";
+    if (!form.gender) newErrors.gender = "Gender is required";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      showError("Please fill out all required fields highlighted in red.");
       return;
     }
 
     try {
       setSaving(true);
-      // Calculate DateOfBirth based on entered Age
-      let dobString = null;
-      if (form.age) {
-        const birthYear = new Date().getFullYear() - Number(form.age);
-        dobString = `${birthYear}-01-01`;
-      }
-
-      await patientsApi.create({
+      const payload = {
         name: form.name.trim(),
-        email: form.email.trim() || null,
-        mobileNo: form.phone.trim() || null,
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        mobileNo: form.phone.trim() || undefined,
         gender: form.gender,
         bloodType: form.bloodType,
-        dateOfBirth: dobString,
-        actualAddress: form.actualAddress.trim() || null,
-        allergies: form.allergies.trim() || null,
-        chronicConditions: form.chronicConditions.trim() || null,
-      });
+        allergies: form.allergies.trim() || undefined,
+        chronicConditions: form.chronicConditions.trim() || undefined,
+        actualAddress: form.actualAddress.trim() || undefined,
+        dateOfBirth: form.age ? new Date(new Date().getFullYear() - Number(form.age), 0, 1).toISOString() : null,
+      };
 
+      await patientsApi.create(payload);
+      showSuccess("Patient record created successfully.");
       setModalOpen(false);
-      setErrors({});
       setForm({
         name: "",
         email: "",
@@ -144,11 +131,10 @@ export default function PatientsPage() {
         chronicConditions: "",
         actualAddress: "",
       });
-      await showSuccess("Patient profile created successfully.");
-      setPage(1);
+      setErrors({});
       loadPatients(1);
     } catch (error) {
-      showError(error?.response?.data?.message || "Failed to create patient profile.");
+      showError(error?.response?.data?.message || "Failed to register patient.");
     } finally {
       setSaving(false);
     }
@@ -157,15 +143,16 @@ export default function PatientsPage() {
   const handleDelete = async (e, patient) => {
     e.stopPropagation();
     const confirmed = await showConfirm(
-      `Are you sure you want to delete patient ${patient.name}? This will perform a soft delete.`,
-      "Confirm Deletion"
+      `Are you sure you want to delete ${patient.name || "this patient"}? This action cannot be undone.`,
+      "Delete Patient Record"
     );
+
     if (!confirmed) return;
 
     try {
       setLoading(true);
       await patientsApi.delete(patient.patientId || patient.id);
-      await showSuccess("Patient profile soft-deleted successfully.");
+      showSuccess("Patient record deleted successfully.");
       loadPatients(page);
     } catch (error) {
       showError(error?.response?.data?.message || "Failed to delete patient profile.");
@@ -178,9 +165,9 @@ export default function PatientsPage() {
     e.stopPropagation();
     try {
       const response = await patientsApi.summaryPdf(patient.patientId || patient.id);
-      downloadBlob(response, `medical-summary-${patient.name}.pdf`);
+      downloadBlob(response, `medical-summary-${patient.name || "patient"}.pdf`);
       showSuccess("Medical summary downloaded successfully.");
-    } catch (error) {
+    } catch {
       showError("Failed to download PDF summary.");
     }
   };
@@ -190,261 +177,199 @@ export default function PatientsPage() {
     setDetailOpen(true);
   };
 
-  const calculateAge = (dob) => {
-    if (!dob) return "-";
-    const birth = new Date(dob);
-    if (isNaN(birth.getTime())) return "-";
-    return new Date().getFullYear() - birth.getFullYear();
-  };
-
-  const formatPatientNo = (id) => {
-    return `PA-${String(id).padStart(4, "0")}`;
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title={t.patients}
-        subtitle="Patient records, allergy registers, and clinical EMR history cards."
+        subtitle="Patient directory, blood type registry, allergy registers, and clinical EMR history."
         actions={
-          <div className="flex gap-2">
-            <button className="scms-btn-outline" onClick={() => loadPatients(page)}>
-              <RefreshCcw size={16} />
-              {t.refresh}
+          <div className="flex items-center gap-2">
+            <button
+              className="scms-btn-outline px-3 btn-target"
+              onClick={() => loadPatients(page)}
+              title={t.refresh}
+              aria-label={t.refresh}
+            >
+              <ReloadIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
-            <button className="scms-btn-primary" onClick={() => setModalOpen(true)}>
-              <Plus size={16} />
-              {t.create}
+            <button
+              className="scms-btn-primary flex items-center gap-1.5 btn-target"
+              onClick={() => setModalOpen(true)}
+            >
+              <PlusIcon className="w-4 h-4" />
+              <span>{t.create}</span>
             </button>
           </div>
         }
       />
 
       {/* Search & Layout Toggles */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
-        <SearchForm
-          value={query}
-          onSubmit={handleSearchSubmit}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            if (e.target.value === "") {
-              setPage(1);
-              patientsApi.list({ pageNumber: 1, pageSize: 8 }).then(res => {
-                if (res) {
-                  setPatients(res.data || []);
-                  if (res.pagination) {
-                    setTotalPages(res.pagination.totalPages || 1);
-                    setTotalCount(res.pagination.totalCount || 0);
-                  }
-                }
-              });
-            }
-          }}
-          onClear={() => {
-            setQuery("");
-            setPage(1);
-            patientsApi.list({ pageNumber: 1, pageSize: 8 }).then(res => {
-              if (res) {
-                setPatients(res.data || []);
-                if (res.pagination) {
-                  setTotalPages(res.pagination.totalPages || 1);
-                  setTotalCount(res.pagination.totalCount || 0);
-                }
-              }
-            });
-          }}
-          clearable
-          placeholder="Search by name, email, or mobile..."
-          submitLabel={t.search}
-          className="w-full max-w-2xl flex-1"
-        />
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
+          <input
+            type="text"
+            className="scms-input w-full pl-4 text-xs"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search patients by name or phone..."
+          />
+        </form>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-2 rounded-lg transition ${viewMode === "table" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="List Table view"
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode("card")}
-              className={`p-2 rounded-lg transition ${viewMode === "card" ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              title="Grid Cards view"
-            >
-              <LayoutGrid size={16} />
-            </button>
-          </div>
-        </div>
+        <SegmentedControl
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { label: "Table", value: "table", icon: ListBulletIcon },
+            { label: "Cards", value: "card", icon: GridIcon },
+          ]}
+        />
       </div>
 
-      {/* Loading Shimmer */}
+      {/* Content Rendering */}
       {loading ? (
-        <div className="grid place-items-center h-60 bg-white rounded-2xl border border-scms-border">
-          <span className="loading loading-spinner loading-md text-scms-primary" />
+        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
         </div>
       ) : patients.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-scms-border">
-          <Users size={48} className="text-slate-300 mb-2 animate-pulse" />
-          <p className="text-sm font-bold text-scms-muted">No patient records found.</p>
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <PersonIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Patient Records</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+            No patients found matching your search. Register a new patient to get started.
+          </p>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="scms-btn-primary mt-4 flex items-center gap-1.5 text-xs btn-target"
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>Register Patient</span>
+          </button>
         </div>
       ) : viewMode === "table" ? (
-        /* TABLE VIEW */
-        <div className="scms-card overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="table table-zebra w-full">
-              <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th>No.</th>
-                  <th>Patient No.</th>
-                  <th>Patient Name</th>
-                  <th>Age (Yrs)</th>
-                  <th>Blood Type</th>
-                  <th>Contact Info</th>
-                  <th>Chronic Conditions</th>
-                  <th className="text-right">Actions</th>
+                  <th className="px-4 py-3.5 w-12 text-center">No.</th>
+                  <th className="px-4 py-3.5">Patient Details</th>
+                  <th className="px-4 py-3.5">Contact</th>
+                  <th className="px-4 py-3.5">Blood Type</th>
+                  <th className="px-4 py-3.5">Allergies & Conditions</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {patients.map((p, index) => {
-                  const rowNo = ((page - 1) * pageSize) + index + 1;
-                  return (
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {patients.map((p, index) => (
                   <tr
-                    key={p.patientId || p.id}
+                    key={p.patientId || p.id || index}
                     onClick={() => openDetail(p)}
-                    className="hover:bg-slate-50/70 cursor-pointer transition"
+                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
                   >
-                    <td className="font-black text-xs text-scms-muted">{rowNo}</td>
-                    <td className="font-mono text-xs text-scms-primary font-bold">
-                      {formatPatientNo(p.patientId || p.id)}
+                    <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                      {(page - 1) * pageSize + index + 1}
                     </td>
-                    <td className="font-extrabold text-scms-text flex items-center gap-2">
-                      <div className="grid h-8 w-8 place-items-center bg-scms-primaryLight text-xs font-black text-scms-primary rounded-full shrink-0">
-                        {p.name?.slice(0, 2).toUpperCase()}
+                    <td className="px-4 py-3.5">
+                      <div className="font-bold text-slate-900 dark:text-white">
+                        {p.name || p.fullName}
                       </div>
-                      {p.name}
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {p.gender || "Patient"} {p.age ? `• ${p.age} yrs` : ""}
+                      </div>
                     </td>
-                    <td className="font-semibold">{calculateAge(p.dateOfBirth)}</td>
-                    <td>
-                      {p.bloodType ? (
-                        <span className="inline-flex items-center gap-1 bg-red-50 border border-red-100 text-red-700 text-xs font-extrabold px-2 py-0.5 rounded-full">
-                          <Droplet size={11} className="fill-current" />
-                          {p.bloodType}
+                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-300">
+                      <div>{p.phone || p.mobileNo || "-"}</div>
+                      <div className="text-slate-400">{p.email || ""}</div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-900 text-xs">
+                        {p.bloodType || "O+"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate">
+                      {p.allergies ? (
+                        <span className="text-rose-600 dark:text-rose-400 font-medium">
+                          Allergy: {p.allergies}
                         </span>
-                      ) : "-"}
+                      ) : p.chronicConditions ? (
+                        <span>{p.chronicConditions}</span>
+                      ) : (
+                        <span className="text-slate-400">None noted</span>
+                      )}
                     </td>
-                    <td className="text-xs">
-                      <div className="font-semibold text-scms-text">{p.mobileNo || p.phone || "-"}</div>
-                      <div className="text-scms-muted">{p.email || "-"}</div>
-                    </td>
-                    <td className="text-xs max-w-xs truncate text-scms-muted font-medium">
-                      {p.chronicConditions || p.addressMeta?.chronicConditions || "-"}
-                    </td>
-                    <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1.5">
-                        <button
-                          onClick={() => openDetail(p)}
-                          className="btn btn-xs rounded-lg border-scms-border bg-white text-scms-text"
-                          title="View complete records"
-                        >
-                          <Eye size={13} />
-                        </button>
+                    <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={(e) => downloadSummary(e, p)}
-                          className="btn btn-xs rounded-lg bg-scms-primaryLight text-scms-primary border-0"
-                          title="Download summary PDF"
+                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-slate-600 dark:text-slate-300 btn-target"
+                          title="Download Medical Summary PDF"
+                          aria-label="Download Summary"
                         >
-                          <Download size={13} />
+                          <DownloadIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, p)}
-                          className="btn btn-xs rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border-0"
-                          title="Delete patient profile"
+                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
+                          title="Delete Patient"
+                          aria-label="Delete Patient"
                         >
-                          <Trash2 size={13} />
+                          <TrashIcon className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       ) : (
-        /* CARD VIEW */
+        /* Card Grid View */
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {patients.map((p, index) => {
-            const rowNo = ((page - 1) * pageSize) + index + 1;
-            return (
+          {patients.map((p, index) => (
             <div
-              key={p.patientId || p.id}
+              key={p.patientId || p.id || index}
               onClick={() => openDetail(p)}
-              className="bg-white border border-scms-border hover:border-scms-primary rounded-2xl p-5 hover:shadow-md cursor-pointer transition flex flex-col justify-between"
+              className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-md cursor-pointer transition-all space-y-3"
             >
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 place-items-center bg-indigo-50 text-xs font-black text-scms-primary rounded-full shrink-0">
-                    {p.name?.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="truncate">
-                    <h4 className="font-black text-scms-text truncate text-sm">{p.name}</h4>
-                    <span className="text-[11px] font-black text-scms-muted">No. {rowNo}</span>
-                    <span className="text-xs font-black text-scms-primary font-mono">{formatPatientNo(p.patientId || p.id)}</span>
-                    <span className="block text-[11px] font-semibold text-scms-muted mt-0.5">{calculateAge(p.dateOfBirth)} Years Old</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-2 text-xs">
-                  {p.bloodType && (
-                    <div className="flex items-center justify-between text-slate-500 font-semibold">
-                      <span>Blood Group:</span>
-                      <strong className="text-red-700 font-extrabold inline-flex items-center gap-0.5">
-                        <Droplet size={11} className="fill-current" />
-                        {p.bloodType}
-                      </strong>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-slate-500 font-semibold">
-                    <span>Contact:</span>
-                    <strong className="text-scms-text">{p.mobileNo || p.phone || "-"}</strong>
-                  </div>
-                  <div className="text-slate-500 font-semibold mt-1">
-                    <span>Allergies:</span>
-                    <p className="text-scms-muted truncate text-[11px] font-medium leading-relaxed mt-0.5">
-                      {p.allergies || p.addressMeta?.allergies || "None"}
-                    </p>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] font-bold text-slate-400">
+                  PA-{String(p.patientId || p.id || index + 1).padStart(4, "0")}
+                </span>
+                <span className="font-bold text-rose-600 dark:text-rose-400 text-xs bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 rounded-md">
+                  {p.bloodType || "O+"}
+                </span>
               </div>
 
-              <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={() => openDetail(p)}
-                  className="btn btn-sm btn-ghost rounded-xl text-xs font-extrabold text-scms-primary bg-scms-primaryLight/30"
-                >
-                  EMR Records
-                </button>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white">{p.name || p.fullName}</h3>
+                <p className="text-xs text-slate-500">{p.gender || "Patient"} • {p.phone || "-"}</p>
+              </div>
+
+              {p.allergies && (
+                <div className="text-[11px] text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg truncate">
+                  Allergy: {p.allergies}
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={(e) => downloadSummary(e, p)}
-                  className="btn btn-sm btn-ghost btn-square rounded-xl border border-scms-border"
-                  title="Download summary PDF"
+                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                  title="Download Summary"
                 >
-                  <Download size={14} />
+                  <DownloadIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => handleDelete(e, p)}
-                  className="btn btn-sm btn-ghost btn-square rounded-xl border border-red-200 text-red-600 hover:bg-red-50"
-                  title="Delete patient profile"
+                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 btn-target"
+                  title="Delete"
                 >
-                  <Trash2 size={14} />
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
-            );
-          })}
+          ))}
         </div>
       )}
 
@@ -453,291 +378,192 @@ export default function PatientsPage() {
         totalPages={totalPages}
         totalCount={totalCount}
         label="patients"
-        loading={loading}
         onPageChange={setPage}
       />
 
-      {/* --- CREATE PATIENT PROFILE MODAL --- */}
+      {/* Create Patient Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <form
-            onSubmit={handleCreate}
-            className="w-full max-w-lg bg-white rounded-3xl border border-scms-border p-6 shadow-2xl space-y-4"
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-lg font-black text-scms-text flex items-center gap-2">
-                <Users size={20} className="text-scms-primary" />
-                Add Patient Profile
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setModalOpen(false);
-                  setErrors({});
-                }}
-                className="text-xs font-bold text-slate-400 hover:text-slate-600"
-              >
-                <X size={18} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Register New Patient</h3>
+              <button onClick={() => setModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
+                <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block sm:col-span-2">
-                <span className="mb-2 block text-xs font-black text-scms-text">
-                  Full Name <span className="text-red-500">*</span>
-                </span>
-                <input
-                  placeholder="e.g. Aung Min"
-                  className={`input input-bordered h-11 rounded-xl text-sm w-full ${
-                    errors.name ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500" : ""
-                  }`}
-                  value={form.name}
-                  onChange={(e) => updateFormField("name", e.target.value)}
-                />
-              </label>
+            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
+                    Full Name <span className="text-rose-500">*</span>
+                  </span>
+                  <input
+                    className="scms-input w-full text-xs"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="e.g. Daw Khin Khin"
+                    required
+                  />
+                  {errors.name && <p className="text-rose-500 text-[10px] mt-1">{errors.name}</p>}
+                </label>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">
-                  Age (Years) <span className="text-red-500">*</span>
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  placeholder="e.g. 28"
-                  className={`input input-bordered h-11 rounded-xl text-sm w-full ${
-                    errors.age ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500" : ""
-                  }`}
-                  value={form.age}
-                  onChange={(e) => updateFormField("age", e.target.value)}
-                />
-              </label>
+                <label className="block">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Gender</span>
+                  <select
+                    className="scms-select w-full text-xs"
+                    value={form.gender}
+                    onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">Blood Type</span>
-                <select
-                  className="select select-bordered h-11 rounded-xl text-sm w-full"
-                  value={form.bloodType}
-                  onChange={(e) => updateFormField("bloodType", e.target.value)}
-                >
-                  <option value="A+">A+</option>
-                  <option value="A-">A-</option>
-                  <option value="B+">B+</option>
-                  <option value="B-">B-</option>
-                  <option value="AB+">AB+</option>
-                  <option value="AB-">AB-</option>
-                  <option value="O+">O+</option>
-                  <option value="O-">O-</option>
-                </select>
-              </label>
+                <label className="block">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Blood Type</span>
+                  <select
+                    className="scms-select w-full text-xs"
+                    value={form.bloodType}
+                    onChange={(e) => setForm({ ...form, bloodType: e.target.value })}
+                  >
+                    {["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map((bt) => (
+                      <option key={bt} value={bt}>{bt}</option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">
-                  Gender <span className="text-red-500">*</span>
-                </span>
-                <select
-                  className={`select select-bordered h-11 rounded-xl text-sm w-full ${
-                    errors.gender ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500" : ""
-                  }`}
-                  value={form.gender}
-                  onChange={(e) => updateFormField("gender", e.target.value)}
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </label>
+                <label className="block">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Phone Number</span>
+                  <input
+                    className="scms-input w-full text-xs"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="09 123 456 789"
+                  />
+                </label>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-scms-text">
-                  Phone / Mobile <span className="text-red-500">*</span>
-                </span>
-                <input
-                  type="tel"
-                  placeholder="e.g. 091234567"
-                  className={`input input-bordered h-11 rounded-xl text-sm w-full ${
-                    errors.phone ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500" : ""
-                  }`}
-                  value={form.phone}
-                  onChange={(e) => updateFormField("phone", e.target.value)}
-                />
-              </label>
+                <label className="block">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Age</span>
+                  <input
+                    type="number"
+                    className="scms-input w-full text-xs font-mono"
+                    value={form.age}
+                    onChange={(e) => setForm({ ...form, age: e.target.value })}
+                    placeholder="e.g. 35"
+                  />
+                </label>
 
-              <label className="block sm:col-span-2">
-                <span className="mb-2 block text-xs font-black text-scms-text">Email Address</span>
-                <input
-                  type="email"
-                  placeholder="e.g. patient@example.com"
-                  className="input input-bordered h-11 rounded-xl text-sm w-full"
-                  value={form.email}
-                  onChange={(e) => updateFormField("email", e.target.value)}
-                />
-              </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Known Allergies</span>
+                  <input
+                    className="scms-input w-full text-xs"
+                    value={form.allergies}
+                    onChange={(e) => setForm({ ...form, allergies: e.target.value })}
+                    placeholder="e.g. Penicillin, Aspirin, Peanuts"
+                  />
+                </label>
 
-              <label className="block sm:col-span-2">
-                <span className="mb-2 block text-xs font-black text-scms-text">Allergies (Medical warning)</span>
-                <input
-                  placeholder="e.g. Penicillin, Pollen, Nuts (comma separated)"
-                  className="input input-bordered h-11 rounded-xl text-sm w-full"
-                  value={form.allergies}
-                  onChange={(e) => updateFormField("allergies", e.target.value)}
-                />
-              </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Chronic Conditions</span>
+                  <input
+                    className="scms-input w-full text-xs"
+                    value={form.chronicConditions}
+                    onChange={(e) => setForm({ ...form, chronicConditions: e.target.value })}
+                    placeholder="e.g. Hypertension, Diabetes Type II"
+                  />
+                </label>
 
-              <label className="block sm:col-span-2">
-                <span className="mb-2 block text-xs font-black text-scms-text">Chronic Health Conditions</span>
-                <input
-                  placeholder="e.g. Hypertension, Diabetes, Asthma"
-                  className="input input-bordered h-11 rounded-xl text-sm w-full"
-                  value={form.chronicConditions}
-                  onChange={(e) => updateFormField("chronicConditions", e.target.value)}
-                />
-              </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Residential Address</span>
+                  <textarea
+                    className="scms-textarea w-full text-xs"
+                    rows={2}
+                    value={form.actualAddress}
+                    onChange={(e) => setForm({ ...form, actualAddress: e.target.value })}
+                    placeholder="e.g. No 45, Bogyoke Road, Yangon"
+                  />
+                </label>
+              </div>
 
-              <label className="block sm:col-span-2">
-                <span className="mb-2 block text-xs font-black text-scms-text">Actual Contact Address</span>
-                <textarea
-                  placeholder="Street address, City, Region..."
-                  className="textarea textarea-bordered rounded-xl text-sm w-full min-h-16"
-                  value={form.actualAddress}
-                  onChange={(e) => updateFormField("actualAddress", e.target.value)}
-                />
-              </label>
-            </div>
-
-            {/* Repositioned Save and Cancel buttons together as a row at the bottom of the modal form */}
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  setModalOpen(false);
-                  setErrors({});
-                }}
-                className="scms-btn-outline px-5 h-11 text-xs font-black"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="scms-btn-primary px-5 h-11 text-xs font-black flex items-center gap-1.5"
-              >
-                {saving && <span className="loading loading-spinner loading-xs" />}
-                Save Patient Profile
-              </button>
-            </div>
-          </form>
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button type="button" onClick={() => setModalOpen(false)} className="scms-btn-outline text-xs">
+                  {t.cancel}
+                </button>
+                <button type="submit" disabled={saving} className="scms-btn-primary text-xs">
+                  {saving ? <span className="loading loading-spinner loading-xs" /> : t.save}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* --- PATIENT PROFILE DETAILS POPUP --- */}
+      {/* Patient Detail Modal */}
       {detailOpen && selectedPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-2xl bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto">
-            <button
-              onClick={() => setDetailOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
-            >
-              <X size={18} />
-            </button>
-
-            {/* Profile Brief */}
-            <div className="flex gap-4 items-center border-b border-slate-100 pb-4 mb-4">
-              <div className="grid h-14 w-14 place-items-center bg-indigo-50 text-sm font-black text-scms-primary rounded-2xl shrink-0">
-                {selectedPatient.name?.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-scms-text flex items-center gap-2.5">
-                  {selectedPatient.name}
-                  <span className="text-xs font-mono font-bold bg-indigo-50 text-scms-primary px-2.5 py-1 rounded-lg">
-                    {formatPatientNo(selectedPatient.patientId || selectedPatient.id)}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white font-bold">
+                  {selectedPatient.name?.[0] || "P"}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {selectedPatient.name || selectedPatient.fullName}
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    Blood Type: {selectedPatient.bloodType || "O+"} • {selectedPatient.gender}
                   </span>
-                </h3>
-                <p className="text-xs font-semibold text-scms-muted mt-1.5">
-                  Age: <strong className="text-scms-text">{calculateAge(selectedPatient.dateOfBirth)} Years</strong> | Gender: <strong className="text-scms-text">{selectedPatient.gender || "Not Specified"}</strong>
-                </p>
+                </div>
               </div>
+              <button onClick={() => setDetailOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
+                <Cross2Icon className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Structured Medical Grid */}
-            <div className="grid gap-6 sm:grid-cols-2 text-xs">
-              <div className="space-y-4">
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                  <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 mb-2">
-                    <User size={14} className="text-scms-primary" />
-                    Demographics Info
-                  </h4>
-                  <div className="space-y-1.5">
-                    {selectedPatient.bloodType && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500 font-bold">Blood Group:</span>
-                        <span className="text-red-700 font-black flex items-center gap-0.5">
-                          <Droplet size={11} className="fill-current" />
-                          {selectedPatient.bloodType}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-bold">Contact:</span>
-                      <span className="text-scms-text font-semibold">{selectedPatient.mobileNo || selectedPatient.phone || "-"}</span>
-                    </div>
-                    {/* Display the email field in patient preview only if it exists */}
-                    {selectedPatient.email && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500 font-bold">Email:</span>
-                        <span className="text-scms-text font-semibold truncate max-w-44" title={selectedPatient.email}>
-                          {selectedPatient.email}
-                        </span>
-                      </div>
-                    )}
-                    <div className="mt-2 pt-2 border-t border-slate-200">
-                      <span className="text-slate-500 font-bold block mb-1">Contact Address:</span>
-                      <p className="text-scms-text leading-relaxed font-semibold">
-                        {selectedPatient.actualAddress || selectedPatient.addressMeta?.actualAddress || selectedPatient.address || "-"}
-                      </p>
-                    </div>
-                  </div>
+            <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-2xl">
+                <div>
+                  <span className="text-slate-400 font-semibold block">Phone</span>
+                  <strong>{selectedPatient.phone || selectedPatient.mobileNo || "-"}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold block">Email</span>
+                  <strong>{selectedPatient.email || "-"}</strong>
+                </div>
+                <div className="col-span-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <span className="text-slate-400 font-semibold block">Address</span>
+                  <strong>{selectedPatient.actualAddress || selectedPatient.address || "None recorded"}</strong>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="bg-rose-50/50 rounded-2xl p-4 border border-rose-100/60">
-                  <h4 className="font-extrabold text-rose-800 flex items-center gap-1.5 mb-2">
-                    <Activity size={14} className="text-rose-600" />
-                    Medical History & Warnings
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-rose-700 font-black block mb-0.5">Allergies:</span>
-                      <p className="text-scms-text font-semibold bg-white p-2 rounded-lg border border-rose-100">
-                        {selectedPatient.allergies || selectedPatient.addressMeta?.allergies || "No active allergies registered."}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-rose-700 font-black block mb-0.5">Chronic Health Conditions:</span>
-                      <p className="text-scms-text font-semibold bg-white p-2 rounded-lg border border-rose-100">
-                        {selectedPatient.chronicConditions || selectedPatient.addressMeta?.chronicConditions || "No chronic illnesses registered."}
-                      </p>
-                    </div>
-                  </div>
+              {selectedPatient.allergies && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300">
+                  <strong className="block font-bold">Allergies:</strong>
+                  {selectedPatient.allergies}
                 </div>
-              </div>
+              )}
+
+              {selectedPatient.chronicConditions && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300">
+                  <strong className="block font-bold">Chronic Conditions:</strong>
+                  {selectedPatient.chronicConditions}
+                </div>
+              )}
             </div>
 
-            {/* Action buttons */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-2">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <button
                 onClick={(e) => downloadSummary(e, selectedPatient)}
-                className="scms-btn-primary h-10 text-xs font-black flex items-center gap-2"
+                className="scms-btn-outline text-xs flex items-center gap-1.5"
               >
-                <Download size={14} />
-                Download EMR Summary PDF
+                <DownloadIcon className="w-4 h-4" />
+                <span>Download Summary PDF</span>
               </button>
-              <button
-                onClick={() => setDetailOpen(false)}
-                className="scms-btn-outline h-10 w-10 p-0 min-w-0 flex items-center justify-center"
-              >
-                <X size={16} />
+              <button onClick={() => setDetailOpen(false)} className="scms-btn-primary text-xs">
+                {t.close}
               </button>
             </div>
           </div>
