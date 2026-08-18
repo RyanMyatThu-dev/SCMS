@@ -1,23 +1,42 @@
-const styles = {
-  success: "bg-[#ECFDF3] text-[#027A48] border border-[#A9EFC5]",
-  primary: "bg-[#EBF2FF] text-[#0052CC] border border-[#B2CCFF]",
-  warning: "bg-[#FFFAEB] text-[#B54708] border border-[#FEDF89]",
-  danger: "bg-[#FFF1F0] text-[#D92D20] border border-[#FECDCA]",
-  neutral: "bg-[#F2F4F7] text-[#667085] border border-[#E4E7EC]",
-};
+import {
+  CheckCircledIcon,
+  ClockIcon,
+  CrossCircledIcon,
+  ExclamationTriangleIcon,
+  ActivityLogIcon,
+  DotFilledIcon,
+} from "@radix-ui/react-icons";
 
 export default function StatusBadge({ value }) {
-  const status = String(value || "pending").toLowerCase();
-  const tone =
-    ["completed", "paid", "approved", "read", "success"].includes(status)
-      ? "success"
-      : ["confirmed", "active", "called", "inprogress", "in-progress"].includes(status)
-        ? "primary"
-        : ["cancelled", "failed", "rejected", "deleted"].includes(status)
-          ? "danger"
-          : ["pending", "low", "near-expiry", "unread"].includes(status)
-            ? "warning"
-            : "neutral";
+  const s = String(value || "").toLowerCase().trim();
 
-  return <span className={`scms-badge ${styles[tone]}`}>{status}</span>;
+  let styles = "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+  let Icon = DotFilledIcon;
+  let label = value || "Unknown";
+
+  if (["completed", "paid", "success", "approved", "verified", "active"].includes(s)) {
+    styles = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800";
+    Icon = CheckCircledIcon;
+  } else if (["pending", "requested", "waiting", "scheduled"].includes(s)) {
+    styles = "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800";
+    Icon = ClockIcon;
+  } else if (["in consultation", "in-progress", "in_progress", "consulting"].includes(s)) {
+    styles = "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800";
+    Icon = ActivityLogIcon;
+  } else if (["cancelled", "failed", "rejected", "expired", "quarantined"].includes(s)) {
+    styles = "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800";
+    Icon = CrossCircledIcon;
+  } else if (["warning", "low stock", "critical"].includes(s)) {
+    styles = "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800";
+    Icon = ExclamationTriangleIcon;
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wider ${styles}`}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+      <span>{label}</span>
+    </span>
+  );
 }
