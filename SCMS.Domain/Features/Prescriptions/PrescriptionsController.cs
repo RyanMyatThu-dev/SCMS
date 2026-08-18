@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCMS.Domain.Features.Documents;
+using SCMS.Domain.Security;
 using SCMS.Shared.Contracts.Prescriptions;
 using SCMS.Shared;
 
@@ -22,7 +23,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpPost]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Prescriptions.Create")]
         public async Task<IActionResult> CreatePrescription([FromBody] CreatePrescriptionRequest request)
         {
             var result = await _prescriptionService.CreatePrescriptionAsync(request);
@@ -34,6 +35,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpGet("prescriptions/{id}")]
+        [HasPermission("Prescriptions.View")]
         public async Task<IActionResult> GetPrescriptionDetails(int id)
         {
             var result = await _prescriptionService.GetPrescriptionDetailsAsync(id);
@@ -45,9 +47,9 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpGet]
+        [HasPermission("Prescriptions.View")]
         public async Task<IActionResult> GetPrescriptions([FromQuery] int? patientId, [FromQuery] PaginationRequest paginationRequest)
         {
-            //paginationRequest ??= new PaginationRequest();
             if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
             if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
 
@@ -60,7 +62,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpPost("templates")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Prescriptions.Create")]
         public async Task<IActionResult> SaveTemplate([FromBody] SaveTemplateRequest request)
         {
             var result = await _prescriptionService.SaveTemplateAsync(request);
@@ -72,7 +74,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpGet("templates")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Prescriptions.View")]
         public async Task<IActionResult> GetTemplates([FromQuery] int? diseaseId, [FromQuery] PaginationRequest paginationRequest)
         {
             paginationRequest ??= new PaginationRequest();
@@ -88,7 +90,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpDelete("templates/{id}")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Prescriptions.Delete")]
         public async Task<IActionResult> DeleteTemplate(int id)
         {
             var result = await _prescriptionService.DeleteTemplateAsync(id);
@@ -100,6 +102,7 @@ namespace SCMS.Domain.Features.Prescriptions
         }
 
         [HttpGet("{id}/pdf")]
+        [HasPermission("Prescriptions.ExportPdf")]
         public async Task<IActionResult> GetPrescriptionPdf(int id)
         {
             var result = await _prescriptionService.GetPrescriptionDetailsAsync(id);

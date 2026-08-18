@@ -27,7 +27,7 @@ namespace SCMS.Domain.Features.Dashboards
         /// <param name="period">Aggregation period: "daily" (default), "weekly", "monthly", or "all".</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         [HttpGet("dashboard")]
-        [Authorize(Roles = "owner,admin,doctor")]
+        [HasPermission("Dashboards.View")]
         [ProducesResponseType(typeof(Result<DoctorDashboardResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetDoctorDashboard([FromQuery] string period = "daily", CancellationToken cancellationToken = default)
@@ -41,6 +41,7 @@ namespace SCMS.Domain.Features.Dashboards
         /// </summary>
         /// <param name="cancellationToken">Cancellation token.</param>
         [HttpGet("patient-dashboard")]
+        [HasPermission("Dashboards.View")]
         [ProducesResponseType(typeof(Result<PatientDashboardResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetPatientDashboard(CancellationToken cancellationToken = default)

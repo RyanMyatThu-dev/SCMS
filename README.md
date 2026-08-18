@@ -11,11 +11,11 @@ SCMS is built on a **Feature-based Organization** pattern, dividing business mod
 ```
                   ┌─────────────────────────────────────────┐
                   │              SCMS Clients               │
-                  └────┬───────────────┬───────────────┬────┘
-                       │               │               │
-            (React / Vite WebApp)  (Blazor WASM)  (Flutter Mobile)
-                       │               │               │
-                       ▼               ▼               ▼
+                  └────┬─────────────── ───────────────┬────┘
+                       │                               │
+            (React / Vite WebApp)               (Flutter Mobile)
+                       │                               │
+                       ▼                               ▼
                   ┌─────────────────────────────────────────┐
                   │            SCMS.Api Backend             │
                   └────────────────────┬────────────────────┘
@@ -36,15 +36,14 @@ SCMS is built on a **Feature-based Organization** pattern, dividing business mod
 
 ### 💻 Technology Breakdown
 
-| Component | Technology / Framework | Key Libraries & Packages | Purpose |
-| :--- | :--- | :--- | :--- |
-| **Backend API** | `.NET 8` (ASP.NET Core Web API) | EF Core, SignalR, JWT Bearer Auth, Scalar Docs | Exposes RESTful endpoints, handles real-time queue updates, and manages core authentication. |
-| **Domain Logic** | C# Class Library | Microsoft.AspNetCore.App (FrameworkReference) | Hosts business features, controllers, and core services. |
-| **Database** | Dual-Provider Setup | `Microsoft.EntityFrameworkCore.Sqlite`, `Npgsql.EntityFrameworkCore.PostgreSQL` | SQLite for zero-config local development; PostgreSQL for production deployments. |
-| **Shared Library** | C# Class Library | Result/Result\<T\> Pattern, Request/Response DTOs | Distributes DTO contracts and response structures between backend and frontend clients. |
-| **Web Portal (React)** | `React 18` (Vite) | Tailwind CSS, DaisyUI, Axios, Lucide React, SweetAlert2 | The primary administrative and user dashboard client, optimized for modern UX. |
-| **Web Portal (Blazor)**| `Blazor WebAssembly` | Ant Design Blazor (`AntDesign` 1.6) | Alternative enterprise-grade web client using Blazor. |
-| **Mobile Client** | `Flutter` | Riverpod, GoRouter, Dio, Flutter Secure Storage | Cross-platform mobile app for patients and clinic staff. |
+| Component               | Technology / Framework          | Key Libraries & Packages                                                        | Purpose                                                                                      |
+| :---------------------- | :------------------------------ | :------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------- |
+| **Backend API**         | `.NET 8` (ASP.NET Core Web API) | EF Core, SignalR, JWT Bearer Auth, Scalar Docs                                  | Exposes RESTful endpoints, handles real-time queue updates, and manages core authentication. |
+| **Domain Logic**        | C# Class Library                | Microsoft.AspNetCore.App (FrameworkReference)                                   | Hosts business features, controllers, and core services.                                     |
+| **Database**            | Dual-Provider Setup             | `Microsoft.EntityFrameworkCore.Sqlite`, `Npgsql.EntityFrameworkCore.PostgreSQL` | SQLite for zero-config local development; PostgreSQL for production deployments.             |
+| **Shared Library**      | C# Class Library                | Result/Result\<T\> Pattern, Request/Response DTOs                               | Distributes DTO contracts and response structures between backend and frontend clients.      |
+| **Web Portal (React)**  | `React 18` (Vite)               | Tailwind CSS, DaisyUI, Axios, Lucide React, SweetAlert2                         | The primary administrative and user dashboard client, optimized for modern UX.               |
+| **Mobile Client**       | `Flutter`                       | Riverpod, GoRouter, Dio, Flutter Secure Storage                                 | Cross-platform mobile app for patients and clinic staff.                                     |
 
 ---
 
@@ -55,7 +54,7 @@ SCMS is packed with rich features designed to handle every facet of daily clinic
 1. **📅 Appointment Management & Calendars**
    - Interactive daily, weekly, and monthly calendar views.
    - Filtering and state transition workflows for appointments (**Pending**, **Confirmed**, **Completed**, **Cancelled**).
-   
+
 2. **🩺 Electronic Medical Records (EMR)**
    - Unified patient history timeline documenting visits, diagnoses, prescriptions, and lab results.
    - Comprehensive vitals logging (BP, Weight, Temp, SpO2, BMI) with historical trend tracking.
@@ -97,12 +96,14 @@ SCMS is packed with rich features designed to handle every facet of daily clinic
 To run SCMS locally, clone the repository and set up the components:
 
 ### 📋 Prerequisites
+
 - **.NET SDK 8.0**
 - **Node.js** (v18+) & **npm**
 - **Flutter SDK** (for the mobile application)
 - **Docker Desktop** (optional, for PostgreSQL setups)
 
 ### 1. Running Backend & Database
+
 By default, the backend seeds an SQLite database (`scms.local.db` inside `SCMS.Api/`) on its first run.
 
 ```sh
@@ -115,11 +116,13 @@ dotnet build SCMS.sln
 # Run the API project
 dotnet run --project SCMS.Api
 ```
+
 The API launches at `http://localhost:5140`. You can explore the interactive documentation using Scalar at `http://localhost:5140/scalar`.
 
 ### 2. Running Frontend Clients
 
 #### React Web Application (Vercel Target)
+
 ```sh
 cd SCMS.WebApp
 npm install
@@ -127,18 +130,21 @@ npm run dev
 ```
 
 #### Blazor WebAssembly Application
+
 ```sh
 # Run the Blazor client (launches on a separate local port)
 dotnet run --project SCMS.Web
 ```
 
 #### Flutter Mobile Client
+
 ```sh
 cd SCMS.Mobile
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://localhost:5140/
 ```
-*(For Android Emulator, use `--dart-define=API_BASE_URL=http://10.0.2.2:5140/`)*
+
+_(For Android Emulator, use `--dart-define=API_BASE_URL=http://10.0.2.2:5140/`)_
 
 ---
 
@@ -147,13 +153,17 @@ flutter run --dart-define=API_BASE_URL=http://localhost:5140/
 The application features a fully containerized Docker Compose architecture leveraging a PostgreSQL database.
 
 ### Initial Setup
+
 Run the following from the root directory to build the container images and launch the services:
+
 ```sh
 docker compose up -d --build
 ```
+
 Fresh database volumes automatically ingest `db.sql` (schema) and `seed.realworld.sql` (clinical scenarios data).
 
 ### Control Commands
+
 ```sh
 # Start services
 docker compose up
@@ -174,12 +184,12 @@ docker compose down
 
 Use these seeded credentials to evaluate different aspects of the system:
 
-| Role | Email | Password | DB Target |
-| :--- | :--- | :--- | :--- |
-| **Administrator / Doctor** | `admin@scms.demo` | `password` | SQLite (Dev) |
-| **Patient / User** | `user@scms.demo` | `password` | SQLite (Dev) |
-| **Real-world Admin / Dr. Thandar** | `dr.thandar@scms.demo` | `password` | SQLite & Postgres (Docker) |
-| **Real-world Patient / Aung Min** | `aung.min@example.test` | `password` | SQLite & Postgres (Docker) |
+| Role                               | Email                   | Password   | DB Target                  |
+| :--------------------------------- | :---------------------- | :--------- | :------------------------- |
+| **Administrator / Doctor**         | `admin@scms.demo`       | `password` | SQLite (Dev)               |
+| **Patient / User**                 | `user@scms.demo`        | `password` | SQLite (Dev)               |
+| **Real-world Admin / Dr. Thandar** | `dr.thandar@scms.demo`  | `password` | SQLite & Postgres (Docker) |
+| **Real-world Patient / Aung Min**  | `aung.min@example.test` | `password` | SQLite & Postgres (Docker) |
 
 ---
 
@@ -211,9 +221,7 @@ The React web application (`SCMS.WebApp`) is optimized for seamless deployment t
      "framework": "vite",
      "buildCommand": "npm run build",
      "outputDirectory": "dist",
-     "rewrites": [
-       { "source": "/(.*)", "destination": "/index.html" }
-     ]
+     "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
    }
    ```
 2. **API Endpoint Wiring**: During deployment, configure the following Environment Variables in the Vercel Dashboard:

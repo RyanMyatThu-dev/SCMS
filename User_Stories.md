@@ -1,285 +1,197 @@
-# 👨‍⚕️ Doctor User Stories
+# SCMS User Stories & Requirements Specification (MVP)
 
-## 1. View & Manage Appointments
-
-**User Story**
-
-> As a doctor, I want to view and manage my appointment schedule so that I can efficiently consult with patients without scheduling conflicts.
-
-**Acceptance Criteria**
-
-- Doctor can view daily, weekly, and monthly appointment calendars.
-- Filter appointments by status (**Pending**, **Confirmed**, **Completed**, **Cancelled**).
-- Doctor can accept, decline, or request a reschedule for pending appointments.
-- Mark an appointment as **Completed** after the consultation.
-
-## 2. Smart Prescription & Inventory Deduction
-
-**User Story**
-
-> As a doctor, I want to prescribe medicines directly from the system inventory so that stock levels are adjusted automatically and I don't prescribe expired medication.
-
-**Acceptance Criteria**
-
-- Doctor can search for medicines in the inventory during a consultation.
-- System displays current stock levels and batch expiry dates to the doctor.
-- Upon submitting the prescription, the system automatically assigns medicines from the oldest valid batch (FIFO - First In, First Out).
-- Warning prompt if a doctor attempts to prescribe a medicine that is low in stock or nearing expiry.
-
-## 3. View Doctor Dashboard
-
-**User Story**
-
-> As a doctor, I want to see a summary dashboard so that I can quickly assess my day's workload and inventory alerts.
-
-**Acceptance Criteria**
-
-- Dashboard shows total appointments for today.
-- Quick-view list of the next 3 upcoming patients.
-- Real-time alerts for **Critical Stock Levels** and **Expiring Batches** (within 30 days).
-- Daily revenue overview (consultation fees collected).
-
-# 🏥 Patient User Stories
-
-## 4. Book an Appointment
-
-**User Story**
-
-> As a user, I want to book an appointment online so that I can secure a consultation slot with a doctor.
-
-**Acceptance Criteria**
-
-- Queue based appointment system for patient.(should respond the estimate time)
-- Input a brief reason for the visit.
-- Receive an in-app notification once the doctor approves/confirms the slot.
-
-## 5. View Patient Dashboard
-
-**User Story**
-
-> As a patient or user, I want to access my personal dashboard so that I can track my health appointments and history.
-
-**Acceptance Criteria**
-
-- View upcoming appointment details (Date, Time, Doctor Name).
-- View electronic prescription history and downloadable medical invoices.
-- Check outstanding balances or pending payment approvals.
-- One user can have multiple patient records.
-- Multiple patients can be seen via card view in user site. Clicking them will show the specific patient’s record and details.
-
-# 📊 System User Stories (Automation)
-
-## 6. Smart Batch Control & Expiry Tracking
-
-**User Story**
-
-> As a system, I want to monitor medicine batch details automatically so that expired or contaminated batches are quarantined.
-
-**Acceptance Criteria**
-
-- Auto-track medicine data fields: `Batch Number`, `Expiry Date`, `Manufacture Date`, `Quantity`.
-- Automatically shift medicine status from **Active** to **Expired** once the expiry date passes.
-- Automatically block expired batches from appearing in the doctor’s prescription search layout.
-
-## 7. Payment Verification Workflow
-
-**User Story**
-
-> As a system, I want to process gateway transactions automatically and queue manual proof uploads for verification so that billing records remain accurate.
-
-**Acceptance Criteria**
-
-- **Gateway Payments:** Automatically mark invoice as **Paid** and update appointment status upon receiving a successful API callback.
-
-## 8. Low Stock & Expiry Push Notifications
-
-**User Story**
-
-> As a system, I want to send automated alerts to clinic staff when specific medicine batches drop below the threshold limit so that inventory can be restocked on time.
+A streamlined specification of user stories, acceptance criteria, and system workflows for the **Smart Clinic Management System (SCMS)** MVP.
 
 ---
 
-## 9. Medicine Batch Control (CRUD)
+## 👥 Role Architecture (MVP)
 
-**User Story**
-
-> As a system administrator or inventory manager, I want full CRUD control over medicine batches so that I can maintain accurate inventory records and ensure proper stock management.
-
-**Acceptance Criteria**
-
-- System allows creating new medicine batches with required fields: Batch Number, Medicine Name, Expiry Date, Quantity, Supplier
-- System displays a list of all medicine batches with sorting and filtering capabilities (by medicine name, expiry date, status)
-- System shows detailed view of a specific batch including all attributes and current status (Active, Expired, Quarantined)
-- System allows updating batch information with validation (e.g., expiry date must be after manufacture date)
-- System prevents deletion of batches that have allocated quantity in active prescriptions
-- System provides warning when attempting to delete batches with any allocated quantity
-- System automatically updates batch status to Expired when expiry date passes (integrates with Section 6)
-- Created batches are immediately available in doctor's prescription search interface
-- System maintains audit trail of batch creation, updates, and deletions
+| Role | Target Persona | Core Responsibilities |
+| :--- | :--- | :--- |
+| **Owner / Admin** | Clinic Owner, Clinic Manager, Head Administrator | Overall clinic oversight, financial & operational reports, medicine inventory & batch management, manual payment approvals, system alerts. |
+| **Doctor** | General Practitioner, Specialist Doctor | Managing consultation queues, conducting EMR consultations, recording vitals & diagnoses, issuing prescriptions with FIFO deduction, prescription templates. |
+| **Patient** | Patients, Guardians / Family Members | Managing personal & family profiles, booking appointment slots, tracking live queue positions & wait times, downloading prescriptions & invoices. |
 
 ---
 
-# 👨‍⚕️ Doctor (Admin) - New User Stories
+# 👑 1. Owner / Administrator Stories
 
-## 9. Electronic Medical Record (EMR) & Patient History User Story
-
-> As a doctor, I want to view and update a patient’s complete medical history during consultation so I can make informed clinical decisions.
-
-**Acceptance Criteria**
-
-- View timeline of all past visits, prescriptions, diagnoses, and lab results.
-- Record vital signs (BP, Weight, Temperature, Pulse, SpO2, Height, BMI) with history chart.
-- Add/update allergies, chronic conditions, past surgeries, and family history.
-- Quick access to previous prescriptions and disease trends.
-
-## 10. Doctor Dashboard (Enhanced View)
-
-> As a doctor, I want a comprehensive dashboard so I can manage my clinical workflow efficiently.
+## 1. Clinic Overview & Admin Dashboard
+**User Story**
+> As a clinic owner/admin, I want a high-level operational dashboard so that I can monitor daily clinic performance, patient volume, and urgent stock warnings in one place.
 
 **Acceptance Criteria**
+- Display today's appointment counts by status (**Pending**, **Confirmed**, **Completed**, **Cancelled**).
+- Summary of today's collected revenue and uncollected billing amounts.
+- Immediate visual alerts for **Low Stock Medicines** (< 20 units) and **Batches Expiring Soon** (within 30 days).
 
-- View today’s appointments with quick actions (Start, Reschedule, Cancel).
-- Daily revenue summary and collection report.
-- Low stock and expiring medicine alerts.
-- Quick-add button to prescribe for walk-in patients.
-
-## 11. Enhanced Prescription Features User Story
-
-> As a doctor, I want advanced prescription tools so I can prescribe efficiently and safely.
+## 2. Medicine Inventory & Batch CRUD Control
+**User Story**
+> As an administrator, I want full CRUD management over medicines and stock batches so that clinic stock records remain accurate and auditable.
 
 **Acceptance Criteria**
+- Create, update, search, and categorize medicines with unit pricing and packaging.
+- Add stock replenishment batches with batch numbers, quantities, unit purchase costs, and expiration dates.
+- Update batch details with date validations (e.g., expiry date must be in the future).
+- Prevent deletion of batches that have active quantities allocated in historical prescriptions.
 
-- Save and reuse prescription templates for common diseases.
-- Drug interaction or allergy warnings (basic level).
-- Add lab test requests directly from the prescription screen.
-- Print or digitally send prescription to patient.
-
-# 🏥 Patient User Stories
-
-## 12. Family Member / Multiple Patient Management
-
-> As a user, I want to manage health records for myself and my family members under one account.
+## 3. Manual Payment Verification & Approval
+**User Story**
+> As an administrator, I want to review and approve manual payment proofs uploaded by patients so that payments made via bank transfer or mobile pay are validated before issuing receipts.
 
 **Acceptance Criteria**
+- View a dedicated list of payments marked as **Pending Verification**.
+- Review payment proof details (transaction reference ID / receipt image).
+- Approve or reject payment records, automatically marking invoices as **Paid** upon approval.
 
-- Add multiple patient profiles (self, child, parent, spouse).
-- Switch between patient profiles easily via card view.
-- Book appointments for any family member.
-
-## 13. Health Record Access & Download User Story
-
-> As a patient, I want full access to my medical records so I can maintain my health history.
-
-**Acceptance Criteria**
-
-- Download prescriptions, invoices, and lab reports as PDF.
-- View vaccination history, chronic conditions, and allergies.
-- Get a summarized "Medical Summary" report.
-
-## 14. Appointment History & Follow-up Management
-
-> As a patient, I want to view my complete appointment history and manage follow-ups.
+## 4. Comprehensive Clinic Analytics & Operational Reports
+**User Story**
+> As a clinic owner, I want to generate exportable operational and revenue reports so that I can audit clinic performance and financial health.
 
 **Acceptance Criteria**
-
-- View chronological list of all past appointments with status.
-- Re-book previous appointments with a single click.
-- View doctor's follow-up recommendations and due dates.
-- Set reminders for follow-up visits.
-
-## 15. Appointment Queue System with Real-Time Updates (Optional)
-
-> As a patient, I want to see my position in the queue and the estimated wait time so I can plan my visit better.
-
-**Acceptance Criteria**
-
-- Display current token number and "You are 3rd in queue" message.
-- Show estimated wait time (e.g., "Approx. 15 minutes").
-- Real-time updates when the previous patient's appointment ends.
-- Notification when it's my turn to see the doctor.
-- Show current doctor's availability status (e.g., "In Consultation", "Available").
-- Option to minimize the queue view and continue browsing.
-- Display token number on the patient's dashboard.
-- Visual progress bar showing how many patients are ahead.
-- "Call Next Patient" button for the doctor to manually call the next token.
-- Audio notification (chime/beep) when the token changes.
-- Smooth transition animation when the queue updates.
-
-
-## 16. Disease Management User Story
-
-> As a doctor, I want to manage disease records so that I can accurately record patient diagnoses and maintain medical reference data.
-
-**Acceptance Criteria**
-
-- Doctor can view a list of all diseases with search and filtering capabilities
-- Doctor can add new diseases with name and description
-- Doctor can update existing disease information
-- Doctor can deactivate diseases (soft delete) rather than permanently removing them
-- System prevents deletion of diseases that are referenced in active prescriptions
-- Disease list is available when prescribing medications or recording diagnoses
+- **Appointments Report**: Filter by daily, weekly, or monthly periods (JSON & PDF).
+- **Revenue Analytics Report**: Breakdown of consultation fees, medicine sales, and collection methods (JSON & PDF).
+- **Medicine Stock Valuation Report**: Active stock valuation, low stock items, and near-expiry risk audit (JSON & PDF).
+- **Patient Registry Report**: Demographic breakdowns and patient visit volume (JSON & PDF).
+- **Monthly Business Summary**: Consolidated monthly executive report with key clinic metrics (JSON & PDF).
 
 ---
 
-# 🤖 AI & MCP-Powered Features
+# 👨‍⚕️ 2. Doctor Stories
 
-## 17. AI Clinic Management Assistant
-
+## 5. View & Manage Appointment Schedule
 **User Story**
-
-> As a doctor or clinic staff, I want an AI-powered clinic assistant so that I can manage daily operations, check medicine inventory, and retrieve patient summaries using natural language chat.
+> As a doctor, I want to view and manage my appointment schedule so that I can conduct consultations efficiently without scheduling conflicts.
 
 **Acceptance Criteria**
+- View appointments with date range filters (`startDate`, `endDate`) and status filters.
+- Accept, decline, or reschedule appointments to new time slots.
+- Mark appointments as **Completed** once the consultation concludes.
 
-- **Chat Interface:** Accessible from the clinic management dashboard for authorized clinic staff.
-- **MCP Integration:** Communicates with domain services using secure, read-only Model Context Protocol (MCP) tools, preventing direct database access.
-- **Daily Briefing:** Summarizes the day's appointments, waiting queue status, low-stock medicines, and batches expiring within 30 days.
-- **Patient Summary:** Answers queries about the next patient, latest visits, and recent prescription history.
-- **Inventory Stock Lookup:** Looks up medicine stock levels, batch expiry dates, and alerts for low/expiring stocks.
-- **Write Actions (Follow-ups):** Can trigger follow-up reminder creation through a write-capable MCP tool when explicitly requested.
-- **Prescription Template Actions:** Fetch existing templates or create new custom templates using secure, specialized MCP tools (`get_prescription_templates` and `create_prescription_template`) directly through natural language.
-- **Safety Boundaries:** 
-  - Never diagnoses a patient or recommends prescription changes independently.
-  - Operates on a low token usage strategy by summarizing context and retrieving structured JSON.
-
-## 18. Smart Hospital Referral Document Preparation
-
+## 6. Electronic Medical Record (EMR) & Patient History
 **User Story**
-
-> As a doctor, I want the system to draft a hospital referral letter using patient EMR data so that I can quickly prepare documents for external specialist care.
-
-**Acceptance Criteria**
-
-- **Contextual Trigger:** Accessible directly from the patient’s profile view.
-- **Doctor Input:** Doctor provides the target hospital, department, referral reason, doctor instructions, and urgency level.
-- **Staged MCP Retrieval:** Retrieves minimal required details (patient profile, latest visit, recent prescription history, and relevant lab reports) to optimize token usage.
-- **Polished Draft Generation:** AI generates a complete referral letter draft containing clinic/doctor details, patient demographics, chief complaint, relevant history, reason for referral, and a signature block.
-- **Review and Approval:** The letter is clearly labeled as a "Draft" and must be reviewed, edited, and approved by the doctor.
-- **PDF Generation:** Once approved, the document is saved and can be printed or downloaded as a PDF referral letter.
-- **Safety Rule:** Missing data is explicitly marked as "not recorded" instead of fabricating facts.
-
-
-## 19. Custom Prescription Templates Management
-
-> As a doctor, I want to create, view, and manage custom prescription templates directly for each disease (independent of a live patient consultation) so that I can pre-define standard treatment packages.
+> As a doctor, I want to review a patient's historical medical timeline and record consultation vitals so that I can deliver informed clinical care.
 
 **Acceptance Criteria**
+- View a chronological timeline of past visits, past diagnoses, and previous prescriptions.
+- Record consultation vital signs (Blood Pressure systolic/diastolic, Weight, Height, Temperature, Pulse, SpO2, and calculated BMI).
+- Add/update patient medical notes: allergies, chronic conditions, past surgeries, and family medical history.
 
-- Doctor can click "Templates" next to any disease on the Disease Management page to view its associated templates.
-- Display templates with their medicine items, dosage, duration (days), quantities, and instructions.
-- Create new custom templates by inputting a template name and adding multiple medicines dynamically.
-- Select medicines from a searchable inventory list and customize details before saving.
-- All created custom templates are immediately available for use on the EMR Consultation page.
-
-## 20. Frequently Prescribed Medications Summary
-
-> As a doctor, I want to see a ranked summary of a patient's frequently prescribed medications in their records and during active consultation so that I can make quick, evidence-based, and personalized prescribing decisions.
+## 7. Smart Prescription with Automatic FIFO Batch Deduction
+**User Story**
+> As a doctor, I want to prescribe medicines directly from the clinic inventory so that stock levels are adjusted automatically and expired batches are never dispensed.
 
 **Acceptance Criteria**
+- Search available medicines with live stock indicators and batch expiry dates during consultation.
+- Automatic First-In, First-Out (FIFO) deduction: stock is automatically deducted from the oldest valid batch.
+- Automatic generation of an itemized invoice reflecting prescribed medicine quantities and prices.
+- Visual warning if attempting to prescribe a low-stock or near-expiry medicine.
 
-- Automatically compute and display a patient's top prescribed medications based on historical invoices and prescriptions.
-- Group by medicine name and sort in descending order of prescribing count (e.g. "Amoxicillin - Prescribed 4 times").
-- Display this frequently prescribed medications list clearly on the **Medical Records (`Records.razor`)** page.
-- Display this frequently prescribed medications list as a clinical context helper panel on the **EMR Consultation (`Consultation.razor`)** page when selecting a patient appointment.
+## 8. Custom Prescription Templates Management
+**User Story**
+> As a doctor, I want to create and manage reusable prescription templates for common diseases so that I can quickly apply standard medication sets during consultations.
 
+**Acceptance Criteria**
+- Create and save prescription templates containing medicines, dosages, durations, and instructions linked to specific diseases.
+- Retrieve templates filtered by disease name or ID.
+- Load templates directly into the active consultation screen to pre-fill prescription items in one click.
 
+## 9. Disease & Diagnosis Catalog
+**User Story**
+> As a doctor, I want to manage the disease and diagnosis catalog so that clinical diagnoses are standardized across records.
+
+**Acceptance Criteria**
+- Search and browse disease records with descriptions.
+- Add new disease entries or update existing records.
+- Soft-delete (deactivate) obsolete disease entries, preventing accidental deletion of diseases linked to past prescriptions.
+
+## 10. Patient Follow-up Scheduling
+**User Story**
+> As a doctor, I want to schedule patient follow-up checkups so that patients with ongoing conditions receive timely continuous care.
+
+**Acceptance Criteria**
+- Schedule follow-up consultations with recommended due dates and instructions.
+- View upcoming and overdue follow-up checkups.
+- Mark follow-up checkups as **Completed** when the patient returns.
+
+---
+
+# 🏥 3. Patient Stories
+
+## 11. Multiple Patient Profiles (Family Management)
+**User Story**
+> As a registered user, I want to manage health profiles for myself and my family members under a single account so that I can manage our family's healthcare in one place.
+
+**Acceptance Criteria**
+- Create multiple patient profiles (self, children, spouse, elderly parents) under one login account.
+- View and switch between patient profiles via card/list view.
+- Maintain separate medical information (allergies, blood type, vitals) for each profile.
+
+## 12. Book an Appointment & Select Slot
+**User Story**
+> As a patient or guardian, I want to book an appointment online so that I can secure a consultation slot with the doctor.
+
+**Acceptance Criteria**
+- Select patient profile, appointment date, time, and specify the reason for visit.
+- Immediate slot validation to prevent double-booking.
+- View booking status (**Pending** → **Confirmed**).
+
+## 13. Live Appointment Queue Tracking
+**User Story**
+> As a patient, I want to see my live queue token position and estimated wait time so that I can plan my clinic arrival and avoid waiting in crowded rooms.
+
+**Acceptance Criteria**
+- Display current token number, assigned token, and position in queue (e.g., "You are 3rd in queue").
+- Real-time SignalR live queue updates when the doctor advances the queue.
+- In-app notification and chime/alert when the patient's token is called.
+
+## 14. Patient Dashboard & Document Access (PDF)
+**User Story**
+> As a patient, I want a personal dashboard to view my health summary and download medical documents as PDFs.
+
+**Acceptance Criteria**
+- View upcoming appointments and active medication courses.
+- Download official electronic prescriptions as PDF.
+- View and download comprehensive Medical Summary in HTML and PDF.
+- Download itemized payment invoices and receipts as PDF.
+
+## 15. Payment Options (Online & Bank Transfer Proof)
+**User Story**
+> As a patient, I want flexible payment options so that I can pay consultation and medicine fees conveniently.
+
+**Acceptance Criteria**
+- Automatic invoice clearance via payment gateway webhook callbacks.
+- Upload manual payment slip / bank transfer reference for review by clinic staff.
+
+---
+
+# 🤖 4. AI & Model Context Protocol (MCP) Stories
+
+## 16. AI Clinic Assistant (Doctor & Admin Workflows)
+**User Story**
+> As a doctor or clinic administrator, I want an AI assistant powered by Model Context Protocol (MCP) tools so that I can query clinic records and execute operational actions using natural language in English or Myanmar.
+
+**Acceptance Criteria**
+- Accessible via a dedicated chat drawer on the management dashboard for authorized staff (`owner`, `admin`, `doctor`).
+- **Doctor Daily Briefing**: Natural language summary of today's schedule, waiting queue, and upcoming consultations.
+- **Next Patient Brief (KYP)**: Executive clinical & behavioral summary of the next waiting patient before consultation begins.
+- **Operational Shortcuts**:
+  - Reschedule today's appointments by shifting start time (e.g., "Shift today's appointments to start at 9:30 AM").
+  - Bulk update appointment statuses (e.g., "Confirm all pending appointments for today").
+  - Search medicine stock levels and check expiring batches.
+- **Safety Boundaries**:
+  - Strict system prompt preventing independent medical diagnosis or prescription alterations.
+  - Low-token structured responses with consistent date formatting (`dd-mm-yyyy`).
+
+---
+
+# ⚙️ 5. Automated System Workflows
+
+## 17. Automated Expiry Quarantining & Stock Threshold Alerts
+**User Story**
+> As a system, I want to continuously monitor medication batches and stock levels in the background so that staff are alerted before stock runs out and expired batches are never used.
+
+**Acceptance Criteria**
+- Background hosted service periodically checks batch expiry dates and flags expired batches as **Quarantined**.
+- Automatically excludes expired/quarantined batches from prescription selection dropdowns.
+- Automatically creates in-app notifications and broadcasts real-time alerts via SignalR when stock falls below 20 units or batches expire within 30 days.

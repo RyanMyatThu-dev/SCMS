@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SCMS.Shared;
 using SCMS.Domain.DTOs;
+using SCMS.Domain.Security;
+using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Diseases
 {
@@ -18,6 +19,7 @@ namespace SCMS.Domain.Features.Diseases
         }
 
         [HttpGet]
+        [HasPermission("Diseases.View")]
         public async Task<IActionResult> GetDiseases([FromQuery] DiseaseRequest request)
         {
             if (!ModelState.IsValid)
@@ -33,6 +35,7 @@ namespace SCMS.Domain.Features.Diseases
         }
 
         [HttpPost]
+        [HasPermission("Diseases.Create")]
         public async Task<IActionResult> CreateDisease([FromBody] CreateDiseaseRequest request)
         {
             if (!ModelState.IsValid) { 
@@ -43,6 +46,7 @@ namespace SCMS.Domain.Features.Diseases
         }
 
         [HttpPut]
+        [HasPermission("Diseases.Update")]
         public async Task<IActionResult> UpdateDisease([FromBody] UpdateDiseaseRequest request)
         {
             if (!ModelState.IsValid) { 
@@ -53,6 +57,7 @@ namespace SCMS.Domain.Features.Diseases
         }
 
         [HttpDelete("{id}")]
+        [HasPermission("Diseases.Delete")]
         public async Task<IActionResult> DeactivateDisease(int id)
         {
             if (!ModelState.IsValid)

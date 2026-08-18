@@ -7,7 +7,7 @@
 - `POST   /api/Auth/refresh`
 
 ## Dashboards
-- `GET    /api/Dashboards/dashboard`               # Owner-only admin dashboard
+- `GET    /api/Dashboards/dashboard`               # Staff dashboard (with period filter: ?period=daily|weekly|monthly|all)
 - `GET    /api/Dashboards/patient-dashboard`        # Patient dashboard (auth required)
 
 ## Appointments
@@ -26,9 +26,10 @@
 - `GET    /api/Patients/{id}/summary`               # Medical summary (JSON)
 - `GET    /api/Patients/{id}/summary/html`          # Medical summary (HTML)
 - `GET    /api/Patients/{id}/summary/pdf`           # Medical summary (PDF download)
+- `DELETE /api/Patients/{id}`                       # Delete patient profile
 
 ## Prescriptions
-- `POST   /api/Prescriptions`                      # Owner: create prescription
+- `POST   /api/Prescriptions`                       # Owner: create prescription
 - `GET    /api/Prescriptions`                       # List (with patientId filter, pagination)
 - `GET    /api/Prescriptions/prescriptions/{id}`    # Get prescription details
 - `POST   /api/Prescriptions/templates`             # Owner: save template
@@ -61,7 +62,7 @@
 - `POST   /api/Payments/gateway-callback`           # Payment gateway callback
 - `POST   /api/Payments/manual-proof`               # Upload manual payment proof
 - `POST   /api/Payments/{id}/approve`               # Owner: approve payment
-- `GET    /api/Payments/{id}/invoice/pdf`            # Download invoice PDF
+- `GET    /api/Payments/{id}/invoice/pdf`           # Download invoice PDF
 
 ## FollowUps
 - `GET    /api/FollowUps`                           # List follow-ups (pagination)
@@ -82,9 +83,11 @@
 - `GET    /api/Reports/patients/pdf`                # Patient list report (PDF download)
 - `GET    /api/Reports/medicine-stock`              # Medicine stock report (JSON)
 - `GET    /api/Reports/medicine-stock/pdf`          # Medicine stock report (PDF download)
-- `GET    /api/Reports/follow-ups`                  # Follow-up report (JSON) — ?reportType=all&date=&status=
+- `GET    /api/Reports/follow-ups`                  # Follow-up report (JSON) — ?startDate=&endDate=&status=
 - `GET    /api/Reports/follow-ups/pdf`              # Follow-up report (PDF download)
-- `GET    /api/Reports/business-summary`            # Monthly business summary (JSON) — ?date=
+- `GET    /api/Reports/prescriptions`               # Prescription report (JSON)
+- `GET    /api/Reports/prescriptions/pdf`           # Prescription report (PDF download)
+- `GET    /api/Reports/business-summary`            # Monthly business summary (JSON) — ?month=&year=
 - `GET    /api/Reports/business-summary/pdf`        # Monthly business summary (PDF download)
 
 ## MCP (Model Context Protocol — Owner-only)
