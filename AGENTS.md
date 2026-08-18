@@ -24,18 +24,16 @@ Both projects must run simultaneously; the `.slnLaunch.user` multi-startup profi
 
 | Project | Role |
 |---------|------|
-| `SCMS.Api` | ASP.NET Core 8 Web API — controllers, JWT auth, SignalR hubs, Swagger/Scalar |
-| `SCMS.Domain` | Business logic, **controllers live here too** (loaded via `AddApplicationPart`) |
+| `SCMS.Api` | ASP.NET Core 8 Web API — controllers (`Controllers/`), middleware (`Middleware/`), JWT auth, SignalR hubs, Swagger/Scalar |
+| `SCMS.Domain` | Feature services & interfaces (`Features/{Feature}/`), models (`Features/{Feature}/Models/`), security policies |
 | `SCMS.Database` | EF Core `AppDbContext` and scaffolded `Tbl*` entity models |
-| `SCMS.Shared` | `Result`/`Result<T>` pattern, pagination |
-| `SCMS.Web` | Blazor WebAssembly frontend using **Ant Design Blazor** (`AntDesign` 1.6) |
+| `SCMS.Shared` | Core domain-agnostic primitives: `Result`/`Result<T>`, `Pagination`, `PaginationRequest` |
 | `SCMS.Domain.Tests` | xUnit tests, mirror the `Features/` folder structure |
 
 ### Dependency graph
 
 ```
 Api → Domain → Shared, Database
-Web → Shared (only — communicates with Api over HTTP)
 Domain.Tests → Domain
 ```
 
@@ -46,27 +44,40 @@ Domain.Tests → Domain
 All business features live under `SCMS.Domain/Features/{FeatureName}/`:
 
 ```
-Features/
+SCMS.Domain/Features/
   Appointments/
-    AppointmentsController.cs   ← [ApiController] lives in Domain, not Api
+    IAppointmentsService.cs
     AppointmentsService.cs
+    Models/
+      AppointmentModels.cs      ← Sealed record Request/Response DTOs
   Patients/
-    PatientsController.cs
+    IPatientService.cs
     PatientService.cs
+    Models/
+      PatientModels.cs
   …12 feature folders total
+
+SCMS.Api/
+  Controllers/
+    AppointmentsController.cs   ← [ApiController] injecting IAppointmentsService
+    PatientsController.cs
+    …15 API controllers total
+  Middleware/
+    ApiExceptionHandler.cs      ← Global IExceptionHandler (RFC 7807 problem details)
 ```
 
-- **Controllers are in `SCMS.Domain`**, not `SCMS.Api`. The API project loads them via `AddApplicationPart(typeof(FeatureManager).Assembly)`.
-- **Request/Response DTOs are in `SCMS.Domain/DTOs/`**, not next to the service.
-- **Service registration**: every new service must be manually added to `FeatureManager.AddScmsFeatureServices()`.
-- **Controller registration**: happens automatically via the assembly scan, no manual step needed.
+- **Controllers are in `SCMS.Api/Controllers/`**, injecting service interfaces (`I...Service`).
+- **Request/Response DTOs are in `SCMS.Domain/Features/{FeatureName}/Models/`** as `sealed record` types with validation attributes and XML doc comments.
+- **Service registration**: every service interface and implementation is registered in DI in `FeatureManager.AddScmsFeatureServices()`.
 
 ### Adding a new feature checklist
 
-1. Create `SCMS.Domain/Features/{Name}/{Name}Service.cs` and `{Name}Controller.cs`
-2. Create DTOs in `SCMS.Domain/DTOs/`
-3. Register the service in `FeatureManager.AddScmsFeatureServices()`
-4. Mirror the folder in `SCMS.Domain.Tests/{Name}/`
+1. Create `SCMS.Domain/Features/{Name}/Models/{Name}Models.cs` with sealed record DTOs
+2. Create `SCMS.Domain/Features/{Name}/I{Name}Service.cs` interface
+3. Create `SCMS.Domain/Features/{Name}/{Name}Service.cs` implementation
+4. Register the service in `FeatureManager.AddScmsFeatureServices()` via `services.AddScoped<I{Name}Service, {Name}Service>()`
+5. Create `SCMS.Api/Controllers/{Name}Controller.cs` injecting `I{Name}Service`
+6. Mirror the folder in `SCMS.Domain.Tests/{Name}/` for unit tests
 
 ## Result pattern
 
