@@ -7,7 +7,7 @@ using SCMS.Shared.Contracts.Auth;
 
 namespace SCMS.Domain.Features.Auth
 {
-    public class AuthService
+    public class AuthService : IAuthService
     {
         private readonly AppDbContext _context;
         private readonly PasswordHashingService _passwords;

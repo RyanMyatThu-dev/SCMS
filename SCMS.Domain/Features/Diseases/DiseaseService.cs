@@ -5,7 +5,7 @@ using SCMS.Domain.DTOs;
 
 namespace SCMS.Domain.Features.Diseases
 {
-    public class DiseaseService
+    public class DiseaseService : IDiseaseService
     {
         private readonly AppDbContext _context;
 

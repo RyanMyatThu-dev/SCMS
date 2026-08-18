@@ -12,7 +12,7 @@ using SCMS.Domain.Realtime;
 
 namespace SCMS.Domain.Features.Notifications
 {
-    public class NotificationService
+    public class NotificationService : INotificationService
     {
         private readonly AppDbContext _context;
         private readonly IHubContext<NotificationsHub>? _hubContext;

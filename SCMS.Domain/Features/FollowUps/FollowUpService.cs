@@ -6,12 +6,12 @@ using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.FollowUps
 {
-    public class FollowUpService
+    public class FollowUpService : IFollowUpService
     {
         private readonly AppDbContext _context;
-        private readonly NotificationService? _notificationService;
+        private readonly INotificationService? _notificationService;
 
-        public FollowUpService(AppDbContext context, NotificationService? notificationService = null)
+        public FollowUpService(AppDbContext context, INotificationService? notificationService = null)
         {
             _context = context;
             _notificationService = notificationService;

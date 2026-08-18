@@ -27,7 +27,6 @@ jobs:
           # Remove frontend to save space and avoid confusion in the backend Space
           rm -rf SCMS.WebApp
           rm -rf SCMS.Mobile
-          rm -rf SCMS.Web
           rm -rf SCMS.Frontend
           rm -rf SCMS.Domain.Tests
 

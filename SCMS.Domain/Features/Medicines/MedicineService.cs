@@ -12,14 +12,14 @@ using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.Medicines
 {
-    public class MedicineService
+    public class MedicineService : IMedicineService
     {
         private readonly AppDbContext _context;
-        private readonly PhotoService? _photoService;
-        private readonly NotificationService? _notificationService;
+        private readonly IPhotoService? _photoService;
+        private readonly INotificationService? _notificationService;
         private const int LowStockThreshold = 20;
 
-        public MedicineService(AppDbContext context, NotificationService? notificationService = null, PhotoService? photoService = null)
+        public MedicineService(AppDbContext context, INotificationService? notificationService = null, IPhotoService? photoService = null)
         {
             _context = context;
             _notificationService = notificationService;

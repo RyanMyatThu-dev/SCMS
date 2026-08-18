@@ -11,10 +11,10 @@ using SCMS.Domain.Features.Notifications;
 
 namespace SCMS.Domain.Features.Appointments
 {
-    public class AppointmentsService
+    public class AppointmentsService : IAppointmentsService
     {
         private readonly AppDbContext _context;
-        private readonly NotificationService? _notificationService;
+        private readonly INotificationService? _notificationService;
         private static readonly HashSet<string> AllowedStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
             "pending",
@@ -23,7 +23,7 @@ namespace SCMS.Domain.Features.Appointments
             "completed"
         };
 
-        public AppointmentsService(AppDbContext context, NotificationService? notificationService = null)
+        public AppointmentsService(AppDbContext context, INotificationService? notificationService = null)
         {
             _context = context;
             _notificationService = notificationService;

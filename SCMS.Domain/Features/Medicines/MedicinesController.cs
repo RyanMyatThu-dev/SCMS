@@ -14,9 +14,9 @@ namespace SCMS.Domain.Features.Medicines
     [Route("api/[controller]")]
     public class MedicinesController : ControllerBase
     {
-        private readonly MedicineService _medicineService;
+        private readonly IMedicineService _medicineService;
 
-        public MedicinesController(MedicineService medicineService)
+        public MedicinesController(IMedicineService medicineService)
         {
             _medicineService = medicineService;
         }

@@ -14,9 +14,9 @@ namespace SCMS.Domain.Features.Dashboards
     [Route("api/[controller]")]
     public class DashboardsController : ControllerBase
     {
-        private readonly DashboardService _dashboardService;
+        private readonly IDashboardService _dashboardService;
 
-        public DashboardsController(DashboardService dashboardService)
+        public DashboardsController(IDashboardService dashboardService)
         {
             _dashboardService = dashboardService;
         }

@@ -13,7 +13,7 @@ using SCMS.Shared.Contracts.Prescriptions;
 
 namespace SCMS.Domain.Features.Dashboards
 {
-    public class DashboardService
+    public class DashboardService : IDashboardService
     {
         private readonly AppDbContext _context;
         private const int LowStockThreshold = 20;
