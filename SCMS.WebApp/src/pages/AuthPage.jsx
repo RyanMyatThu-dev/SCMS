@@ -20,6 +20,7 @@ import { Input } from "../components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { cn } from "../lib/utils";
+import { sanitizeText, validateMyanmarMobile, validateEmail } from "../utils/validation";
 
 const demoAccounts = [
   {
@@ -32,14 +33,14 @@ const demoAccounts = [
   },
   {
     roleKey: "roleDoctor",
-    email: "dr.thandar@scms.demo",
+    email: "doctor@scms.demo",
     password: "password",
     role: "doctor",
     route: "/doctor/dashboard",
     badge: "Doctor",
   },
   {
-    roleKey: "rolePatient",
+    roleKey: "roleUser",
     email: "aung.min@example.test",
     password: "password",
     role: "user",
@@ -79,24 +80,45 @@ export default function AuthPage({ mode = "login" }) {
   const submit = async (event) => {
     event.preventDefault();
 
-    if (!form.email.trim() || !form.password.trim() || (isRegister && !form.name.trim())) {
-      await showError(t.requiredFields);
+    const cleanEmailOrMobile = sanitizeText(form.email);
+    const cleanPassword = form.password;
+    const cleanName = sanitizeText(form.name);
+
+    if (!cleanEmailOrMobile || !cleanPassword || (isRegister && !cleanName)) {
+      await showError(t.requiredFields || "Please fill in all required fields.", "Required Fields");
       return;
+    }
+
+    if (isRegister) {
+      if (cleanName.length < 2) {
+        await showError("Full Name must be at least 2 characters.", "Invalid Name");
+        return;
+      }
+      if (cleanPassword.length < 6) {
+        await showError("Password must be at least 6 characters.", "Invalid Password");
+        return;
+      }
+      const emailVal = validateEmail(cleanEmailOrMobile, false);
+      const phoneVal = validateMyanmarMobile(cleanEmailOrMobile, false);
+      if (!emailVal.isValid && !phoneVal.isValid) {
+        await showError("Please enter a valid email address or Myanmar mobile number.", "Invalid Account");
+        return;
+      }
     }
 
     try {
       setLoading(true);
       if (isRegister) {
         await register({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          password: form.password,
+          name: cleanName,
+          email: cleanEmailOrMobile,
+          password: cleanPassword,
         });
       }
 
       const loggedUser = await login({
-        emailOrMobile: form.email.trim(),
-        password: form.password,
+        emailOrMobile: cleanEmailOrMobile,
+        password: cleanPassword,
         roleHint: selectedRole,
       });
 

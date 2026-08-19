@@ -8,6 +8,7 @@ import {
   ListBulletIcon,
   TrashIcon,
   DownloadIcon,
+  Pencil1Icon,
   Cross2Icon,
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
@@ -18,6 +19,12 @@ import { Input } from "../components/ui/input";
 import { patientsApi, downloadBlob } from "../services/scmsApi";
 import { showError, showSuccess, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import {
+  sanitizeText,
+  validatePatientProfile,
+} from "../utils/validation";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -50,6 +57,8 @@ export default function PatientsPage() {
   // Form State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
+
+  useScrollLock(modalOpen || detailOpen);
   const [form, setForm] = useState({
     name: "",
     gender: "Male",
@@ -172,7 +181,7 @@ export default function PatientsPage() {
       }
     } catch (err) {
       console.error(err);
-      showError(err?.response?.data?.message || "Failed to delete patient.");
+      showError(err, "Cannot Delete Patient Profile");
     }
   };
 
@@ -189,38 +198,44 @@ export default function PatientsPage() {
       showError("Failed to export patient summary PDF.");
     }
   };
-
   const downloadSummary = handleDownloadSummary;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name?.trim()) {
-      showError("Patient name is required.");
+
+    const validation = validatePatientProfile(form);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      showError(validation.firstError, "Validation Error");
       return;
     }
+
+    setErrors({});
+
     try {
       setSaving(true);
-      const payload = {
-        ...form,
-        name: form.name.trim(),
-        fullName: form.name.trim(),
-        mobileNo: form.mobileNo || form.phone,
-        phone: form.phone || form.mobileNo,
-        dateOfBirth: form.dateOfBirth ? new Date(form.dateOfBirth).toISOString() : null,
-      };
+      const payload = validation.sanitized;
 
       if (editingPatient) {
-        await patientsApi.update(editingPatient.patientId || editingPatient.id, payload);
-        showSuccess("Patient updated successfully.");
+        const pId = editingPatient.patientId || editingPatient.id;
+        await patientsApi.update(pId, payload);
+        showSuccess("Patient record updated successfully.");
+        setModalOpen(false);
+        await loadPatients(page, query);
+        if (selectedPatient?.patientId === pId) {
+          setSelectedPatient((prev) => ({ ...prev, ...payload }));
+        }
       } else {
         await patientsApi.create(payload);
         showSuccess("Patient registered successfully.");
+        setModalOpen(false);
+        setQuery("");
+        setPage(1);
+        await loadPatients(1, "");
       }
-      setModalOpen(false);
-      loadPatients(page, query);
     } catch (err) {
-      console.error(err);
-      showError(err?.response?.data?.message || "Failed to save patient.");
+      console.error("Save patient error:", err);
+      showError(err);
     } finally {
       setSaving(false);
     }
@@ -258,14 +273,19 @@ export default function PatientsPage() {
 
       {/* Search & Layout Toggles */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
-        <form onSubmit={handleSearchSubmit} className="flex-1 w-full">
+        <form onSubmit={handleSearchSubmit} className="flex-1 w-full flex items-center gap-2">
           <Input
             type="text"
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search patients by name or phone..."
+            className="flex-1"
           />
+          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
+            <MagnifyingGlassIcon className="w-4 h-4" />
+            <span>Search</span>
+          </button>
         </form>
 
         <SegmentedControl
@@ -353,8 +373,16 @@ export default function PatientsPage() {
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={() => openEditModal(p)}
+                          className="scms-btn-icon"
+                          title="Edit Patient"
+                          aria-label="Edit Patient"
+                        >
+                          <Pencil1Icon className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={(e) => downloadSummary(e, p)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-foreground btn-target"
+                          className="scms-btn-icon"
                           title="Download Medical Summary PDF"
                           aria-label="Download Summary"
                         >
@@ -362,7 +390,7 @@ export default function PatientsPage() {
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, p)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
+                          className="scms-btn-icon-danger"
                           title="Delete Patient"
                           aria-label="Delete Patient"
                         >
@@ -407,15 +435,22 @@ export default function PatientsPage() {
 
               <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
+                  onClick={() => openEditModal(p)}
+                  className="scms-btn-icon"
+                  title="Edit Patient"
+                >
+                  <Pencil1Icon className="w-4 h-4" />
+                </button>
+                <button
                   onClick={(e) => downloadSummary(e, p)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                  className="scms-btn-icon"
                   title="Download Summary"
                 >
                   <DownloadIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => handleDelete(e, p)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 btn-target"
+                  className="scms-btn-icon-danger"
                   title="Delete"
                 >
                   <TrashIcon className="w-4 h-4" />
@@ -434,13 +469,14 @@ export default function PatientsPage() {
         onPageChange={setPage}
       />
 
-      {/* Create Patient Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Register New Patient</h3>
-              <button onClick={() => setModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
+      {/* Create / Edit Patient Modal */}
+      <ModalPortal isOpen={modalOpen} onClose={() => setModalOpen(false)}>
+        <div className="w-full max-w-xl rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-border/70">
+              <h3 className="text-lg font-bold text-foreground">
+                {editingPatient ? "Edit Patient Profile" : "Register New Patient"}
+              </h3>
+              <button onClick={() => setModalOpen(false)} className="p-1.5 rounded-xl text-muted-foreground hover:bg-secondary">
                 <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
@@ -550,13 +586,15 @@ export default function PatientsPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </ModalPortal>
 
       {/* Patient Detail Modal */}
-      {detailOpen && selectedPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+      <ModalPortal
+        isOpen={detailOpen && Boolean(selectedPatient)}
+        onClose={() => setDetailOpen(false)}
+      >
+        {selectedPatient && (
+          <div className="w-full max-w-lg rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white font-bold">
@@ -607,21 +645,33 @@ export default function PatientsPage() {
               )}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <button
-                onClick={(e) => downloadSummary(e, selectedPatient)}
-                className="scms-btn-outline text-xs flex items-center gap-1.5"
-              >
-                <DownloadIcon className="w-4 h-4" />
-                <span>Download Summary PDF</span>
-              </button>
+            <div className="pt-3 border-t border-border/70 flex justify-between items-center gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setDetailOpen(false);
+                    openEditModal(selectedPatient);
+                  }}
+                  className="scms-btn-outline text-xs flex items-center gap-1.5"
+                >
+                  <Pencil1Icon className="w-4 h-4" />
+                  <span>Edit Profile</span>
+                </button>
+                <button
+                  onClick={(e) => downloadSummary(e, selectedPatient)}
+                  className="scms-btn-outline text-xs flex items-center gap-1.5"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  <span>Download PDF</span>
+                </button>
+              </div>
               <button onClick={() => setDetailOpen(false)} className="scms-btn-primary text-xs">
                 {t.close}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

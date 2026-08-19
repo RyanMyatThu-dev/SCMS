@@ -15,8 +15,14 @@ import BrandLogo from "../../components/BrandLogo";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
-import { showError, showSuccess } from "../../services/dialogs";
+import { showError, showSuccess, showConfirm } from "../../services/dialogs";
 import { dashboardsApi, patientsApi } from "../../services/scmsApi";
+import {
+  sanitizeText,
+  validatePatientProfile,
+} from "../../utils/validation";
+import useScrollLock from "../../hooks/useScrollLock";
+import ModalPortal from "../../components/ModalPortal";
 
 export default function UserLayout() {
   const navigate = useNavigate();
@@ -28,13 +34,20 @@ export default function UserLayout() {
   const [data, setData] = useState(null);
   const [activeProfile, setActiveProfile] = useState(null);
   const [error, setError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+
+  useScrollLock(manageOpen || drawerOpen);
   const [newProfile, setNewProfile] = useState({
     name: "",
-    gender: "",
+    gender: "Male",
+    bloodType: "O+",
+    dateOfBirth: "",
     mobileNo: "",
-    bloodType: "",
+    email: "",
+    allergies: "",
+    chronicConditions: "",
     actualAddress: "",
   });
 
@@ -43,10 +56,15 @@ export default function UserLayout() {
       try {
         setLoading(true);
         setError("");
-        const result = await dashboardsApi.patient();
-        setData(result);
+        const res = await dashboardsApi.patient();
+        const telemetry = res?.data || res || {};
+        setData(telemetry);
 
-        const profiles = result?.patientProfiles || [];
+        const profiles =
+          telemetry?.patientProfiles ||
+          telemetry?.data?.patientProfiles ||
+          (Array.isArray(telemetry) ? telemetry : []);
+
         if (profiles.length > 0) {
           const currentId = selectId || activeProfile?.patientId;
           const matched = profiles.find((p) => p.patientId === currentId);
@@ -61,7 +79,8 @@ export default function UserLayout() {
         setLoading(false);
       }
     },
-    [activeProfile]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeProfile?.patientId]
   );
 
   useEffect(() => {
@@ -70,30 +89,65 @@ export default function UserLayout() {
   }, []);
 
   const switchActiveProfile = (profileId) => {
-    const matched = data?.patientProfiles?.find((p) => p.patientId === profileId);
+    const profiles =
+      data?.patientProfiles ||
+      data?.data?.patientProfiles ||
+      (Array.isArray(data) ? data : []);
+    const matched = profiles.find((p) => p.patientId === profileId);
     if (matched) {
       setActiveProfile(matched);
       setDrawerOpen(false);
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    const confirmed = await showConfirm(
+      language === "mm" ? "လူနာအကောင့်မှ ထွက်ခွာရန် သေချာပါသလား?" : "Are you sure you want to sign out of your patient portal?",
+      language === "mm" ? "အကောင့်ထွက်ရန် အတည်ပြုပါ" : "Confirm Sign Out",
+      language === "mm" ? "ထွက်မည်" : "Sign Out",
+      language === "mm" ? "မထွက်ပါ" : "Cancel"
+    );
+    if (confirmed) {
+      logout();
+      navigate("/login", { replace: true });
+    }
   };
 
-  const handleCreateProfile = async () => {
+  const handleCreateProfile = async (e) => {
+    if (e) e.preventDefault();
+
+    const validation = validatePatientProfile(newProfile);
+    if (!validation.isValid) {
+      setFormErrors(validation.errors);
+      showError(validation.firstError, "Validation Error");
+      return;
+    }
+
+    setFormErrors({});
+
     try {
       setLoading(true);
-      const payload = { ...newProfile };
-      await patientsApi.create(payload);
+      const payload = validation.sanitized;
+
+      const res = await patientsApi.create(payload);
       setManageOpen(false);
-      setNewProfile({ name: "", gender: "", mobileNo: "", bloodType: "", actualAddress: "" });
-      showSuccess("Patient profile created.");
-      await loadDashboard();
+      setNewProfile({
+        name: "",
+        gender: "Male",
+        bloodType: "O+",
+        dateOfBirth: "",
+        mobileNo: "",
+        email: "",
+        allergies: "",
+        chronicConditions: "",
+        actualAddress: "",
+      });
+      showSuccess("Patient profile created successfully.");
+      const newId = res?.patientId || res?.data?.patientId || res?.data?.id || res?.id;
+      await loadDashboard(newId);
     } catch (err) {
-      console.error(err);
-      await showError(err?.response?.data?.message || err?.message || "Failed to create profile.");
+      console.error("Create profile error:", err);
+      showError(err);
     } finally {
       setLoading(false);
     }
@@ -180,7 +234,7 @@ export default function UserLayout() {
       {/* Mobile Drawer Overlay */}
       {drawerOpen && (
         <div
-          className="fixed inset-0 z-40 bg-foreground/20 lg:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/60 lg:hidden backdrop-blur-md transition-all duration-300 animate-fadeIn"
           onClick={() => setDrawerOpen(false)}
         />
       )}
@@ -357,100 +411,216 @@ export default function UserLayout() {
       </div>
 
       {/* Add Patient Profile Modal */}
-      {manageOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-sm animate-fadeIn">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleCreateProfile();
-            }}
-            className="w-full max-w-md bg-card text-card-foreground rounded-3xl border border-border/80 p-6 shadow-scms-modal space-y-4"
-          >
+      <ModalPortal isOpen={manageOpen} onClose={() => setManageOpen(false)}>
+        <form
+          onSubmit={handleCreateProfile}
+          className="w-full max-w-lg rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4 max-h-[90vh] overflow-y-auto"
+        >
             <div className="flex items-center justify-between pb-3 border-b border-border/70">
-              <h3 className="text-base font-bold text-foreground">
-                Add Family Patient Profile
-              </h3>
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  {language === "mm" ? "မိသားစုဝင် ဆေးမှတ်တမ်းပရိုဖိုင် အသစ်ထည့်ရန်" : "Add Family Patient Profile"}
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Link a family member to book appointments and track prescriptions.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setManageOpen(false)}
-                className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary"
+                className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary cursor-pointer"
               >
                 <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
 
-            <label className="block text-xs">
-              <span className="mb-1 block font-bold text-foreground">Full Name</span>
-              <input
-                required
-                value={newProfile.name}
-                onChange={(e) => setNewProfile((p) => ({ ...p, name: e.target.value }))}
-                className="scms-input w-full text-xs"
-                placeholder="e.g. Daw Aye Aye"
-              />
-            </label>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <label className="block">
-                <span className="mb-1 block font-bold text-foreground">Gender</span>
-                <select
-                  value={newProfile.gender}
-                  onChange={(e) => setNewProfile((p) => ({ ...p, gender: e.target.value }))}
-                  className="scms-select w-full text-xs"
-                >
-                  <option value="">Select</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
+            <div className="grid gap-3.5 sm:grid-cols-2 text-xs">
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block font-bold text-foreground">
+                  Full Name <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  required
+                  value={newProfile.name}
+                  onChange={(e) => {
+                    setNewProfile((p) => ({ ...p, name: e.target.value }));
+                    if (formErrors.name) setFormErrors((errs) => ({ ...errs, name: null }));
+                  }}
+                  className={`scms-input w-full text-xs ${formErrors.name ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                  placeholder="e.g. Daw Aye Aye"
+                />
+                {formErrors.name && (
+                  <span className="text-[11px] text-rose-500 font-semibold mt-1 block">
+                    {formErrors.name}
+                  </span>
+                )}
               </label>
 
               <label className="block">
-                <span className="mb-1 block font-bold text-foreground">Blood Type</span>
-                <input
+                <span className="mb-1 block font-bold text-foreground">
+                  Gender <span className="text-rose-500">*</span>
+                </span>
+                <select
+                  value={newProfile.gender}
+                  onChange={(e) => {
+                    setNewProfile((p) => ({ ...p, gender: e.target.value }));
+                    if (formErrors.gender) setFormErrors((errs) => ({ ...errs, gender: null }));
+                  }}
+                  className={`scms-select w-full text-xs ${formErrors.gender ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+                {formErrors.gender && (
+                  <span className="text-[11px] text-rose-500 font-semibold mt-1 block">
+                    {formErrors.gender}
+                  </span>
+                )}
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block font-bold text-foreground">
+                  Blood Type <span className="text-rose-500">*</span>
+                </span>
+                <select
                   value={newProfile.bloodType}
-                  onChange={(e) => setNewProfile((p) => ({ ...p, bloodType: e.target.value }))}
+                  onChange={(e) => {
+                    setNewProfile((p) => ({ ...p, bloodType: e.target.value }));
+                    if (formErrors.bloodType) setFormErrors((errs) => ({ ...errs, bloodType: null }));
+                  }}
+                  className={`scms-select w-full text-xs font-semibold ${formErrors.bloodType ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                >
+                  {["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map((bt) => (
+                    <option key={bt} value={bt}>
+                      {bt}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.bloodType && (
+                  <span className="text-[11px] text-rose-500 font-semibold mt-1 block">
+                    {formErrors.bloodType}
+                  </span>
+                )}
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block font-bold text-foreground">
+                  Date of Birth <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  type="date"
+                  max={new Date().toISOString().split("T")[0]}
+                  value={newProfile.dateOfBirth}
+                  onChange={(e) => {
+                    setNewProfile((p) => ({ ...p, dateOfBirth: e.target.value }));
+                    if (formErrors.dateOfBirth) setFormErrors((errs) => ({ ...errs, dateOfBirth: null }));
+                  }}
+                  className={`scms-input w-full text-xs font-mono ${formErrors.dateOfBirth ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                />
+                {formErrors.dateOfBirth && (
+                  <span className="text-[11px] text-rose-500 font-semibold mt-1 block">
+                    {formErrors.dateOfBirth}
+                  </span>
+                )}
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block font-bold text-foreground">
+                  Primary Mobile <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  type="tel"
+                  value={newProfile.mobileNo}
+                  onChange={(e) => {
+                    setNewProfile((p) => ({ ...p, mobileNo: e.target.value }));
+                    if (formErrors.mobileNo) setFormErrors((errs) => ({ ...errs, mobileNo: null }));
+                  }}
+                  className={`scms-input w-full text-xs font-mono ${formErrors.mobileNo ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                  placeholder="09..."
+                />
+                {formErrors.mobileNo && (
+                  <span className="text-[11px] text-rose-500 font-semibold mt-1 block">
+                    {formErrors.mobileNo}
+                  </span>
+                )}
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block font-bold text-foreground">Email Address (Optional)</span>
+                <input
+                  type="email"
+                  value={newProfile.email}
+                  onChange={(e) => {
+                    setNewProfile((p) => ({ ...p, email: e.target.value }));
+                    if (formErrors.email) setFormErrors((errs) => ({ ...errs, email: null }));
+                  }}
+                  className={`scms-input w-full text-xs ${formErrors.email ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                  placeholder="name@example.com"
+                />
+                {formErrors.email && (
+                  <span className="text-[11px] text-rose-500 font-semibold mt-1 block">
+                    {formErrors.email}
+                  </span>
+                )}
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block font-bold text-foreground">
+                  Residential Address <span className="text-rose-500">*</span>
+                </span>
+                <textarea
+                  rows={2}
+                  value={newProfile.actualAddress}
+                  onChange={(e) => {
+                    setNewProfile((p) => ({ ...p, actualAddress: e.target.value }));
+                    if (formErrors.actualAddress) setFormErrors((errs) => ({ ...errs, actualAddress: null }));
+                  }}
+                  className={`scms-textarea w-full text-xs ${formErrors.actualAddress ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                  placeholder="Street / Township / City"
+                />
+                {formErrors.actualAddress && (
+                  <span className="text-[11px] text-rose-500 font-semibold mt-1 block">
+                    {formErrors.actualAddress}
+                  </span>
+                )}
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block font-bold text-foreground">Known Allergies</span>
+                <input
+                  value={newProfile.allergies}
+                  onChange={(e) => setNewProfile((p) => ({ ...p, allergies: e.target.value }))}
                   className="scms-input w-full text-xs"
-                  placeholder="e.g. O+"
+                  placeholder="e.g. Penicillin, Aspirin, Peanuts"
+                />
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block font-bold text-foreground">Chronic Conditions</span>
+                <input
+                  value={newProfile.chronicConditions}
+                  onChange={(e) => setNewProfile((p) => ({ ...p, chronicConditions: e.target.value }))}
+                  className="scms-input w-full text-xs"
+                  placeholder="e.g. Hypertension, Asthma"
                 />
               </label>
             </div>
 
-            <label className="block text-xs">
-              <span className="mb-1 block font-bold text-foreground">Mobile Number</span>
-              <input
-                value={newProfile.mobileNo}
-                onChange={(e) => setNewProfile((p) => ({ ...p, mobileNo: e.target.value }))}
-                className="scms-input w-full text-xs"
-                placeholder="09..."
-              />
-            </label>
-
-            <label className="block text-xs">
-              <span className="mb-1 block font-bold text-foreground">Address (optional)</span>
-              <input
-                value={newProfile.actualAddress}
-                onChange={(e) => setNewProfile((p) => ({ ...p, actualAddress: e.target.value }))}
-                className="scms-input w-full text-xs"
-                placeholder="City / Township"
-              />
-            </label>
-
-            <div className="pt-2 flex justify-end gap-2 border-t border-border/70">
+            <div className="pt-3 flex justify-end gap-2 border-t border-border/70">
               <button
                 type="button"
                 onClick={() => setManageOpen(false)}
                 className="scms-btn-outline text-xs"
               >
-                Cancel
+                {t.cancel || "Cancel"}
               </button>
-              <button type="submit" className="scms-btn-primary text-xs font-bold">
-                Create Profile
+              <button type="submit" disabled={loading} className="scms-btn-primary text-xs font-bold shadow-xs">
+                {loading ? <span className="loading loading-spinner loading-xs" /> : "Save Profile"}
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </ModalPortal>
     </div>
   );
 }

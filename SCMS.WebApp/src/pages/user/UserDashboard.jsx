@@ -16,18 +16,29 @@ import {
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { showError, showSuccess } from "../../services/dialogs";
-import { appointmentsApi, downloadBlob, paymentsApi, prescriptionsApi } from "../../services/scmsApi";
-import { formatTemperatureF } from "../../utils/clinical";
+import { appointmentsApi, downloadBlob, paymentsApi, prescriptionsApi, patientsApi } from "../../services/scmsApi";
+import { formatTemperatureF, parsePrescriptionNotes } from "../../utils/clinical";
+import { sanitizeText } from "../../utils/validation";
+import useScrollLock from "../../hooks/useScrollLock";
+import ModalPortal from "../../components/ModalPortal";
 
 export default function UserDashboard() {
   const {
     data,
     activeProfile,
+    setActiveProfile,
     filteredTelemetry,
     loadDashboard,
     language,
     setManageOpen,
   } = useOutletContext();
+
+  const patientProfiles =
+    data?.patientProfiles ||
+    data?.data?.patientProfiles ||
+    (Array.isArray(data) ? data : []);
+
+  const currentProfile = activeProfile || patientProfiles[0] || null;
 
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingStep, setBookingStep] = useState(1);
@@ -37,6 +48,30 @@ export default function UserDashboard() {
   const [payingInvoice, setPayingInvoice] = useState(null);
   const [paymentForm, setPaymentForm] = useState({ paymentMethod: "kbzpay", screenshotUrl: "" });
   const [submittingPayment, setSubmittingPayment] = useState(false);
+
+  const [profileDetailOpen, setProfileDetailOpen] = useState(false);
+  const [detailedProfile, setDetailedProfile] = useState(null);
+  const [downloadingSummary, setDownloadingSummary] = useState(false);
+
+  useScrollLock(bookingOpen || Boolean(payingInvoice) || profileDetailOpen);
+
+  const openProfileDetail = (profile) => {
+    setDetailedProfile(profile || currentProfile);
+    setProfileDetailOpen(true);
+  };
+
+  const handleDownloadSummary = async (profileId) => {
+    try {
+      setDownloadingSummary(true);
+      const blob = await patientsApi.summaryPdf(profileId);
+      downloadBlob(blob, `medical-summary-${profileId}.pdf`);
+      showSuccess("Medical Summary PDF downloaded successfully.");
+    } catch {
+      showError("Failed to export patient clinical summary PDF.");
+    } finally {
+      setDownloadingSummary(false);
+    }
+  };
 
   const downloadPrescription = async (prescriptionId) => {
     try {
@@ -60,24 +95,44 @@ export default function UserDashboard() {
 
   const handleBook = async (e) => {
     e.preventDefault();
-    if (!activeProfile?.patientId || !bookingForm.datetime) return;
+    const targetPatientId = currentProfile?.patientId || activeProfile?.patientId;
+    if (!targetPatientId) {
+      showError("Please select an active patient profile before booking.", "No Profile Selected");
+      return;
+    }
+
+    if (!bookingForm.datetime) {
+      showError("Please select a date and time for your appointment.", "Missing Date/Time");
+      return;
+    }
+
+    const chosenDate = new Date(bookingForm.datetime);
+    if (isNaN(chosenDate.getTime())) {
+      showError("Invalid appointment date format.", "Invalid Input");
+      return;
+    }
+
+    if (chosenDate < new Date()) {
+      showError("Please select a future appointment date and time.", "Past Date Selected");
+      return;
+    }
 
     try {
       setSubmittingBooking(true);
       await appointmentsApi.create({
-        patientId: Number(activeProfile.patientId),
+        patientId: Number(targetPatientId),
         datetime: `${bookingForm.datetime}:00`,
-        notes: bookingForm.notes,
-        reason: bookingForm.reason,
+        notes: sanitizeText(bookingForm.notes) || null,
+        reason: sanitizeText(bookingForm.reason) || "General Consultation",
       });
 
       setBookingOpen(false);
       setBookingStep(1);
       setBookingForm({ reason: "general", datetime: "", notes: "" });
-      showSuccess("Appointment booked successfully!");
-      await loadDashboard(activeProfile.patientId);
+      showSuccess("Appointment slot booked successfully!");
+      await loadDashboard(targetPatientId);
     } catch (error) {
-      showError(error?.response?.data?.message || error?.message || "Failed to book appointment.");
+      showError(error);
     } finally {
       setSubmittingBooking(false);
     }
@@ -85,23 +140,29 @@ export default function UserDashboard() {
 
   const handlePayment = async (e) => {
     e.preventDefault();
-    if (!payingInvoice || !paymentForm.screenshotUrl) return;
+    if (!payingInvoice) return;
+
+    const cleanProof = sanitizeText(paymentForm.screenshotUrl);
+    if (!cleanProof) {
+      showError("Please provide a payment transfer screenshot URL or transaction reference number.", "Payment Proof Required");
+      return;
+    }
 
     try {
       setSubmittingPayment(true);
       await paymentsApi.manualProof({
         appointmentId: Number(payingInvoice.appointmentId),
-        paymentMethod: paymentForm.paymentMethod,
+        paymentMethod: paymentForm.paymentMethod || "kbzpay",
         amount: Number(payingInvoice.amount),
-        screenshotUrl: paymentForm.screenshotUrl,
+        screenshotUrl: cleanProof,
       });
 
       setPayingInvoice(null);
       setPaymentForm({ paymentMethod: "kbzpay", screenshotUrl: "" });
       showSuccess("Payment transfer proof submitted for clinic review.");
-      await loadDashboard(activeProfile.patientId);
+      await loadDashboard(currentProfile?.patientId);
     } catch (error) {
-      showError(error?.response?.data?.message || error?.message || "Failed to submit payment proof.");
+      showError(error);
     } finally {
       setSubmittingPayment(false);
     }
@@ -135,7 +196,7 @@ export default function UserDashboard() {
     return `${day}-${month}-${year}`;
   };
 
-  if (!activeProfile) {
+  if (!currentProfile) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <ExclamationTriangleIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4 animate-bounce" />
@@ -161,46 +222,55 @@ export default function UserDashboard() {
       <section className="rounded-3xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4 md:gap-6">
           <div className="grid h-16 w-16 md:h-20 md:w-20 place-items-center rounded-2xl bg-white/15 text-2xl font-bold text-white backdrop-blur-sm border border-white/20 shadow-inner">
-            {activeProfile.name?.slice(0, 2)?.toUpperCase() || "PT"}
+            {currentProfile.name?.slice(0, 2)?.toUpperCase() || "PT"}
           </div>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight">{activeProfile.name}</h2>
-              {activeProfile.bloodType && (
+              <h2 className="text-2xl md:text-3xl font-black tracking-tight">{currentProfile.name}</h2>
+              {currentProfile.bloodType && (
                 <span className="flex items-center gap-1 bg-rose-500/20 text-rose-200 text-xs font-bold px-2.5 py-0.5 rounded-full border border-rose-500/30">
                   <HeartIcon className="w-3.5 h-3.5" />
-                  <span>{activeProfile.bloodType}</span>
+                  <span>{currentProfile.bloodType}</span>
                 </span>
               )}
             </div>
             <p className="mt-2 text-xs text-white/80 font-medium flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1.5">
                 <PersonIcon className="w-3.5 h-3.5" />
-                <span>{activeProfile.gender || "Not Specified"}</span>
+                <span>{currentProfile.gender || "Not Specified"}</span>
               </span>
-              {activeProfile.mobileNo && (
+              {currentProfile.mobileNo && (
                 <span className="flex items-center gap-1.5">
                   <HeartIcon className="w-3.5 h-3.5" />
-                  <span>{activeProfile.mobileNo}</span>
+                  <span>{currentProfile.mobileNo}</span>
                 </span>
               )}
-              {activeProfile.actualAddress && (
+              {currentProfile.actualAddress && (
                 <span className="flex items-center gap-1.5">
                   <SewingPinIcon className="w-3.5 h-3.5" />
-                  <span>{activeProfile.actualAddress}</span>
+                  <span>{currentProfile.actualAddress}</span>
                 </span>
               )}
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => setBookingOpen(true)}
-          className="rounded-2xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs px-6 py-3 shadow-lg transition flex items-center gap-2 shrink-0 self-start md:self-center btn-target"
-        >
-          <PlusIcon className="w-4 h-4" />
-          <span>{language === "mm" ? "ချိန်းဆိုမှု အသစ်ပြုလုပ်ရန်" : "Book Appointment"}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => openProfileDetail(currentProfile)}
+            className="rounded-2xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs px-4 py-3 shadow-md transition flex items-center gap-2 shrink-0 border border-white/30 backdrop-blur-sm cursor-pointer"
+          >
+            <FileTextIcon className="w-4 h-4" />
+            <span>{language === "mm" ? "အသေးစိတ်နှင့် ဆေးမှတ်တမ်း" : "View Full Details"}</span>
+          </button>
+          <button
+            onClick={() => setBookingOpen(true)}
+            className="rounded-2xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs px-6 py-3 shadow-lg transition flex items-center gap-2 shrink-0 self-start md:self-center cursor-pointer"
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>{language === "mm" ? "ချိန်းဆိုမှု အသစ်ပြုလုပ်ရန်" : "Book Appointment"}</span>
+          </button>
+        </div>
       </section>
 
       {/* Quick Summary Cards */}
@@ -225,7 +295,7 @@ export default function UserDashboard() {
             Family Profiles
           </div>
           <div className="text-xl font-bold text-slate-900 dark:text-white">
-            {data?.patientProfiles?.length || 0} Linked
+            {patientProfiles.length} Linked
           </div>
           <button
             onClick={() => setManageOpen(true)}
@@ -259,6 +329,97 @@ export default function UserDashboard() {
           </span>
         </div>
       </div>
+
+      {/* Linked Family Patient Profiles Section */}
+      <section className="rounded-3xl border border-border/80 bg-card p-6 shadow-scms space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-border/70">
+          <div>
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <PersonIcon className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              <span>{language === "mm" ? "ချိတ်ဆက်ထားသော မိသားစုဝင် ဆေးမှတ်တမ်းများ" : "Linked Patient & Family Profiles"}</span>
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select an active profile to view appointments, medical history, and prescriptions.
+            </p>
+          </div>
+          <button
+            onClick={() => setManageOpen(true)}
+            className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target"
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>{language === "mm" ? "ပရိုဖိုင်အသစ်ထည့်ရန်" : "Add Family Member"}</span>
+          </button>
+        </div>
+
+        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          {patientProfiles.map((profile) => {
+            const isActive = profile.patientId === activeProfile?.patientId;
+            return (
+              <div
+                key={profile.patientId}
+                onClick={() => setActiveProfile(profile)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                  isActive
+                    ? "bg-orange-50/80 dark:bg-orange-950/40 border-orange-300 dark:border-orange-800 shadow-xs ring-2 ring-orange-500/20"
+                    : "bg-secondary/40 hover:bg-secondary/70 border-border/70"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 font-bold text-sm border border-orange-500/20">
+                      {profile.name?.[0]?.toUpperCase() || "P"}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-foreground">{profile.name}</h4>
+                      <p className="text-[11px] text-muted-foreground capitalize">
+                        {profile.gender || "Patient"} • {profile.bloodType || "O+"}
+                      </p>
+                    </div>
+                  </div>
+                  {isActive ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-600 text-white shadow-2xs">
+                      ACTIVE
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-muted-foreground bg-card border border-border/80 px-2 py-0.5 rounded-full">
+                      Select
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-[11px] text-muted-foreground space-y-1 border-t border-border/60 pt-2">
+                  {profile.mobileNo && (
+                    <div className="truncate">📞 {profile.mobileNo}</div>
+                  )}
+                  {profile.actualAddress && (
+                    <div className="truncate">📍 {profile.actualAddress}</div>
+                  )}
+                  {profile.allergies && (
+                    <div className="text-rose-600 dark:text-rose-400 font-semibold truncate">
+                      ⚠️ Allergy: {profile.allergies}
+                    </div>
+                  )}
+                  <div className="pt-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      ID: #{profile.patientId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openProfileDetail(profile);
+                      }}
+                      className="scms-btn-sm text-[11px] font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/50 py-1 px-2.5 rounded-xl border border-orange-200 dark:border-orange-900/50"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Grid: Upcoming Appointments & Unpaid Balances */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -362,14 +523,15 @@ export default function UserDashboard() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => downloadInvoice(invoice.id)}
-                        className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                        className="scms-btn-icon"
                         title="Download Invoice PDF"
+                        aria-label="Download Invoice PDF"
                       >
                         <DownloadIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setPayingInvoice(invoice)}
-                        className="scms-btn-primary px-3 h-8 min-h-8 text-xs font-bold btn-target"
+                        className="scms-btn-sm-primary"
                       >
                         {language === "mm" ? "ပေးချေရန်" : "Pay Now"}
                       </button>
@@ -418,8 +580,9 @@ export default function UserDashboard() {
                     </div>
                     <button
                       onClick={() => downloadPrescription(rx.id)}
-                      className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-indigo-600 dark:text-indigo-400 btn-target"
+                      className="scms-btn-icon text-orange-600 dark:text-orange-400"
                       title="Download PDF"
+                      aria-label="Download PDF"
                     >
                       <DownloadIcon className="w-4 h-4" />
                     </button>
@@ -482,7 +645,7 @@ export default function UserDashboard() {
 
                   {rx.notes && (
                     <div className="mt-3 text-xs text-slate-500 italic border-t border-slate-100 dark:border-slate-800 pt-2.5">
-                      &ldquo;{rx.notes}&rdquo;
+                      &ldquo;{parsePrescriptionNotes(rx.notes)}&rdquo;
                     </div>
                   )}
                 </div>
@@ -493,9 +656,15 @@ export default function UserDashboard() {
       </section>
 
       {/* Booking Wizard Modal */}
-      {bookingOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
+      <ModalPortal
+        isOpen={bookingOpen}
+        onClose={() => {
+          setBookingOpen(false);
+          setBookingStep(1);
+        }}
+      >
+        {bookingOpen && (
+          <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <MagicWandIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -600,7 +769,7 @@ export default function UserDashboard() {
                   </span>
                   <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5 space-y-1.5">
                     <div>
-                      <strong>Patient:</strong> {activeProfile.name}
+                      <strong>Patient:</strong> {currentProfile?.name || "Selected Patient"}
                     </div>
                     <div>
                       <strong>Reason:</strong> {bookingForm.reason}
@@ -634,15 +803,15 @@ export default function UserDashboard() {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
 
       {/* Payment Proof Modal */}
-      {payingInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+      <ModalPortal isOpen={Boolean(payingInvoice)} onClose={() => setPayingInvoice(null)}>
+        {payingInvoice && (
           <form
             onSubmit={handlePayment}
-            className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4"
+            className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4"
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -718,8 +887,160 @@ export default function UserDashboard() {
               </button>
             </div>
           </form>
-        </div>
-      )}
+        )}
+      </ModalPortal>
+
+      {/* Patient Profile Full Details Modal */}
+      <ModalPortal
+        isOpen={profileDetailOpen && Boolean(detailedProfile)}
+        onClose={() => setProfileDetailOpen(false)}
+      >
+        {detailedProfile && (
+          <div className="w-full max-w-2xl rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-border/70 gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 font-extrabold text-lg border border-orange-500/20">
+                  {detailedProfile.name?.[0]?.toUpperCase() || "P"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-extrabold text-foreground">
+                      {detailedProfile.name}
+                    </h3>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border/80">
+                      ID: #{detailedProfile.patientId}
+                    </span>
+                    {detailedProfile.bloodType && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50">
+                        🩸 {detailedProfile.bloodType}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {detailedProfile.gender || "Not Specified"}
+                    {detailedProfile.dateOfBirth && ` • Born ${formatDate(detailedProfile.dateOfBirth)}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProfileDetailOpen(false)}
+                  className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary cursor-pointer"
+                >
+                  <Cross2Icon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Action Banner: PDF Summary & Appointment */}
+            <div className="rounded-2xl border border-orange-200/70 dark:border-orange-900/50 bg-gradient-to-br from-orange-50/80 via-orange-50/30 to-transparent dark:from-orange-950/30 dark:via-orange-950/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-orange-950 dark:text-orange-200">
+                  Official Medical Summary Report
+                </h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Export verified clinical records, prescriptions, and health history as PDF.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDownloadSummary(detailedProfile.patientId)}
+                disabled={downloadingSummary}
+                className="scms-btn-primary text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-xs"
+              >
+                {downloadingSummary ? (
+                  <span className="loading loading-spinner loading-xs" />
+                ) : (
+                  <DownloadIcon className="w-3.5 h-3.5" />
+                )}
+                <span>Download Summary PDF</span>
+              </button>
+            </div>
+
+            {/* Demographic & Contact Details */}
+            <div className="grid gap-3 sm:grid-cols-2 text-xs">
+              <div className="p-3.5 rounded-2xl border border-border/70 bg-secondary/30 space-y-1">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Contact Phone
+                </div>
+                <div className="font-bold text-foreground font-mono">
+                  {detailedProfile.mobileNo || detailedProfile.phone || "No phone registered"}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl border border-border/70 bg-secondary/30 space-y-1">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Email Address
+                </div>
+                <div className="font-bold text-foreground">
+                  {detailedProfile.email || "No email provided"}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl border border-border/70 bg-secondary/30 space-y-1 sm:col-span-2">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Residential Address
+                </div>
+                <div className="font-medium text-foreground">
+                  {detailedProfile.actualAddress || detailedProfile.address || "No address specified"}
+                </div>
+              </div>
+            </div>
+
+            {/* Medical & Clinical Alerts */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Clinical Alerts & Medical Profile
+              </h4>
+              <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                <div className="p-3.5 rounded-2xl border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 space-y-1">
+                  <div className="text-[10px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1">
+                    <span>⚠️ Known Allergies</span>
+                  </div>
+                  <div className="font-bold text-rose-900 dark:text-rose-200">
+                    {detailedProfile.allergies || "No drug/food allergies recorded"}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/30 space-y-1">
+                  <div className="text-[10px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                    <span>🩺 Chronic Conditions</span>
+                  </div>
+                  <div className="font-bold text-indigo-900 dark:text-indigo-200">
+                    {detailedProfile.chronicConditions || "No chronic conditions noted"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="pt-3 flex items-center justify-between border-t border-border/70">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveProfile(detailedProfile);
+                  setProfileDetailOpen(false);
+                  setBookingOpen(true);
+                }}
+                className="scms-btn-outline text-xs font-bold flex items-center gap-1.5"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                <span>Book For This Profile</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileDetailOpen(false)}
+                className="scms-btn-primary text-xs font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </ModalPortal>
     </div>
   );
 }
