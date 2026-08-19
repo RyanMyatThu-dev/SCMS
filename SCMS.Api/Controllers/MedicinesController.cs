@@ -23,18 +23,33 @@ namespace SCMS.Api.Controllers
             _medicineService = medicineService;
         }
 
-        /// <summary>Search and list medicines with stock totals and alert flags.</summary>
+        /// <summary>List medicines catalog with pagination and optional category filter.</summary>
         [HttpGet]
         [HasPermission("Medicines.View")]
-        [ProducesResponseType(typeof(PagedResult<MedicineSearchResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetMedicinesResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> SearchMedicines([FromQuery] string? query, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetMedicines([FromQuery] GetMedicinesRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            request ??= new GetMedicinesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
-            var result = await _medicineService.SearchMedicinesAsync(query, paginationRequest);
+            var result = await _medicineService.GetMedicinesAsync(request);
+            return result.IsFailure ? BadRequest(result) : Ok(result);
+        }
+
+        /// <summary>Search medicines with keyword query and pagination.</summary>
+        [HttpGet("search")]
+        [HasPermission("Medicines.View")]
+        [ProducesResponseType(typeof(PagedResult<SearchMedicinesResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SearchMedicines([FromQuery] SearchMedicinesRequest request)
+        {
+            request ??= new SearchMedicinesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var result = await _medicineService.SearchMedicinesAsync(request);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
@@ -67,28 +82,37 @@ namespace SCMS.Api.Controllers
         /// <summary>Query medicine batches with filtering, sorting, and pagination.</summary>
         [HttpGet("batches")]
         [HasPermission("Medicines.View")]
-        [ProducesResponseType(typeof(PagedResult<BatchDetailResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetBatchesResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetBatches(
-            [FromQuery] string? query,
-            [FromQuery] string? status,
-            [FromQuery] int? medicineId,
-            [FromQuery] string? sortBy,
-            [FromQuery] bool sortDescending = false,
-            [FromQuery] PaginationRequest? paginationRequest = null)
+        public async Task<IActionResult> GetBatches([FromQuery] GetBatchesRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            request ??= new GetBatchesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
-            var result = await _medicineService.GetBatchesAsync(query, status, medicineId, sortBy, sortDescending, paginationRequest);
+            var result = await _medicineService.GetBatchesAsync(request);
+            return result.IsFailure ? BadRequest(result) : Ok(result);
+        }
+
+        /// <summary>Search medicine batches with keyword query, sorting, and pagination.</summary>
+        [HttpGet("batches/search")]
+        [HasPermission("Medicines.View")]
+        [ProducesResponseType(typeof(PagedResult<SearchBatchesResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SearchBatches([FromQuery] SearchBatchesRequest request)
+        {
+            request ??= new SearchBatchesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var result = await _medicineService.SearchBatchesAsync(request);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
         /// <summary>Get medicine batch details by batch ID.</summary>
         [HttpGet("batches/{id:int}")]
         [HasPermission("Medicines.View")]
-        [ProducesResponseType(typeof(Result<BatchDetailResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<GetBatchByIdResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetBatch(int id)
         {
@@ -99,7 +123,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Create a new medicine batch.</summary>
         [HttpPost("batches")]
         [HasPermission("Medicines.Create")]
-        [ProducesResponseType(typeof(Result<BatchDetailResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<CreateBatchResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateBatch([FromBody] CreateBatchRequest request)
         {
@@ -110,7 +134,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Update an existing medicine batch.</summary>
         [HttpPut("batches/{id:int}")]
         [HasPermission("Medicines.Update")]
-        [ProducesResponseType(typeof(Result<BatchDetailResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<UpdateBatchResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateBatch(int id, [FromBody] UpdateBatchRequest request)
         {
@@ -144,7 +168,7 @@ namespace SCMS.Api.Controllers
         [HttpPost]
         [Consumes("multipart/form-data")]
         [HasPermission("Medicines.Create")]
-        [ProducesResponseType(typeof(Result<MedicineSearchResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<CreateMedicineResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateMedicine([FromForm] CreateMedicineRequest request, IFormFile? image)
         {
@@ -156,7 +180,7 @@ namespace SCMS.Api.Controllers
         [HttpPut("{id:int}")]
         [Consumes("multipart/form-data")]
         [HasPermission("Medicines.Update")]
-        [ProducesResponseType(typeof(Result<MedicineSearchResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<UpdateMedicineResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateMedicine(int id, [FromForm] UpdateMedicineRequest request, IFormFile? image)
         {

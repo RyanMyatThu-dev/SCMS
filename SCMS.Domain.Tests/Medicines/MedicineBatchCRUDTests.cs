@@ -27,36 +27,49 @@ namespace SCMS.Domain.Tests.Medicines
             var service = new MedicineService(db.Context);
 
             // Filter by medicine ID
-            var resultMedId = await service.GetBatchesAsync(
-                query: null, status: null, medicineId: med1.MedicineId,
-                sortBy: null, sortDescending: false, new PaginationRequest { PageNumber = 1, PageSize = 10 });
+            var resultMedId = await service.GetBatchesAsync(new GetBatchesRequest
+            {
+                MedicineId = med1.MedicineId,
+                PageNumber = 1,
+                PageSize = 10
+            });
             
             Assert.True(resultMedId.IsSuccess);
             Assert.Equal(2, resultMedId.Data.Count);
             Assert.All(resultMedId.Data, b => Assert.Equal(med1.MedicineId, b.MedId));
 
             // Filter by status
-            var resultStatus = await service.GetBatchesAsync(
-                query: null, status: "expired", medicineId: null,
-                sortBy: null, sortDescending: false, new PaginationRequest { PageNumber = 1, PageSize = 10 });
+            var resultStatus = await service.GetBatchesAsync(new GetBatchesRequest
+            {
+                Status = "expired",
+                PageNumber = 1,
+                PageSize = 10
+            });
 
             Assert.True(resultStatus.IsSuccess);
             var expiredBatch = Assert.Single(resultStatus.Data);
             Assert.Equal("ASP-02", expiredBatch.BatchNo);
 
             // Search query
-            var resultQuery = await service.GetBatchesAsync(
-                query: "PARA", status: null, medicineId: null,
-                sortBy: null, sortDescending: false, new PaginationRequest { PageNumber = 1, PageSize = 10 });
+            var resultQuery = await service.SearchBatchesAsync(new SearchBatchesRequest
+            {
+                Query = "PARA",
+                PageNumber = 1,
+                PageSize = 10
+            });
 
             Assert.True(resultQuery.IsSuccess);
             var searchedBatch = Assert.Single(resultQuery.Data);
             Assert.Equal("PARA-01", searchedBatch.BatchNo);
 
             // Sort by quantity descending
-            var resultSort = await service.GetBatchesAsync(
-                query: null, status: null, medicineId: null,
-                sortBy: "Quantity", sortDescending: true, new PaginationRequest { PageNumber = 1, PageSize = 10 });
+            var resultSort = await service.GetBatchesAsync(new GetBatchesRequest
+            {
+                SortBy = "Quantity",
+                SortDescending = true,
+                PageNumber = 1,
+                PageSize = 10
+            });
 
             Assert.True(resultSort.IsSuccess);
             Assert.Equal(3, resultSort.Data.Count);

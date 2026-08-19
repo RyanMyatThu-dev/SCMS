@@ -26,7 +26,7 @@ namespace SCMS.Domain.Features.Medicines
             _photoService = photoService;
         }
 
-        public async Task<PagedResult<MedicineSearchResponse>> SearchMedicinesAsync(string? query, PaginationRequest paginationRequest)
+        public async Task<PagedResult<GetMedicinesResponse>> GetMedicinesAsync(GetMedicinesRequest request)
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             
@@ -35,62 +35,48 @@ namespace SCMS.Domain.Features.Medicines
                 .Include(m => m.TblMedicineBatches)
                 .Where(m => m.DeleteFlag != true);
 
-            if (!string.IsNullOrEmpty(query))
+            if (request.CategoryId.HasValue)
             {
-                var q = query.ToLower().Trim();
+                baseQuery = baseQuery.Where(m => m.CategoryId == request.CategoryId.Value);
+            }
+
+            var totalCount = await baseQuery.CountAsync();
+            var medicines = await baseQuery
+                .OrderBy(m => m.Name)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
+
+            var list = medicines.Select(m => MapToGetMedicinesResponse(m, today)).ToList();
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<GetMedicinesResponse>.Success(list, pagination);
+        }
+
+        public async Task<PagedResult<SearchMedicinesResponse>> SearchMedicinesAsync(SearchMedicinesRequest request)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            
+            var baseQuery = _context.TblMedicines
+                .Include(m => m.Category)
+                .Include(m => m.TblMedicineBatches)
+                .Where(m => m.DeleteFlag != true);
+
+            if (!string.IsNullOrEmpty(request.Query))
+            {
+                var q = request.Query.ToLower().Trim();
                 baseQuery = baseQuery.Where(m => m.Name.ToLower().Contains(q) || (m.Description != null && m.Description.ToLower().Contains(q)));
             }
 
             var totalCount = await baseQuery.CountAsync();
             var medicines = await baseQuery
                 .OrderBy(m => m.Name)
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync();
 
-            var list = new List<MedicineSearchResponse>();
-
-            foreach (var m in medicines)
-            {
-                // Filter out expired batches
-                var activeBatches = m.TblMedicineBatches
-                    .Where(b => b.DeleteFlag != true && b.Status == "active" && b.ExpiryDate > today && b.Quantity > 0)
-                    .OrderBy(b => b.ExpiryDate) // FIFO ordering by default
-                    .Select(b => new BatchInfoResponse
-                    {
-                        Id = b.Id,
-                        BatchNo = b.BatchNo,
-                        Quantity = b.Quantity,
-                        ExpiryDate = b.ExpiryDate,
-                        ReceivedDate = b.ReceivedDate,
-                        SupplierName = b.SupplierName,
-                        Status = b.Status
-                    })
-                    .ToList();
-
-                var totalStock = activeBatches.Sum(b => b.Quantity);
-                var nearExpiry = activeBatches.Any(b => b.ExpiryDate <= today.AddDays(30));
-                var lowStock = totalStock < LowStockThreshold;
-
-                list.Add(new MedicineSearchResponse
-                {
-                    MedicineId = m.MedicineId,
-                    CategoryId = m.CategoryId,
-                    CategoryName = m.Category?.Name,
-                    Name = m.Name,
-                    Description = m.Description,
-                    ImageUrl = m.ImageUrl,
-                    ImageId = null,
-                    UnitPrice = m.UnitPrice,
-                    TotalStock = totalStock,
-                    ActiveBatches = activeBatches,
-                    HasLowStockWarning = lowStock,
-                    HasNearExpiryWarning = nearExpiry
-                });
-            }
-
-            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
-            return PagedResult<MedicineSearchResponse>.Success(list, pagination);
+            var list = medicines.Select(m => MapToSearchMedicinesResponse(m, today)).ToList();
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<SearchMedicinesResponse>.Success(list, pagination);
         }
 
         public async Task<Result> QuarantineExpiredBatchesAsync()
@@ -243,57 +229,39 @@ namespace SCMS.Domain.Features.Medicines
             "active", "expired", "disposed", "quarantined"
         };
 
-        public async Task<PagedResult<BatchDetailResponse>> GetBatchesAsync(
-            string? query,
-            string? status,
-            int? medicineId,
-            string? sortBy,
-            bool sortDescending,
-            PaginationRequest paginationRequest)
+        public async Task<PagedResult<GetBatchesResponse>> GetBatchesAsync(GetBatchesRequest request)
         {
             var baseQuery = _context.TblMedicineBatches
                 .Include(b => b.Med)
                 .Where(b => b.DeleteFlag != true);
 
-            // Filter by medicine id
-            if (medicineId.HasValue)
+            if (request.MedicineId.HasValue)
             {
-                baseQuery = baseQuery.Where(b => b.MedId == medicineId.Value);
+                baseQuery = baseQuery.Where(b => b.MedId == request.MedicineId.Value);
             }
 
-            // Filter by status
-            if (!string.IsNullOrWhiteSpace(status))
+            if (!string.IsNullOrWhiteSpace(request.Status))
             {
-                var s = status.ToLower().Trim();
+                var s = request.Status.ToLower().Trim();
                 baseQuery = baseQuery.Where(b => b.Status == s);
             }
 
-            // Search by medicine name or batch number
-            if (!string.IsNullOrWhiteSpace(query))
-            {
-                var q = query.ToLower().Trim();
-                baseQuery = baseQuery.Where(b =>
-                    b.BatchNo.ToLower().Contains(q) ||
-                    b.Med.Name.ToLower().Contains(q) ||
-                    (b.SupplierName != null && b.SupplierName.ToLower().Contains(q)));
-            }
-
             // Sorting
-            baseQuery = (sortBy?.ToLower()) switch
+            baseQuery = (request.SortBy?.ToLower()) switch
             {
-                "medicinename" => sortDescending
+                "medicinename" => request.SortDescending
                     ? baseQuery.OrderByDescending(b => b.Med.Name)
                     : baseQuery.OrderBy(b => b.Med.Name),
-                "expirydate" => sortDescending
+                "expirydate" => request.SortDescending
                     ? baseQuery.OrderByDescending(b => b.ExpiryDate)
                     : baseQuery.OrderBy(b => b.ExpiryDate),
-                "quantity" => sortDescending
+                "quantity" => request.SortDescending
                     ? baseQuery.OrderByDescending(b => b.Quantity)
                     : baseQuery.OrderBy(b => b.Quantity),
-                "status" => sortDescending
+                "status" => request.SortDescending
                     ? baseQuery.OrderByDescending(b => b.Status)
                     : baseQuery.OrderBy(b => b.Status),
-                "batchno" => sortDescending
+                "batchno" => request.SortDescending
                     ? baseQuery.OrderByDescending(b => b.BatchNo)
                     : baseQuery.OrderBy(b => b.BatchNo),
                 _ => baseQuery.OrderBy(b => b.Med.Name).ThenBy(b => b.ExpiryDate)
@@ -301,16 +269,55 @@ namespace SCMS.Domain.Features.Medicines
 
             var totalCount = await baseQuery.CountAsync();
             var batches = await baseQuery
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync();
 
-            var list = batches.Select(MapToBatchDetail).ToList();
-            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
-            return PagedResult<BatchDetailResponse>.Success(list, pagination);
+            var list = batches.Select(MapToGetBatchesResponse).ToList();
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<GetBatchesResponse>.Success(list, pagination);
         }
 
-        public async Task<Result<BatchDetailResponse>> GetBatchByIdAsync(int id)
+        public async Task<PagedResult<SearchBatchesResponse>> SearchBatchesAsync(SearchBatchesRequest request)
+        {
+            var baseQuery = _context.TblMedicineBatches
+                .Include(b => b.Med)
+                .Where(b => b.DeleteFlag != true);
+
+            if (request.MedicineId.HasValue)
+            {
+                baseQuery = baseQuery.Where(b => b.MedId == request.MedicineId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Status))
+            {
+                var s = request.Status.ToLower().Trim();
+                baseQuery = baseQuery.Where(b => b.Status == s);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Query))
+            {
+                var q = request.Query.ToLower().Trim();
+                baseQuery = baseQuery.Where(b =>
+                    b.BatchNo.ToLower().Contains(q) ||
+                    b.Med.Name.ToLower().Contains(q) ||
+                    (b.SupplierName != null && b.SupplierName.ToLower().Contains(q)));
+            }
+
+            var totalCount = await baseQuery.CountAsync();
+            var batches = await baseQuery
+                .OrderBy(b => b.Med.Name)
+                .ThenBy(b => b.ExpiryDate)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
+
+            var list = batches.Select(MapToSearchBatchesResponse).ToList();
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<SearchBatchesResponse>.Success(list, pagination);
+        }
+
+        public async Task<Result<GetBatchByIdResponse>> GetBatchByIdAsync(int id)
         {
             var batch = await _context.TblMedicineBatches
                 .Include(b => b.Med)
@@ -318,13 +325,13 @@ namespace SCMS.Domain.Features.Medicines
 
             if (batch == null)
             {
-                return Result<BatchDetailResponse>.Failure("Batch not found.");
+                return Result<GetBatchByIdResponse>.Failure("Batch not found.");
             }
 
-            return Result<BatchDetailResponse>.Success(MapToBatchDetail(batch));
+            return Result<GetBatchByIdResponse>.Success(MapToGetBatchByIdResponse(batch));
         }
 
-        public async Task<Result<BatchDetailResponse>> CreateBatchAsync(CreateBatchRequest request)
+        public async Task<Result<CreateBatchResponse>> CreateBatchAsync(CreateBatchRequest request)
         {
             // Validate medicine exists
             var medicine = await _context.TblMedicines
@@ -332,13 +339,13 @@ namespace SCMS.Domain.Features.Medicines
 
             if (medicine == null)
             {
-                return Result<BatchDetailResponse>.Failure("Medicine not found.");
+                return Result<CreateBatchResponse>.Failure("Medicine not found.");
             }
 
             // Validate expiry date is after manufacture date
             if (request.ExpiryDate <= request.ManufactureDate)
             {
-                return Result<BatchDetailResponse>.Failure("Expiry date must be after manufacture date.");
+                return Result<CreateBatchResponse>.Failure("Expiry date must be after manufacture date.");
             }
 
             // Validate no duplicate batch number for same medicine
@@ -347,20 +354,20 @@ namespace SCMS.Domain.Features.Medicines
 
             if (duplicateExists)
             {
-                return Result<BatchDetailResponse>.Failure($"A batch with number '{request.BatchNo}' already exists for this medicine.");
+                return Result<CreateBatchResponse>.Failure($"A batch with number '{request.BatchNo}' already exists for this medicine.");
             }
 
             // Validate status
             var batchStatus = string.IsNullOrWhiteSpace(request.Status) ? "active" : request.Status.ToLower().Trim();
             if (!AllowedBatchStatuses.Contains(batchStatus))
             {
-                return Result<BatchDetailResponse>.Failure("Invalid batch status. Allowed values: active, expired, disposed.");
+                return Result<CreateBatchResponse>.Failure("Invalid batch status. Allowed values: active, expired, disposed.");
             }
 
             // Validate quantity
             if (request.Quantity < 0)
             {
-                return Result<BatchDetailResponse>.Failure("Quantity cannot be negative.");
+                return Result<CreateBatchResponse>.Failure("Quantity cannot be negative.");
             }
 
             var batch = new TblMedicineBatch
@@ -386,10 +393,10 @@ namespace SCMS.Domain.Features.Medicines
             // Audit log
             Console.WriteLine($"[AUDIT] Batch CREATED: Id={batch.Id}, BatchNo={batch.BatchNo}, MedId={batch.MedId}, Quantity={batch.Quantity}, Status={batch.Status}, At={DateTime.UtcNow:O}");
 
-            return Result<BatchDetailResponse>.Success(MapToBatchDetail(batch), "Batch created successfully.");
+            return Result<CreateBatchResponse>.Success(MapToCreateBatchResponse(batch), "Batch created successfully.");
         }
 
-        public async Task<Result<BatchDetailResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request)
+        public async Task<Result<UpdateBatchResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request)
         {
             var batch = await _context.TblMedicineBatches
                 .Include(b => b.Med)
@@ -397,7 +404,7 @@ namespace SCMS.Domain.Features.Medicines
 
             if (batch == null)
             {
-                return Result<BatchDetailResponse>.Failure("Batch not found.");
+                return Result<UpdateBatchResponse>.Failure("Batch not found.");
             }
 
             // Validate medicine exists
@@ -406,13 +413,13 @@ namespace SCMS.Domain.Features.Medicines
 
             if (medicine == null)
             {
-                return Result<BatchDetailResponse>.Failure("Medicine not found.");
+                return Result<UpdateBatchResponse>.Failure("Medicine not found.");
             }
 
             // Validate expiry date is after manufacture date
             if (request.ExpiryDate <= request.ManufactureDate)
             {
-                return Result<BatchDetailResponse>.Failure("Expiry date must be after manufacture date.");
+                return Result<UpdateBatchResponse>.Failure("Expiry date must be after manufacture date.");
             }
 
             // Validate no duplicate batch number for same medicine (exclude self)
@@ -421,20 +428,20 @@ namespace SCMS.Domain.Features.Medicines
 
             if (duplicateExists)
             {
-                return Result<BatchDetailResponse>.Failure($"A batch with number '{request.BatchNo}' already exists for this medicine.");
+                return Result<UpdateBatchResponse>.Failure($"A batch with number '{request.BatchNo}' already exists for this medicine.");
             }
 
             // Validate status
             var batchStatus = string.IsNullOrWhiteSpace(request.Status) ? batch.Status : request.Status.ToLower().Trim();
             if (!AllowedBatchStatuses.Contains(batchStatus))
             {
-                return Result<BatchDetailResponse>.Failure("Invalid batch status. Allowed values: active, expired, disposed.");
+                return Result<UpdateBatchResponse>.Failure("Invalid batch status. Allowed values: active, expired, disposed.");
             }
 
             // Validate quantity
             if (request.Quantity < 0)
             {
-                return Result<BatchDetailResponse>.Failure("Quantity cannot be negative.");
+                return Result<UpdateBatchResponse>.Failure("Quantity cannot be negative.");
             }
 
             // Audit - record old values
@@ -456,7 +463,7 @@ namespace SCMS.Domain.Features.Medicines
 
             Console.WriteLine($"[AUDIT] Batch UPDATED: Id={batch.Id}, NewBatchNo={batch.BatchNo}, NewQty={batch.Quantity}, NewStatus={batch.Status}, At={DateTime.UtcNow:O}");
 
-            return Result<BatchDetailResponse>.Success(MapToBatchDetail(batch), "Batch updated successfully.");
+            return Result<UpdateBatchResponse>.Success(MapToUpdateBatchResponse(batch), "Batch updated successfully.");
         }
 
         public async Task<Result> DeleteBatchAsync(int id, bool force = false)
@@ -471,8 +478,6 @@ namespace SCMS.Domain.Features.Medicines
             }
 
             // Check for active prescriptions referencing this batch
-            // Active = prescription item linked to this batch where the parent prescription's
-            // appointment is NOT completed or cancelled
             var activeAllocationExists = await _context.TblPrescriptionItems
                 .Where(pi => pi.MedicineBatchId == id && pi.DeleteFlag != true)
                 .AnyAsync(pi => pi.Prescription.Appointment.Status != "completed"
@@ -502,24 +507,6 @@ namespace SCMS.Domain.Features.Medicines
             return Result.Success("Batch deleted successfully.");
         }
 
-        private static BatchDetailResponse MapToBatchDetail(TblMedicineBatch batch)
-        {
-            return new BatchDetailResponse
-            {
-                Id = batch.Id,
-                MedId = batch.MedId,
-                MedicineName = batch.Med?.Name ?? "Unknown",
-                BatchNo = batch.BatchNo,
-                Quantity = batch.Quantity,
-                ExpiryDate = batch.ExpiryDate,
-                ManufactureDate = batch.ReceivedDate ?? default,
-                ReceivedDate = batch.ReceivedDate,
-                SupplierName = batch.SupplierName,
-                Manufacturer = batch.SupplierName ?? string.Empty,
-                Status = batch.Status
-            };
-        }
-
         // ────────────────────────────────────────────────────────────────
         // Medicine CRUD
         // ────────────────────────────────────────────────────────────────
@@ -538,14 +525,14 @@ namespace SCMS.Domain.Features.Medicines
             return Result<List<MedicineCategoryResponse>>.Success(categories);
         }
 
-        public async Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, IFormFile? imageFile)
+        public async Task<Result<CreateMedicineResponse>> CreateMedicineAsync(CreateMedicineRequest request, IFormFile? imageFile)
         {
             if (request.CategoryId.HasValue)
             {
                 var categoryExists = await _context.TblMedicineCategories.AnyAsync(c => c.Id == request.CategoryId.Value);
                 if (!categoryExists)
                 {
-                    return Result<MedicineSearchResponse>.Failure("Category not found.");
+                    return Result<CreateMedicineResponse>.Failure("Category not found.");
                 }
             }
 
@@ -553,7 +540,7 @@ namespace SCMS.Domain.Features.Medicines
                 .AnyAsync(m => m.Name.ToLower() == request.Name.ToLower() && m.DeleteFlag != true);
             if (duplicateExists)
             {
-                return Result<MedicineSearchResponse>.Failure($"A medicine named '{request.Name}' already exists.");
+                return Result<CreateMedicineResponse>.Failure($"A medicine named '{request.Name}' already exists.");
             }
 
             string? imageUrl = null;
@@ -563,13 +550,13 @@ namespace SCMS.Domain.Features.Medicines
             {
                 if (_photoService == null)
                 {
-                    return Result<MedicineSearchResponse>.Failure("Photo service is not configured.");
+                    return Result<CreateMedicineResponse>.Failure("Photo service is not configured.");
                 }
 
                 var uploadResult = await _photoService.UploadPhotoAsync(imageFile);
                 if (!uploadResult.IsSuccess || uploadResult.Data == null)
                 {
-                    return Result<MedicineSearchResponse>.Failure(uploadResult.Message ?? "Failed to upload photo.");
+                    return Result<CreateMedicineResponse>.Failure(uploadResult.Message ?? "Failed to upload photo.");
                 }
 
                 imageUrl = uploadResult.Data.Url;
@@ -596,26 +583,11 @@ namespace SCMS.Domain.Features.Medicines
                 await _context.Entry(medicine).Reference(m => m.Category).LoadAsync();
             }
 
-            var response = new MedicineSearchResponse
-            {
-                MedicineId = medicine.MedicineId,
-                CategoryId = medicine.CategoryId,
-                CategoryName = medicine.Category?.Name,
-                Name = medicine.Name,
-                Description = medicine.Description,
-                ImageUrl = medicine.ImageUrl,
-                ImageId = null,
-                UnitPrice = medicine.UnitPrice,
-                TotalStock = 0,
-                ActiveBatches = new(),
-                HasLowStockWarning = true,
-                HasNearExpiryWarning = false
-            };
-
-            return Result<MedicineSearchResponse>.Success(response, "Medicine created successfully.");
+            var response = MapToCreateMedicineResponse(medicine);
+            return Result<CreateMedicineResponse>.Success(response, "Medicine created successfully.");
         }
 
-        public async Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, IFormFile? imageFile)
+        public async Task<Result<UpdateMedicineResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, IFormFile? imageFile)
         {
             var medicine = await _context.TblMedicines
                 .Include(m => m.Category)
@@ -624,7 +596,7 @@ namespace SCMS.Domain.Features.Medicines
 
             if (medicine == null)
             {
-                return Result<MedicineSearchResponse>.Failure("Medicine not found.");
+                return Result<UpdateMedicineResponse>.Failure("Medicine not found.");
             }
 
             if (request.CategoryId.HasValue)
@@ -632,7 +604,7 @@ namespace SCMS.Domain.Features.Medicines
                 var categoryExists = await _context.TblMedicineCategories.AnyAsync(c => c.Id == request.CategoryId.Value);
                 if (!categoryExists)
                 {
-                    return Result<MedicineSearchResponse>.Failure("Category not found.");
+                    return Result<UpdateMedicineResponse>.Failure("Category not found.");
                 }
             }
 
@@ -640,7 +612,7 @@ namespace SCMS.Domain.Features.Medicines
                 .AnyAsync(m => m.Name.ToLower() == request.Name.ToLower() && m.MedicineId != id && m.DeleteFlag != true);
             if (duplicateExists)
             {
-                return Result<MedicineSearchResponse>.Failure($"A medicine named '{request.Name}' already exists.");
+                return Result<UpdateMedicineResponse>.Failure($"A medicine named '{request.Name}' already exists.");
             }
 
             if (request.RemoveImage || (imageFile != null && imageFile.Length > 0))
@@ -649,7 +621,7 @@ namespace SCMS.Domain.Features.Medicines
                 {
                     if (_photoService == null)
                     {
-                        return Result<MedicineSearchResponse>.Failure("Photo service is not configured.");
+                        return Result<UpdateMedicineResponse>.Failure("Photo service is not configured.");
                     }
                     var publicId = ExtractPublicIdFromUrl(medicine.ImageUrl);
                     if (!string.IsNullOrWhiteSpace(publicId))
@@ -665,13 +637,13 @@ namespace SCMS.Domain.Features.Medicines
             {
                 if (_photoService == null)
                 {
-                    return Result<MedicineSearchResponse>.Failure("Photo service is not configured.");
+                    return Result<UpdateMedicineResponse>.Failure("Photo service is not configured.");
                 }
 
                 var uploadResult = await _photoService.UploadPhotoAsync(imageFile);
                 if (!uploadResult.IsSuccess || uploadResult.Data == null)
                 {
-                    return Result<MedicineSearchResponse>.Failure(uploadResult.Message ?? "Failed to upload photo.");
+                    return Result<UpdateMedicineResponse>.Failure(uploadResult.Message ?? "Failed to upload photo.");
                 }
 
                 medicine.ImageUrl = uploadResult.Data.Url;
@@ -691,42 +663,9 @@ namespace SCMS.Domain.Features.Medicines
             }
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var activeBatches = medicine.TblMedicineBatches
-                .Where(b => b.DeleteFlag != true && b.Status == "active" && b.ExpiryDate > today && b.Quantity > 0)
-                .OrderBy(b => b.ExpiryDate)
-                .Select(b => new BatchInfoResponse
-                {
-                    Id = b.Id,
-                    BatchNo = b.BatchNo,
-                    Quantity = b.Quantity,
-                    ExpiryDate = b.ExpiryDate,
-                    ReceivedDate = b.ReceivedDate,
-                    SupplierName = b.SupplierName,
-                    Status = b.Status
-                })
-                .ToList();
+            var response = MapToUpdateMedicineResponse(medicine, today);
 
-            var totalStock = activeBatches.Sum(b => b.Quantity);
-            var nearExpiry = activeBatches.Any(b => b.ExpiryDate <= today.AddDays(30));
-            var lowStock = totalStock < LowStockThreshold;
-
-            var response = new MedicineSearchResponse
-            {
-                MedicineId = medicine.MedicineId,
-                CategoryId = medicine.CategoryId,
-                CategoryName = medicine.Category?.Name,
-                Name = medicine.Name,
-                Description = medicine.Description,
-                ImageUrl = medicine.ImageUrl,
-                ImageId = null,
-                UnitPrice = medicine.UnitPrice,
-                TotalStock = totalStock,
-                ActiveBatches = activeBatches,
-                HasLowStockWarning = lowStock,
-                HasNearExpiryWarning = nearExpiry
-            };
-
-            return Result<MedicineSearchResponse>.Success(response, "Medicine updated successfully.");
+            return Result<UpdateMedicineResponse>.Success(response, "Medicine updated successfully.");
         }
 
         public async Task<Result> DeleteMedicineAsync(int id)
@@ -782,6 +721,248 @@ namespace SCMS.Domain.Features.Medicines
 
             return Result.Success("Medicine and its batches deleted successfully.");
         }
+
+        private static GetMedicinesResponse MapToGetMedicinesResponse(TblMedicine m, DateOnly today)
+        {
+            var activeBatches = m.TblMedicineBatches
+                .Where(b => b.DeleteFlag != true && b.Status == "active" && b.ExpiryDate > today && b.Quantity > 0)
+                .OrderBy(b => b.ExpiryDate)
+                .Select(b => new BatchInfoResponse
+                {
+                    Id = b.Id,
+                    BatchNo = b.BatchNo,
+                    Quantity = b.Quantity,
+                    ExpiryDate = b.ExpiryDate,
+                    ReceivedDate = b.ReceivedDate,
+                    SupplierName = b.SupplierName,
+                    Status = b.Status
+                })
+                .ToList();
+
+            var totalStock = activeBatches.Sum(b => b.Quantity);
+            var nearExpiry = activeBatches.Any(b => b.ExpiryDate <= today.AddDays(30));
+            var lowStock = totalStock < LowStockThreshold;
+
+            return new GetMedicinesResponse
+            {
+                MedicineId = m.MedicineId,
+                CategoryId = m.CategoryId,
+                CategoryName = m.Category?.Name,
+                Name = m.Name,
+                Description = m.Description,
+                ImageUrl = m.ImageUrl,
+                ImageId = null,
+                UnitPrice = m.UnitPrice,
+                TotalStock = totalStock,
+                ActiveBatches = activeBatches,
+                HasLowStockWarning = lowStock,
+                HasNearExpiryWarning = nearExpiry
+            };
+        }
+
+        private static SearchMedicinesResponse MapToSearchMedicinesResponse(TblMedicine m, DateOnly today)
+        {
+            var activeBatches = m.TblMedicineBatches
+                .Where(b => b.DeleteFlag != true && b.Status == "active" && b.ExpiryDate > today && b.Quantity > 0)
+                .OrderBy(b => b.ExpiryDate)
+                .Select(b => new BatchInfoResponse
+                {
+                    Id = b.Id,
+                    BatchNo = b.BatchNo,
+                    Quantity = b.Quantity,
+                    ExpiryDate = b.ExpiryDate,
+                    ReceivedDate = b.ReceivedDate,
+                    SupplierName = b.SupplierName,
+                    Status = b.Status
+                })
+                .ToList();
+
+            var totalStock = activeBatches.Sum(b => b.Quantity);
+            var nearExpiry = activeBatches.Any(b => b.ExpiryDate <= today.AddDays(30));
+            var lowStock = totalStock < LowStockThreshold;
+
+            return new SearchMedicinesResponse
+            {
+                MedicineId = m.MedicineId,
+                CategoryId = m.CategoryId,
+                CategoryName = m.Category?.Name,
+                Name = m.Name,
+                Description = m.Description,
+                ImageUrl = m.ImageUrl,
+                ImageId = null,
+                UnitPrice = m.UnitPrice,
+                TotalStock = totalStock,
+                ActiveBatches = activeBatches,
+                HasLowStockWarning = lowStock,
+                HasNearExpiryWarning = nearExpiry
+            };
+        }
+
+        private static CreateMedicineResponse MapToCreateMedicineResponse(TblMedicine medicine)
+        {
+            return new CreateMedicineResponse
+            {
+                MedicineId = medicine.MedicineId,
+                CategoryId = medicine.CategoryId,
+                CategoryName = medicine.Category?.Name,
+                Name = medicine.Name,
+                Description = medicine.Description,
+                ImageUrl = medicine.ImageUrl,
+                ImageId = null,
+                UnitPrice = medicine.UnitPrice,
+                TotalStock = 0,
+                ActiveBatches = new(),
+                HasLowStockWarning = true,
+                HasNearExpiryWarning = false
+            };
+        }
+
+        private static UpdateMedicineResponse MapToUpdateMedicineResponse(TblMedicine medicine, DateOnly today)
+        {
+            var activeBatches = medicine.TblMedicineBatches
+                .Where(b => b.DeleteFlag != true && b.Status == "active" && b.ExpiryDate > today && b.Quantity > 0)
+                .OrderBy(b => b.ExpiryDate)
+                .Select(b => new BatchInfoResponse
+                {
+                    Id = b.Id,
+                    BatchNo = b.BatchNo,
+                    Quantity = b.Quantity,
+                    ExpiryDate = b.ExpiryDate,
+                    ReceivedDate = b.ReceivedDate,
+                    SupplierName = b.SupplierName,
+                    Status = b.Status
+                })
+                .ToList();
+
+            var totalStock = activeBatches.Sum(b => b.Quantity);
+            var nearExpiry = activeBatches.Any(b => b.ExpiryDate <= today.AddDays(30));
+            var lowStock = totalStock < LowStockThreshold;
+
+            return new UpdateMedicineResponse
+            {
+                MedicineId = medicine.MedicineId,
+                CategoryId = medicine.CategoryId,
+                CategoryName = medicine.Category?.Name,
+                Name = medicine.Name,
+                Description = medicine.Description,
+                ImageUrl = medicine.ImageUrl,
+                ImageId = null,
+                UnitPrice = medicine.UnitPrice,
+                TotalStock = totalStock,
+                ActiveBatches = activeBatches,
+                HasLowStockWarning = lowStock,
+                HasNearExpiryWarning = nearExpiry
+            };
+        }
+
+        private static GetBatchesResponse MapToGetBatchesResponse(TblMedicineBatch batch)
+        {
+            return new GetBatchesResponse
+            {
+                Id = batch.Id,
+                MedId = batch.MedId,
+                MedicineName = batch.Med?.Name ?? "Unknown",
+                BatchNo = batch.BatchNo,
+                Quantity = batch.Quantity,
+                ExpiryDate = batch.ExpiryDate,
+                ManufactureDate = batch.ReceivedDate ?? default,
+                ReceivedDate = batch.ReceivedDate,
+                SupplierName = batch.SupplierName,
+                Manufacturer = batch.SupplierName ?? string.Empty,
+                Status = batch.Status
+            };
+        }
+
+        private static SearchBatchesResponse MapToSearchBatchesResponse(TblMedicineBatch batch)
+        {
+            return new SearchBatchesResponse
+            {
+                Id = batch.Id,
+                MedId = batch.MedId,
+                MedicineName = batch.Med?.Name ?? "Unknown",
+                BatchNo = batch.BatchNo,
+                Quantity = batch.Quantity,
+                ExpiryDate = batch.ExpiryDate,
+                ManufactureDate = batch.ReceivedDate ?? default,
+                ReceivedDate = batch.ReceivedDate,
+                SupplierName = batch.SupplierName,
+                Manufacturer = batch.SupplierName ?? string.Empty,
+                Status = batch.Status
+            };
+        }
+
+        private static GetBatchByIdResponse MapToGetBatchByIdResponse(TblMedicineBatch batch)
+        {
+            return new GetBatchByIdResponse
+            {
+                Id = batch.Id,
+                MedId = batch.MedId,
+                MedicineName = batch.Med?.Name ?? "Unknown",
+                BatchNo = batch.BatchNo,
+                Quantity = batch.Quantity,
+                ExpiryDate = batch.ExpiryDate,
+                ManufactureDate = batch.ReceivedDate ?? default,
+                ReceivedDate = batch.ReceivedDate,
+                SupplierName = batch.SupplierName,
+                Manufacturer = batch.SupplierName ?? string.Empty,
+                Status = batch.Status
+            };
+        }
+
+        private static CreateBatchResponse MapToCreateBatchResponse(TblMedicineBatch batch)
+        {
+            return new CreateBatchResponse
+            {
+                Id = batch.Id,
+                MedId = batch.MedId,
+                MedicineName = batch.Med?.Name ?? "Unknown",
+                BatchNo = batch.BatchNo,
+                Quantity = batch.Quantity,
+                ExpiryDate = batch.ExpiryDate,
+                ManufactureDate = batch.ReceivedDate ?? default,
+                ReceivedDate = batch.ReceivedDate,
+                SupplierName = batch.SupplierName,
+                Manufacturer = batch.SupplierName ?? string.Empty,
+                Status = batch.Status
+            };
+        }
+
+        private static UpdateBatchResponse MapToUpdateBatchResponse(TblMedicineBatch batch)
+        {
+            return new UpdateBatchResponse
+            {
+                Id = batch.Id,
+                MedId = batch.MedId,
+                MedicineName = batch.Med?.Name ?? "Unknown",
+                BatchNo = batch.BatchNo,
+                Quantity = batch.Quantity,
+                ExpiryDate = batch.ExpiryDate,
+                ManufactureDate = batch.ReceivedDate ?? default,
+                ReceivedDate = batch.ReceivedDate,
+                SupplierName = batch.SupplierName,
+                Manufacturer = batch.SupplierName ?? string.Empty,
+                Status = batch.Status
+            };
+        }
+
+        private static BatchDetailResponse MapToBatchDetail(TblMedicineBatch batch)
+        {
+            return new BatchDetailResponse
+            {
+                Id = batch.Id,
+                MedId = batch.MedId,
+                MedicineName = batch.Med?.Name ?? "Unknown",
+                BatchNo = batch.BatchNo,
+                Quantity = batch.Quantity,
+                ExpiryDate = batch.ExpiryDate,
+                ManufactureDate = batch.ReceivedDate ?? default,
+                ReceivedDate = batch.ReceivedDate,
+                SupplierName = batch.SupplierName,
+                Manufacturer = batch.SupplierName ?? string.Empty,
+                Status = batch.Status
+            };
+        }
+
         private string? ExtractPublicIdFromUrl(string? url)
         {
             if (string.IsNullOrEmpty(url)) return null;

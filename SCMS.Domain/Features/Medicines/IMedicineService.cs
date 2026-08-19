@@ -8,18 +8,20 @@ namespace SCMS.Domain.Features.Medicines
 {
     public interface IMedicineService
     {
-        Task<PagedResult<MedicineSearchResponse>> SearchMedicinesAsync(string? query, PaginationRequest paginationRequest);
-        Task<Result> QuarantineExpiredBatchesAsync();
+        Task<PagedResult<GetMedicinesResponse>> GetMedicinesAsync(GetMedicinesRequest request);
+        Task<PagedResult<SearchMedicinesResponse>> SearchMedicinesAsync(SearchMedicinesRequest request);
+        Task<Result<CreateMedicineResponse>> CreateMedicineAsync(CreateMedicineRequest request, IFormFile? imageFile);
+        Task<Result<UpdateMedicineResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, IFormFile? imageFile);
+        Task<Result> DeleteMedicineAsync(int id);
+        Task<Result<List<MedicineCategoryResponse>>> GetCategoriesAsync();
         Task<PagedResult<InventoryAlertResponse>> GetInventoryAlertsAsync(PaginationRequest paginationRequest);
         Task CreateInventoryAlertNotificationsAsync();
-        Task<PagedResult<BatchDetailResponse>> GetBatchesAsync(string? query, string? status, int? medicineId, string? sortBy, bool sortDescending, PaginationRequest paginationRequest);
-        Task<Result<BatchDetailResponse>> GetBatchByIdAsync(int id);
-        Task<Result<BatchDetailResponse>> CreateBatchAsync(CreateBatchRequest request);
-        Task<Result<BatchDetailResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request);
+        Task<Result> QuarantineExpiredBatchesAsync();
+        Task<PagedResult<GetBatchesResponse>> GetBatchesAsync(GetBatchesRequest request);
+        Task<PagedResult<SearchBatchesResponse>> SearchBatchesAsync(SearchBatchesRequest request);
+        Task<Result<GetBatchByIdResponse>> GetBatchByIdAsync(int id);
+        Task<Result<CreateBatchResponse>> CreateBatchAsync(CreateBatchRequest request);
+        Task<Result<UpdateBatchResponse>> UpdateBatchAsync(int id, UpdateBatchRequest request);
         Task<Result> DeleteBatchAsync(int id, bool force = false);
-        Task<Result<List<MedicineCategoryResponse>>> GetCategoriesAsync();
-        Task<Result<MedicineSearchResponse>> CreateMedicineAsync(CreateMedicineRequest request, IFormFile? imageFile);
-        Task<Result<MedicineSearchResponse>> UpdateMedicineAsync(int id, UpdateMedicineRequest request, IFormFile? imageFile);
-        Task<Result> DeleteMedicineAsync(int id);
     }
 }

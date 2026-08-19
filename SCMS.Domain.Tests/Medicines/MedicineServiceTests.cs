@@ -1,13 +1,34 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Medicines;
 using SCMS.Domain.Features.Medicines.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
+using Xunit;
 
 namespace SCMS.Domain.Tests.Medicines;
 
 public class MedicineServiceTests
 {
+    [Fact]
+    public async Task GetMedicinesAsync_ReturnsAllActiveBatchesAscending()
+    {
+        using var db = new TestDatabase();
+        var medicineB = TestData.AddMedicine(db, "Paracetamol");
+        var medicineA = TestData.AddMedicine(db, "Amoxicillin");
+        TestData.AddBatch(db, medicineB, quantity: 10, expiryDate: DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)), batchNo: "ACTIVE-1");
+        var service = new MedicineService(db.Context);
+
+        var result = await service.GetMedicinesAsync(new GetMedicinesRequest());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Data.Count);
+        Assert.Equal("Amoxicillin", result.Data[0].Name);
+        Assert.Equal("Paracetamol", result.Data[1].Name);
+    }
+
     [Fact]
     public async Task SearchMedicinesAsync_ReturnsOnlyUsableActiveBatches()
     {
@@ -18,7 +39,7 @@ public class MedicineServiceTests
         TestData.AddBatch(db, medicine, quantity: 5, status: "disposed", batchNo: "DISPOSED-1");
         var service = new MedicineService(db.Context);
 
-        var result = await service.SearchMedicinesAsync("para", new PaginationRequest());
+        var result = await service.SearchMedicinesAsync(new SearchMedicinesRequest { Query = "para" });
 
         Assert.True(result.IsSuccess);
         var item = Assert.Single(result.Data);
