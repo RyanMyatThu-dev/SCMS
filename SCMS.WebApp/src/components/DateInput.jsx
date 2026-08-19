@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { cn } from "../lib/utils";
 
 /**
  * DateInput — displays dd-MM-yyyy but keeps the native calendar popup.
@@ -41,27 +42,14 @@ export default function DateInput({
 
   return (
     <div
-      className={className}
-      style={{ position: "relative", cursor: "pointer" }}
+      className={cn(
+        "relative flex h-11 min-h-11 items-center rounded-2xl border border-input bg-background/90 px-3.5 py-2 text-xs font-mono text-foreground cursor-pointer transition-all focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+        className
+      )}
       onClick={openPicker}
     >
       {/* Visible display */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          paddingLeft: "inherit",
-          paddingRight: 8,
-          pointerEvents: "none",
-          zIndex: 1,
-          fontSize: "inherit",
-          fontWeight: "inherit",
-          fontFamily: "inherit",
-          color: formatted ? "inherit" : "#94a3b8",
-        }}
-      >
+      <div className={cn("pointer-events-none select-none", formatted ? "text-foreground font-semibold" : "text-muted-foreground")}>
         {formatted || placeholder}
       </div>
 
@@ -73,22 +61,10 @@ export default function DateInput({
         required={required}
         value={value}
         onChange={onChange}
-        style={{
-          opacity: 0,
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          cursor: "pointer",
-          zIndex: 2,
-        }}
+        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
         {...rest}
       />
-
-      {/* Spacer so wrapper keeps its height from className */}
-      <div style={{ visibility: "hidden", pointerEvents: "none" }}>
-        {placeholder}
-      </div>
     </div>
   );
 }
+

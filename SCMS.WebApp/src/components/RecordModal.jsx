@@ -29,26 +29,26 @@ export default function RecordModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-sm animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
       <div
         ref={modalRef}
-        className={`w-full ${maxWidth} overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-2xl transition-all max-h-[90vh] flex flex-col`}
+        className={`w-full ${maxWidth} overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl text-card-foreground shadow-2xl transition-all max-h-[90vh] flex flex-col`}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-4">
-          <h2 id="modal-title" className="text-lg font-bold text-slate-900 dark:text-white">
+        <div className="flex items-center justify-between border-b border-border/80 px-6 py-4">
+          <h2 id="modal-title" className="text-lg font-bold text-foreground">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors btn-target"
+            className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors btn-target"
             aria-label={t.close}
           >
-            <Cross2Icon className="w-4 h-4" />
+            <Cross2Icon className="w-4 h-4 shrink-0" />
           </button>
         </div>
 
@@ -62,8 +62,8 @@ export default function RecordModal({
                     key={field.name}
                     className={`block ${field.type === "textarea" || field.fullWidth ? "sm:col-span-2" : ""}`}
                   >
-                    <span className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {field.label} {field.required && <span className="text-rose-500">*</span>}
+                    <span className="mb-1.5 block text-xs font-semibold text-foreground">
+                      {field.label} {field.required && <span className="text-destructive">*</span>}
                     </span>
                     {field.type === "textarea" ? (
                       <textarea
@@ -106,10 +106,10 @@ export default function RecordModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4 bg-slate-50/50 dark:bg-slate-800/30">
+        <div className="flex items-center justify-end gap-3 border-t border-border/80 px-6 py-4 bg-secondary/30">
           <button
             type="button"
-            className="scms-btn-outline btn-target"
+            className="scms-btn-outline btn-target shadow-xs"
             onClick={onClose}
           >
             {t.cancel}
@@ -118,10 +118,21 @@ export default function RecordModal({
             <button
               type="submit"
               form="record-modal-form"
-              className="scms-btn-primary flex items-center gap-2 btn-target"
+              className="scms-btn-primary flex items-center gap-2 btn-target shadow-xs"
               disabled={loading}
             >
-              {loading && <span className="loading loading-spinner loading-xs" />}
+              {loading && (
+                <svg
+                  className="h-4 w-4 animate-spin text-current shrink-0"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
               <span>{t.save}</span>
             </button>
           )}
@@ -130,3 +141,4 @@ export default function RecordModal({
     </div>
   );
 }
+

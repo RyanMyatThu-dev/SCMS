@@ -9,7 +9,7 @@ export function BrandLogoIcon({ size = 24, className = "" }) {
       className={className}
       aria-hidden="true"
     >
-      <rect width="24" height="24" rx="6" fill="currentColor" fillOpacity="0.12" />
+      <rect width="24" height="24" rx="6" fill="currentColor" fillOpacity="0.15" />
       <path
         d="M12 5V19M5 12H19"
         stroke="currentColor"
@@ -25,16 +25,16 @@ export function BrandLogoIcon({ size = 24, className = "" }) {
 export default function BrandLogo({ subtitle, collapsed = false, className = "" }) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white shadow-sm shrink-0">
+      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm shrink-0">
         <BrandLogoIcon size={22} />
       </div>
       {!collapsed && (
         <div className="flex flex-col">
-          <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+          <span className="text-lg font-bold tracking-tight text-foreground leading-tight">
             ကုမယ်
           </span>
           {subtitle && (
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-tight">
+            <span className="text-[11px] font-medium text-muted-foreground leading-tight">
               {subtitle}
             </span>
           )}
@@ -43,3 +43,4 @@ export default function BrandLogo({ subtitle, collapsed = false, className = "" 
     </div>
   );
 }
+
