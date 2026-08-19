@@ -1,12 +1,12 @@
 export default function PageHeader({ title, subtitle, actions }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200/60 dark:border-slate-800/60">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-3 border-b border-border/70">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+          <p className="mt-1 text-xs sm:text-sm text-muted-foreground max-w-2xl">
             {subtitle}
           </p>
         )}
@@ -15,3 +15,4 @@ export default function PageHeader({ title, subtitle, actions }) {
     </div>
   );
 }
+

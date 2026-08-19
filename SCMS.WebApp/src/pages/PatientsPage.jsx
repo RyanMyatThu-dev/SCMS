@@ -248,10 +248,10 @@ export default function PatientsPage() {
           </button>
         </div>
       ) : viewMode === "table" ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3.5 w-12 text-center">No.</th>
                   <th className="px-4 py-3.5">Patient Details</th>
@@ -261,34 +261,34 @@ export default function PatientsPage() {
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-border/60">
                 {patients.map((p, index) => (
                   <tr
                     key={p.patientId || p.id || index}
                     onClick={() => openDetail(p)}
-                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+                    className="hover:bg-secondary/60 cursor-pointer transition-colors"
                   >
-                    <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                    <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">
                       {(page - 1) * pageSize + index + 1}
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="font-bold text-slate-900 dark:text-white">
+                      <div className="font-bold text-foreground">
                         {p.name || p.fullName}
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-muted-foreground">
                         {p.gender || "Patient"} {p.age ? `• ${p.age} yrs` : ""}
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-300">
-                      <div>{p.phone || p.mobileNo || "-"}</div>
-                      <div className="text-slate-400">{p.email || ""}</div>
+                    <td className="px-4 py-3.5 text-xs text-muted-foreground">
+                      <div className="font-mono">{p.phone || p.mobileNo || "-"}</div>
+                      <div>{p.email || ""}</div>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-900 text-xs">
+                      <span className="font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-2.5 py-0.5 rounded-full border border-orange-200/60 dark:border-orange-900/40 text-xs">
                         {p.bloodType || "O+"}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate">
+                    <td className="px-4 py-3.5 text-xs text-muted-foreground max-w-xs truncate">
                       {p.allergies ? (
                         <span className="text-rose-600 dark:text-rose-400 font-medium">
                           Allergy: {p.allergies}
@@ -296,14 +296,14 @@ export default function PatientsPage() {
                       ) : p.chronicConditions ? (
                         <span>{p.chronicConditions}</span>
                       ) : (
-                        <span className="text-slate-400">None noted</span>
+                        <span className="text-muted-foreground/60">None noted</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={(e) => downloadSummary(e, p)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-slate-600 dark:text-slate-300 btn-target"
+                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-foreground btn-target"
                           title="Download Medical Summary PDF"
                           aria-label="Download Summary"
                         >
@@ -332,29 +332,29 @@ export default function PatientsPage() {
             <div
               key={p.patientId || p.id || index}
               onClick={() => openDetail(p)}
-              className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-md cursor-pointer transition-all space-y-3"
+              className="rounded-3xl border border-border/80 bg-card/95 p-5 shadow-scms hover:shadow-scms-raised cursor-pointer transition-all space-y-3"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] font-bold text-slate-400">
+                <span className="font-mono text-[10px] font-bold text-muted-foreground">
                   PA-{String(p.patientId || p.id || index + 1).padStart(4, "0")}
                 </span>
-                <span className="font-bold text-rose-600 dark:text-rose-400 text-xs bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 rounded-md">
+                <span className="font-bold text-orange-600 dark:text-orange-400 text-xs bg-orange-50 dark:bg-orange-950/50 px-2.5 py-0.5 rounded-full border border-orange-200/60 dark:border-orange-900/40">
                   {p.bloodType || "O+"}
                 </span>
               </div>
 
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">{p.name || p.fullName}</h3>
-                <p className="text-xs text-slate-500">{p.gender || "Patient"} • {p.phone || "-"}</p>
+                <h3 className="font-bold text-foreground">{p.name || p.fullName}</h3>
+                <p className="text-xs text-muted-foreground">{p.gender || "Patient"} • {p.phone || "-"}</p>
               </div>
 
               {p.allergies && (
-                <div className="text-[11px] text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg truncate">
+                <div className="text-[11px] text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-xl truncate">
                   Allergy: {p.allergies}
                 </div>
               )}
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={(e) => downloadSummary(e, p)}
                   className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"

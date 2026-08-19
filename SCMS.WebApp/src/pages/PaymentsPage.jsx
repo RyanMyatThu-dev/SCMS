@@ -165,22 +165,22 @@ export default function PaymentsPage() {
 
       {/* Main Content */}
       {loading ? (
-        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+        <div className="grid place-items-center h-64 rounded-3xl border border-border/80 bg-card">
+          <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
         </div>
       ) : payments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <CardStackIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Payment Records</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed border-border/80 bg-card">
+          <CardStackIcon className="w-12 h-12 text-muted-foreground/40 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-foreground">No Payment Records</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
             Transactions and patient payment screenshot submissions will appear here.
           </p>
         </div>
       ) : viewMode === "table" ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3.5 w-12 text-center">No.</th>
                   <th className="px-4 py-3.5">Invoice / Payment ID</th>
@@ -191,7 +191,7 @@ export default function PaymentsPage() {
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-border/60">
                 {payments.map((p, index) => {
                   const isPending =
                     String(p.status || "").toLowerCase() === "pending" ||
@@ -205,21 +205,21 @@ export default function PaymentsPage() {
                         setSelectedPayment(p);
                         setDetailOpen(true);
                       }}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+                      className="hover:bg-secondary/60 cursor-pointer transition-colors"
                     >
-                      <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                      <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">
                         {(page - 1) * pageSize + index + 1}
                       </td>
-                      <td className="px-4 py-3.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                      <td className="px-4 py-3.5 font-mono font-bold text-orange-600 dark:text-orange-400">
                         INV-{String(pId).padStart(4, "0")}
                       </td>
-                      <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      <td className="px-4 py-3.5 font-bold text-foreground">
                         {p.patientName || p.patient?.name || `Appointment #${p.appointmentId}`}
                       </td>
-                      <td className="px-4 py-3.5 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">
+                      <td className="px-4 py-3.5 text-xs font-semibold text-muted-foreground uppercase">
                         {p.paymentMethod || "Cash / KBZPay"}
                       </td>
-                      <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-900 dark:text-white">
+                      <td className="px-4 py-3.5 font-mono text-xs font-bold text-foreground">
                         {Number(p.amount || 0).toLocaleString()} MMK
                       </td>
                       <td className="px-4 py-3.5">
@@ -239,7 +239,7 @@ export default function PaymentsPage() {
                             <button
                               onClick={(e) => handleApprove(e, pId)}
                               disabled={approvingId === pId}
-                              className="scms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-3 h-8 min-h-8 text-xs font-bold flex items-center gap-1 btn-target"
+                              className="scms-btn-primary px-3 h-8 min-h-8 text-xs font-bold flex items-center gap-1 btn-target rounded-xl"
                             >
                               {approvingId === pId ? (
                                 <span className="loading loading-spinner loading-xs" />
@@ -251,7 +251,7 @@ export default function PaymentsPage() {
                           )}
                           <button
                             onClick={(e) => handleDownloadInvoice(e, pId)}
-                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-slate-600 dark:text-slate-300 btn-target"
+                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-foreground btn-target"
                             title="Download Invoice PDF"
                           >
                             <DownloadIcon className="w-4 h-4" />
@@ -281,14 +281,14 @@ export default function PaymentsPage() {
                   setSelectedPayment(p);
                   setDetailOpen(true);
                 }}
-                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-md cursor-pointer transition-all space-y-3"
+                className="rounded-3xl border border-border/80 bg-card/95 p-5 shadow-scms hover:shadow-scms-raised cursor-pointer transition-all space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  <span className="font-mono text-xs font-bold text-orange-600 dark:text-orange-400">
                     INV-{String(pId).padStart(4, "0")}
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                       isPending
                         ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                         : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"

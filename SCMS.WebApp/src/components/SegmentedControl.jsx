@@ -6,16 +6,16 @@ export default function SegmentedControl({
   ariaLabel = "View switcher",
 }) {
   const sizeClasses = {
-    sm: "p-0.5 text-xs",
-    md: "p-1 text-sm",
-    lg: "p-1.5 text-sm",
-  }[size] || "p-1 text-sm";
+    sm: "p-1 text-xs gap-1",
+    md: "p-1.5 text-xs gap-1",
+    lg: "p-2 text-sm gap-1.5",
+  }[size] || "p-1.5 text-xs gap-1";
 
   return (
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={`inline-flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 ${sizeClasses}`}
+      className={`inline-flex items-center rounded-2xl bg-secondary/70 border border-border/80 shadow-2xs ${sizeClasses}`}
     >
       {options.map((option) => {
         const isSelected = value === option.value;
@@ -27,13 +27,13 @@ export default function SegmentedControl({
             role="tab"
             aria-selected={isSelected}
             onClick={() => onChange(option.value)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all btn-target ${
+            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 font-bold transition-all btn-target ${
               isSelected
-                ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                ? "bg-card text-foreground shadow-xs border border-border/60"
+                : "text-muted-foreground hover:text-foreground hover:bg-card/40"
             }`}
           >
-            {Icon && <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />}
+            {Icon && <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />}
             <span>{option.label}</span>
           </button>
         );
@@ -41,3 +41,4 @@ export default function SegmentedControl({
     </div>
   );
 }
+

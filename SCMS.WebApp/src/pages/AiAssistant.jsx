@@ -232,16 +232,16 @@ export default function AiAssistant() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr] animate-fadeIn">
       {/* Chat Window */}
-      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm">
-        <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms">
+        <div className="flex items-center gap-3 border-b border-border/70 pb-4">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-900/40 shrink-0">
             <MagicWandIcon className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-white">
+            <h1 className="text-base font-bold text-foreground">
               {language === "mm" ? "AI ဆေးခန်းအကူ" : "AI Operations Assistant"}
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Powered by Gemini & Model Context Protocol (MCP)
             </p>
           </div>
@@ -255,7 +255,7 @@ export default function AiAssistant() {
         </div>
 
         {/* Message Panel */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+        <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1 scrollbar-thin">
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -264,17 +264,17 @@ export default function AiAssistant() {
               }`}
             >
               <div
-                className={`grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white shrink-0 ${
-                  msg.role === "user" ? "bg-indigo-600" : "bg-purple-600"
+                className={`grid h-8 w-8 place-items-center rounded-xl text-xs font-bold text-white shrink-0 shadow-2xs ${
+                  msg.role === "user" ? "bg-orange-500" : "bg-zinc-800 dark:bg-zinc-700"
                 }`}
               >
                 {msg.role === "user" ? "U" : "AI"}
               </div>
               <div
-                className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                className={`rounded-3xl px-4 py-3 text-sm leading-6 ${
                   msg.role === "user"
-                    ? "bg-indigo-600 text-white rounded-tr-none"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none"
+                    ? "bg-orange-500 text-white rounded-tr-sm shadow-xs font-medium"
+                    : "bg-secondary/70 border border-border/70 text-foreground rounded-tl-sm shadow-2xs"
                 }`}
               >
                 <div className="space-y-1">{renderMessageContent(msg.content)}</div>
@@ -283,11 +283,11 @@ export default function AiAssistant() {
           ))}
           {loadingChat && (
             <div className="flex gap-3 mr-auto max-w-[85%]">
-              <div className="grid h-8 w-8 place-items-center rounded-lg text-xs font-bold text-white bg-purple-600 shrink-0 animate-pulse">
+              <div className="grid h-8 w-8 place-items-center rounded-xl text-xs font-bold text-white bg-zinc-800 dark:bg-zinc-700 shrink-0 animate-pulse">
                 AI
               </div>
-              <div className="rounded-2xl rounded-tl-none bg-slate-100 dark:bg-slate-800 px-4 py-3 text-sm">
-                <span className="loading loading-dots loading-xs" />
+              <div className="rounded-3xl rounded-tl-sm bg-secondary/70 border border-border/70 px-4 py-3 text-sm">
+                <span className="loading loading-dots loading-xs text-orange-500" />
               </div>
             </div>
           )}
@@ -301,7 +301,7 @@ export default function AiAssistant() {
               <button
                 key={idx}
                 onClick={() => setInput(qp.prompt)}
-                className="rounded-full border border-purple-200 dark:border-purple-900 bg-purple-50/60 dark:bg-purple-950/40 px-3 py-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition btn-target"
+                className="rounded-full border border-orange-200 dark:border-orange-900 bg-orange-50/60 dark:bg-orange-950/40 px-3 py-1.5 text-xs font-bold text-orange-700 dark:text-orange-300 hover:bg-orange-100 transition btn-target"
               >
                 {qp.label}
               </button>
@@ -318,30 +318,30 @@ export default function AiAssistant() {
             placeholder={
               language === "mm" ? "မေးမြန်းလိုသောအချက် ရေးပါ..." : "Ask AI to check stock, query diagnoses..."
             }
-            className="scms-input w-full pr-14 pl-4 text-xs"
-            disabled={loadingChat}
+            className="scms-input w-full pr-12 rounded-2xl h-11 text-xs"
           />
           <button
             type="submit"
             disabled={!input.trim() || loadingChat}
-            className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors btn-target"
+            className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-xl bg-orange-500 text-white disabled:opacity-40 hover:bg-orange-600 transition btn-target shadow-2xs"
+            aria-label="Send Message"
           >
-            <PaperPlaneIcon className="w-3.5 h-3.5" />
+            <PaperPlaneIcon className="w-4 h-4" />
           </button>
         </form>
       </section>
 
       {/* MCP Tools Sidebar */}
-      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm">
-        <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+      <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms">
+        <div className="flex items-center gap-3 border-b border-border/70 pb-4">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-900/40 shrink-0">
             <CodeIcon className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            <h2 className="text-base font-bold text-foreground">
               {language === "mm" ? "အလိုအလျောက် လုပ်ဆောင်ချက်များ" : "MCP Tool Center"}
             </h2>
-            <p className="text-xs text-slate-500">Live backend integration endpoints</p>
+            <p className="text-xs text-muted-foreground">Live backend integration endpoints</p>
           </div>
           <button
             onClick={loadTools}
@@ -353,17 +353,17 @@ export default function AiAssistant() {
         </div>
 
         {error && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">
+          <div className="mt-3 flex items-center gap-2 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-300">
             <ExclamationTriangleIcon className="w-4 h-4" />
             {error}
           </div>
         )}
 
         {/* Tools Selector */}
-        <div className="mt-4 flex-1 overflow-y-auto space-y-3 pr-1">
+        <div className="mt-4 flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
           {loadingTools ? (
             <div className="grid place-items-center h-40">
-              <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+              <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
             </div>
           ) : tools.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400 text-xs font-semibold">

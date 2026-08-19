@@ -139,10 +139,10 @@ export default function Reports() {
       />
 
       {/* Filter panel */}
-      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm">
+      <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms">
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-end">
           <label className="block">
-            <span className="mb-2 block text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span className="mb-2 block text-xs font-bold text-foreground">
               Select Report Domain
             </span>
             <select
@@ -160,7 +160,7 @@ export default function Reports() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span className="mb-2 block text-xs font-bold text-foreground">
               Aggregation Interval
             </span>
             <select
@@ -175,7 +175,7 @@ export default function Reports() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span className="mb-2 block text-xs font-bold text-foreground">
               Report Target Date
             </span>
             <DateInput
@@ -187,15 +187,15 @@ export default function Reports() {
 
           <button
             onClick={handleDownloadPdf}
-            className="scms-btn-primary h-10 text-xs font-bold flex items-center justify-center gap-2 btn-target"
+            className="scms-btn-primary h-10 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl"
           >
             <DownloadIcon className="w-4 h-4" />
             <span>Export PDF Report</span>
           </button>
         </div>
 
-        <div className="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-2">
-          <ActivityLogIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+        <div className="mt-4 text-xs font-medium text-muted-foreground bg-secondary/50 p-3.5 rounded-2xl border border-border/80 flex items-center gap-2">
+          <ActivityLogIcon className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
           <span>
             <strong>Active Domain:</strong> {reportConfigs[reportKey].description}
           </span>
@@ -204,22 +204,22 @@ export default function Reports() {
 
       {/* Structured data table */}
       {loading ? (
-        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+        <div className="grid place-items-center h-64 rounded-3xl border border-border/80 bg-card">
+          <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <BarChartIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-bounce" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Analytics Rows Found</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed border-border/80 bg-card">
+          <BarChartIcon className="w-12 h-12 text-muted-foreground/40 mb-2 animate-bounce" />
+          <h3 className="text-base font-bold text-foreground">No Analytics Rows Found</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
             Adjust the interval dates or select a different report domain above.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3.5 w-12 text-center">No.</th>
                   <th className="px-4 py-3.5">Report Metric / Record Key</th>
@@ -227,7 +227,7 @@ export default function Reports() {
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-border/60">
                 {rows.map((row, index) => {
                   const metric = row.metric || row.name || row.patientName || row.id || `Metric #${index + 1}`;
                   let val = row.value ?? row.total ?? row.amount ?? row.count ?? row.status;
@@ -239,15 +239,15 @@ export default function Reports() {
                     <tr
                       key={index}
                       onClick={() => openPreview(row)}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors text-xs"
+                      className="hover:bg-secondary/60 cursor-pointer transition-colors text-xs"
                     >
-                      <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                      <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">
                         {index + 1}
                       </td>
-                      <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      <td className="px-4 py-3.5 font-bold text-foreground">
                         {formatDate(metric)}
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 max-w-sm truncate font-mono">
+                      <td className="px-4 py-3.5 text-muted-foreground max-w-sm truncate font-mono">
                         {typeof val === "object" ? "Structured JSON" : formatDate(val)}
                       </td>
                       <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>

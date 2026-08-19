@@ -527,56 +527,56 @@ export default function AppointmentsPage() {
 
       {/* Main content view */}
       {loading ? (
-        <div className="grid place-items-center h-60 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+        <div className="grid place-items-center h-60 bg-card rounded-3xl border border-border/80">
+          <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
         </div>
       ) : appointments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <CalendarIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
-          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">No appointments found for the selected query.</p>
+        <div className="flex flex-col items-center justify-center p-12 text-center bg-card rounded-3xl border border-dashed border-border/80">
+          <CalendarIcon className="w-12 h-12 text-muted-foreground/40 mb-2 animate-pulse" />
+          <p className="text-sm font-bold text-muted-foreground">No appointments found for the selected query.</p>
         </div>
       ) : viewMode === "table" ? (
         /* TABLE LAYOUT */
-        <div className="scms-card overflow-hidden">
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
           <div className="overflow-x-auto">
-            <table className="table table-zebra w-full">
-              <thead className="bg-[#F9FAFB] text-xs uppercase text-scms-muted">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th>No.</th>
-                  <th>Appointment Code</th>
-                  <th>Patient Name</th>
-                  <th>Appointment Date</th>
-                  <th>Queue Token</th>
-                  <th>Status</th>
-                  <th className="text-right">Consulting Actions</th>
+                  <th className="px-4 py-3.5 w-12 text-center">No.</th>
+                  <th className="px-4 py-3.5">Appointment Code</th>
+                  <th className="px-4 py-3.5">Patient Name</th>
+                  <th className="px-4 py-3.5">Appointment Date</th>
+                  <th className="px-4 py-3.5">Queue Token</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5 text-right">Consulting Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/60">
                 {appointments.map((appt, index) => {
                   const rowNo = ((page - 1) * pageSize) + index + 1;
                   return (
                   <tr
                     key={appt.appointmentId || appt.id}
                     onClick={() => { setSelectedAppt(appt); setDetailOpen(true); }}
-                    className="hover:bg-slate-50/70 cursor-pointer transition"
+                    className="hover:bg-secondary/60 cursor-pointer transition"
                   >
-                    <td className="font-black text-xs text-scms-muted">{rowNo}</td>
-                    <td className="font-extrabold text-scms-primary font-mono text-sm">{appt.appointmentCode}</td>
-                    <td className="font-extrabold text-scms-text">{appt.patientName || appt.patient?.name || appt.patientId}</td>
-                    <td className="font-semibold">{formatDate(appt.datetime)}</td>
-                    <td className="font-bold text-indigo-600 font-mono text-center sm:text-left">{appt.tokenNumber || "-"}</td>
-                    <td>
-                      <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-full ${getStatusClass(appt.status)}`}>
+                    <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">{rowNo}</td>
+                    <td className="px-4 py-3.5 font-extrabold text-orange-600 dark:text-orange-400 font-mono text-sm">{appt.appointmentCode}</td>
+                    <td className="px-4 py-3.5 font-bold text-foreground">{appt.patientName || appt.patient?.name || appt.patientId}</td>
+                    <td className="px-4 py-3.5 font-medium text-muted-foreground">{formatDate(appt.datetime)}</td>
+                    <td className="px-4 py-3.5 font-bold text-orange-600 dark:text-orange-400 font-mono text-center sm:text-left">{appt.tokenNumber || "-"}</td>
+                    <td className="px-4 py-3.5">
+                      <span className={`text-[10px] font-bold border px-2.5 py-0.5 rounded-full ${getStatusClass(appt.status)}`}>
                         {String(appt.status).toUpperCase()}
                       </span>
                     </td>
-                    <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1.5">
                         {appt.status !== "completed" && appt.status !== "cancelled" ? (
                           <>
                             <button
                               onClick={() => openConsulting(appt)}
-                              className="btn btn-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg border-0 px-3 flex items-center gap-1 font-black btn-target"
+                              className="scms-btn-primary px-3 py-1 text-xs font-bold flex items-center gap-1 btn-target rounded-xl"
                               title="EMR Consultation Wizard"
                             >
                               <ActivityLogIcon className="w-3.5 h-3.5" />
@@ -584,19 +584,16 @@ export default function AppointmentsPage() {
                             </button>
                             <button
                               onClick={() => handleUpdateStatus(appt.appointmentId || appt.id, "cancelled")}
-                              className="btn btn-xs rounded-lg border-[#FECDCA] bg-[#FFF1F0] text-scms-danger"
+                              className="scms-btn-outline px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10 rounded-xl btn-target"
                               title="Cancel slot"
                             >
                               Cancel
                             </button>
                           </>
                         ) : (
-                          <button
-                            disabled
-                            className="btn btn-xs rounded-lg bg-slate-100 text-slate-400 border-0"
-                          >
+                          <span className="text-xs font-semibold text-muted-foreground py-1 px-2.5 bg-secondary rounded-xl">
                             Consulted
-                          </button>
+                          </span>
                         )}
                       </div>
                     </td>
@@ -616,43 +613,43 @@ export default function AppointmentsPage() {
             <div
               key={appt.appointmentId || appt.id}
               onClick={() => { setSelectedAppt(appt); setDetailOpen(true); }}
-              className="bg-white border border-scms-border hover:border-indigo-600 rounded-2xl p-5 hover:shadow-md cursor-pointer transition flex flex-col justify-between min-h-[186px] h-full"
+              className="bg-card/95 border border-border/80 hover:border-orange-300 dark:hover:border-orange-800 rounded-3xl p-5 shadow-scms hover:shadow-scms-raised cursor-pointer transition flex flex-col justify-between min-h-[186px] h-full space-y-3"
             >
               <div>
                 <div className="flex justify-between items-center gap-2">
-                  <span className="text-[11px] font-black text-scms-text">No. {rowNo}</span>
-                  <span className="text-xs font-black text-indigo-600 font-mono">{appt.appointmentCode}</span>
-                  <span className={`text-[9px] font-black border px-2 py-0.5 rounded-full ${getStatusClass(appt.status)}`}>
+                  <span className="text-[11px] font-bold text-muted-foreground">No. {rowNo}</span>
+                  <span className="text-xs font-extrabold text-orange-600 dark:text-orange-400 font-mono">{appt.appointmentCode}</span>
+                  <span className={`text-[9px] font-bold border px-2 py-0.5 rounded-full ${getStatusClass(appt.status)}`}>
                     {String(appt.status).toUpperCase()}
                   </span>
                 </div>
                 <div className="mt-4">
-                  <h4 className="font-black text-scms-text text-sm">{appt.patientName || appt.patient?.name || appt.patientId}</h4>
-                  <div className="mt-2 text-xs flex items-center gap-1 text-slate-500 font-semibold">
-                    <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
+                  <h4 className="font-bold text-foreground text-sm">{appt.patientName || appt.patient?.name || appt.patientId}</h4>
+                  <div className="mt-2 text-xs flex items-center gap-1 text-muted-foreground font-medium">
+                    <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" />
                     {formatDate(appt.datetime)}
                   </div>
                   {appt.tokenNumber > 0 && (
-                    <div className="mt-2 text-xs font-semibold text-indigo-600">
+                    <div className="mt-2 text-xs font-semibold text-orange-600 dark:text-orange-400">
                       Queue Token: <strong className="font-mono">{appt.tokenNumber}</strong>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="mt-6 pt-3 border-t border-slate-100 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <div className="mt-6 pt-3 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 {appt.status !== "completed" && appt.status !== "cancelled" ? (
                   <>
                     <button
                       onClick={() => openConsulting(appt)}
-                      className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex-1 btn-target"
+                      className="scms-btn-primary w-full py-2 text-xs font-bold rounded-2xl flex items-center justify-center gap-1 btn-target"
                     >
                       <ActivityLogIcon className="w-3.5 h-3.5" />
                       Consult EMR
                     </button>
                   </>
                 ) : (
-                  <span className="text-xs font-bold text-slate-400 py-1 px-2 bg-slate-50 rounded-lg">
+                  <span className="text-xs font-semibold text-muted-foreground py-1 px-2 bg-secondary rounded-xl w-full text-center">
                     Consultation Completed
                   </span>
                 )}

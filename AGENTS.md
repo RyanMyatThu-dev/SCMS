@@ -3,6 +3,7 @@
 - Always create a plan before implementing.
 - Each API endpoint must have its own request model and its own response model.
 - The request model must include all endpoint inputs from route, query string, and body.
+- Query and listing request models must inherit from `PaginationRequest` and encapsulate all query/filter parameters rather than using loose action arguments.
 - API endpoints must return response models, not EF Core entity models directly.
 - Strictly separate "Get" (listing/pagination) operations from "Search" (keyword filtering) operations.
 - Do not combine generic listing and keyword searching logic within a single internal method or API endpoint.
@@ -15,3 +16,4 @@
 - API endpoints must return precise standard HTTP status codes reflecting the outcome (e.g., 200 OK, 201 Created, 400 Bad Request, 404 Not Found).
 - Update endpoints.md and endpoints.txt when adding new endpoints
 - Always use an appropriate skills when implementing.
+- Avoid projecting nested collection queries inside EF Core LINQ `.Select()` that require SQL APPLY operations (unsupported on SQLite); load with `.Include()`/`.AsSplitQuery()` and map in-memory.

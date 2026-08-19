@@ -169,22 +169,22 @@ export default function DoctorDashboard() {
 
       {/* Active Consultation Spotlight Banner */}
       {inConsult ? (
-        <section className="rounded-3xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/40 p-6 shadow-sm">
+        <section className="rounded-3xl border border-orange-200 dark:border-orange-900/60 bg-orange-50/70 dark:bg-orange-950/40 p-6 shadow-scms">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider bg-indigo-600 text-white px-2.5 py-0.5 rounded-full">
+                <span className="text-xs font-bold uppercase tracking-wider bg-orange-500 text-white px-2.5 py-0.5 rounded-full">
                   Current Patient
                 </span>
-                <span className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                <span className="font-mono text-xs font-bold text-orange-700 dark:text-orange-300">
                   Token #{inConsult.tokenNumber || inConsult.appointmentCode}
                 </span>
               </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              <h2 className="text-xl font-bold text-foreground">
                 {inConsult.patientName || inConsult.patient?.name || `Patient #${inConsult.patientId}`}
               </h2>
               {inConsult.notes && (
-                <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+                <p className="text-xs text-muted-foreground italic">
                   &ldquo;{inConsult.notes}&rdquo;
                 </p>
               )}
@@ -192,7 +192,7 @@ export default function DoctorDashboard() {
 
             <button
               onClick={() => navigate(`/doctor/consult/${inConsult.id || inConsult.appointmentId || inConsult.appointmentCode}`)}
-              className="scms-btn-primary bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 shadow-md btn-target"
+              className="scms-btn-primary flex items-center justify-center gap-2 shadow-scms btn-target rounded-2xl"
             >
               <HeartIcon className="w-4 h-4" />
               <span>{t.startConsultation}</span>
@@ -200,18 +200,18 @@ export default function DoctorDashboard() {
           </div>
         </section>
       ) : waitingList.length > 0 ? (
-        <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex items-center justify-between gap-4">
+        <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms flex items-center justify-between gap-4">
           <div className="space-y-1">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-foreground">
               Next Patient in Line: Token #{waitingList[0].tokenNumber || waitingList[0].appointmentCode}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-muted-foreground">
               {waitingList[0].patientName || waitingList[0].patient?.name} is ready for consultation.
             </p>
           </div>
           <button
             onClick={() => navigate(`/doctor/consult/${waitingList[0].id || waitingList[0].appointmentId || waitingList[0].appointmentCode}`)}
-            className="scms-btn-primary flex items-center gap-2 btn-target"
+            className="scms-btn-primary flex items-center gap-2 btn-target rounded-2xl"
           >
             <PlayIcon className="w-4 h-4" />
             <span>{t.startConsultation}</span>
@@ -222,7 +222,7 @@ export default function DoctorDashboard() {
       {/* Queue Table */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+          <h2 className="text-lg font-bold text-foreground">
             Today&apos;s Queue Roster
           </h2>
           <div className="flex items-center gap-2">
@@ -230,10 +230,10 @@ export default function DoctorDashboard() {
               <button
                 key={st}
                 onClick={() => setFilterStatus(st)}
-                className={`rounded-lg px-3 py-1 text-xs font-bold capitalize transition-colors btn-target ${
+                className={`rounded-full px-3.5 py-1 text-xs font-bold capitalize transition-colors btn-target ${
                   filterStatus === st
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-orange-500 text-white shadow-xs"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {st}

@@ -244,22 +244,22 @@ export default function MedicinesPage() {
 
       {/* Main Table / Grid View */}
       {loading ? (
-        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+        <div className="grid place-items-center h-64 rounded-3xl border border-border/80 bg-card">
+          <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
         </div>
       ) : medicines.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <ArchiveIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Medicines Cataloged</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed border-border/80 bg-card">
+          <ArchiveIcon className="w-12 h-12 text-muted-foreground/40 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-foreground">No Medicines Cataloged</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
             Add pharmaceuticals and link inventory batches to track stock levels.
           </p>
         </div>
       ) : viewMode === "table" ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3.5 w-12 text-center">No.</th>
                   <th className="px-4 py-3.5">Medicine Name</th>
@@ -269,41 +269,41 @@ export default function MedicinesPage() {
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-border/60">
                 {medicines.map((med, index) => {
                   const stock = med.totalStock ?? med.stock ?? med.stockQuantity ?? 0;
                   return (
                     <tr
                       key={med.id || med.medicineId || index}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                      className="hover:bg-secondary/60 transition-colors"
                     >
-                      <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                      <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">
                         {(page - 1) * pageSize + index + 1}
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="font-bold text-slate-900 dark:text-white">
+                        <div className="font-bold text-foreground">
                           {med.name || med.medicineName}
                         </div>
                         {med.genericName && (
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                          <div className="text-xs text-muted-foreground">
                             {med.genericName}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-300">
-                        <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 font-semibold text-slate-700 dark:text-slate-300">
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground">
+                        <span className="rounded-full bg-secondary px-2.5 py-0.5 font-semibold text-secondary-foreground">
                           {med.category || "General"}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      <td className="px-4 py-3.5 font-mono text-xs font-semibold text-foreground">
                         {Number(med.unitPrice || med.price || 0).toLocaleString()} MMK
                       </td>
                       <td className="px-4 py-3.5">
                         <span
-                          className={`font-mono text-xs font-bold px-2 py-0.5 rounded-md ${
+                          className={`font-mono text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                             stock <= 10
-                              ? "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
+                              ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
                           }`}
                         >
                           {stock} units
@@ -342,17 +342,17 @@ export default function MedicinesPage() {
             return (
               <div
                 key={med.id || med.medicineId || index}
-                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-3"
+                className="rounded-3xl border border-border/80 bg-card/95 p-5 shadow-scms hover:shadow-scms-raised transition space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
                     {med.category || "Medicine"}
                   </span>
                   <span
-                    className={`font-mono text-xs font-bold px-2 py-0.5 rounded-md ${
+                    className={`font-mono text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                       stock <= 10
-                        ? "bg-rose-50 text-rose-700 dark:bg-rose-950/50"
-                        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50"
+                        ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50"
                     }`}
                   >
                     {stock} in stock

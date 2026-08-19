@@ -227,22 +227,22 @@ export default function BatchesPage() {
 
       {/* Main Table / Grid View */}
       {loading ? (
-        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+        <div className="grid place-items-center h-64 rounded-3xl border border-border/80 bg-card">
+          <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
         </div>
       ) : batches.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <LayersIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Batches Cataloged</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed border-border/80 bg-card">
+          <LayersIcon className="w-12 h-12 text-muted-foreground/40 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-foreground">No Batches Cataloged</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
             Add a new batch of pharmaceuticals to monitor expiry dates and stock levels.
           </p>
         </div>
       ) : viewMode === "table" ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3.5 w-12 text-center">No.</th>
                   <th className="px-4 py-3.5">Batch Number</th>
@@ -253,28 +253,28 @@ export default function BatchesPage() {
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-border/60">
                 {batches.map((b, index) => (
                   <tr
                     key={b.id || b.batchId || index}
-                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                    className="hover:bg-secondary/60 transition-colors"
                   >
-                    <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                    <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">
                       {(page - 1) * pageSize + index + 1}
                     </td>
-                    <td className="px-4 py-3.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    <td className="px-4 py-3.5 font-mono font-bold text-orange-600 dark:text-orange-400">
                       {b.batchNumber || b.batchNo}
                     </td>
-                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                    <td className="px-4 py-3.5 font-bold text-foreground">
                       {b.medicineName || b.medicine?.name || `Medicine #${b.medicineId}`}
                     </td>
-                    <td className="px-4 py-3.5 font-mono text-xs font-semibold">
+                    <td className="px-4 py-3.5 font-mono text-xs font-semibold text-foreground">
                       {b.quantity || b.currentQuantity || 0} units
                     </td>
-                    <td className="px-4 py-3.5 font-mono text-xs text-slate-600 dark:text-slate-300">
+                    <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">
                       {b.expiryDate ? String(b.expiryDate).slice(0, 10) : "-"}
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-500">
+                    <td className="px-4 py-3.5 text-xs text-muted-foreground">
                       {b.supplierName || "-"}
                     </td>
                     <td className="px-4 py-3.5 text-right">
@@ -307,13 +307,13 @@ export default function BatchesPage() {
           {batches.map((b, index) => (
             <div
               key={b.id || b.batchId || index}
-              className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-3"
+              className="rounded-3xl border border-border/80 bg-card/95 p-5 shadow-scms hover:shadow-scms-raised transition space-y-3"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                <span className="font-mono text-xs font-bold text-orange-600 dark:text-orange-400">
                   {b.batchNumber || b.batchNo}
                 </span>
-                <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                <span className="font-mono text-xs font-bold text-foreground bg-secondary px-2.5 py-0.5 rounded-full border border-border/80">
                   {b.quantity || b.currentQuantity || 0} qty
                 </span>
               </div>

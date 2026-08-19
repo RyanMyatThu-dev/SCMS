@@ -7,10 +7,11 @@ import {
   PlusIcon,
   SunIcon,
   MoonIcon,
+  ChevronDownIcon,
 } from "@radix-ui/react-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BrandLogoIcon } from "../../components/BrandLogo";
+import BrandLogo from "../../components/BrandLogo";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -21,7 +22,7 @@ export default function UserLayout() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { language, t, toggleLanguage } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -130,24 +131,18 @@ export default function UserLayout() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background font-sans text-foreground antialiased transition-colors">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-border/80 bg-card/85 dark:bg-card/75 backdrop-blur-xl p-5 shrink-0">
-        <div className="pb-5 border-b border-border/80">
-          <div className="text-xl font-bold text-foreground flex items-center gap-2">
-            <BrandLogoIcon size={28} />
-            <span>{t.appName || "ကုမယ်"}</span>
-          </div>
-          <div className="mt-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Patient Portal
-          </div>
+      <aside className="hidden lg:flex w-64 flex-col border-r border-border/80 bg-card/95 backdrop-blur-2xl p-5 shrink-0">
+        <div className="pb-5 border-b border-border/70">
+          <BrandLogo subtitle="Patient Portal" />
         </div>
 
-        <nav className="flex-1 mt-6 flex flex-col gap-1.5 overflow-y-auto">
+        <nav className="flex-1 mt-6 flex flex-col gap-1.5 overflow-y-auto scrollbar-thin">
           <NavLink
             to="/user/dashboard"
             className={({ isActive }) =>
               `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                 isActive
-                  ? "text-foreground bg-secondary font-bold shadow-xs ring-1 ring-border"
+                  ? "bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 font-bold border border-orange-200/60 dark:border-orange-900/40 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
               }`
             }
@@ -157,13 +152,13 @@ export default function UserLayout() {
           </NavLink>
         </nav>
 
-        <div className="pt-4 border-t border-border/80 flex flex-col gap-1.5">
+        <div className="pt-4 border-t border-border/70 flex flex-col gap-1.5">
           <button
             onClick={toggleTheme}
             className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground w-full transition-colors btn-target"
           >
-            {theme === "dark" ? <SunIcon className="w-4 h-4 text-amber-400 shrink-0" /> : <MoonIcon className="w-4 h-4 shrink-0" />}
-            <span>{theme === "dark" ? "Light Appearance" : "Dark Appearance"}</span>
+            {isDark ? <SunIcon className="w-4 h-4 text-amber-400 shrink-0" /> : <MoonIcon className="w-4 h-4 shrink-0" />}
+            <span>{isDark ? "Light Appearance" : "Dark Appearance"}</span>
           </button>
           <button
             onClick={toggleLanguage}
@@ -196,16 +191,8 @@ export default function UserLayout() {
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between pb-5 border-b border-border/80">
-          <div>
-            <div className="text-xl font-bold text-foreground flex items-center gap-2">
-              <BrandLogoIcon size={26} />
-              <span>{t.appName || "ကုမယ်"}</span>
-            </div>
-            <div className="mt-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              Patient Portal
-            </div>
-          </div>
+        <div className="flex items-center justify-between pb-5 border-b border-border/70">
+          <BrandLogo subtitle="Patient Portal" />
           <button
             onClick={() => setDrawerOpen(false)}
             className="p-1.5 rounded-xl text-muted-foreground hover:bg-secondary"
@@ -221,7 +208,7 @@ export default function UserLayout() {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                 isActive
-                  ? "text-foreground bg-secondary font-bold shadow-xs"
+                  ? "bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 font-bold border border-orange-200/60 dark:border-orange-900/40 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
               }`
             }
@@ -231,7 +218,7 @@ export default function UserLayout() {
           </NavLink>
         </nav>
 
-        <div className="pt-4 border-t border-border/80 flex flex-col gap-1.5">
+        <div className="pt-4 border-t border-border/70 flex flex-col gap-1.5">
           <button
             onClick={() => {
               toggleTheme();
@@ -239,8 +226,8 @@ export default function UserLayout() {
             }}
             className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground w-full btn-target"
           >
-            {theme === "dark" ? <SunIcon className="w-4 h-4 text-amber-400 shrink-0" /> : <MoonIcon className="w-4 h-4 shrink-0" />}
-            <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+            {isDark ? <SunIcon className="w-4 h-4 text-amber-400 shrink-0" /> : <MoonIcon className="w-4 h-4 shrink-0" />}
+            <span>{isDark ? "Light Mode" : "Dark Mode"}</span>
           </button>
           <button
             onClick={() => {
@@ -265,11 +252,11 @@ export default function UserLayout() {
       {/* Main Viewport */}
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         {/* Top Header */}
-        <header className="flex h-16 w-full items-center justify-between border-b border-border/80 bg-background/80 backdrop-blur-xl px-4 md:px-8 shrink-0">
+        <header className="flex h-16 w-full items-center justify-between border-b border-border/80 bg-background/85 backdrop-blur-2xl px-4 md:px-8 shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="lg:hidden p-2 rounded-2xl text-foreground hover:bg-secondary border border-border/80 shadow-xs"
+              className="lg:hidden p-2 rounded-2xl text-foreground hover:bg-secondary border border-border/80 shadow-2xs"
             >
               <HamburgerMenuIcon className="w-5 h-5" />
             </button>
@@ -287,7 +274,7 @@ export default function UserLayout() {
                     Active Patient:
                   </span>
                   <select
-                    className="scms-select h-9 text-xs font-semibold text-foreground pr-8 bg-card/80 border-border/80"
+                    className="scms-select h-9 text-xs font-semibold text-foreground pr-8 bg-card border-border/80"
                     value={activeProfileId || ""}
                     onChange={(e) => switchActiveProfile(Number(e.target.value))}
                   >
@@ -299,13 +286,13 @@ export default function UserLayout() {
                   </select>
                 </>
               ) : (
-                <div className="text-xs font-bold text-slate-400">No profiles linked</div>
+                <div className="text-xs font-bold text-muted-foreground">No profiles linked</div>
               )}
 
               <button
                 title="Add Family Member"
                 onClick={() => setManageOpen(true)}
-                className="rounded-xl p-2 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 btn-target"
+                className="grid h-9 w-9 place-items-center rounded-xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-900/40 hover:bg-orange-100 btn-target"
               >
                 <PlusIcon className="w-4 h-4" />
               </button>
@@ -313,15 +300,15 @@ export default function UserLayout() {
 
             {/* Profile Avatar */}
             {activeProfile && (
-              <div className="flex items-center gap-2.5 border-l border-slate-200 dark:border-slate-800 pl-3">
-                <div className="grid h-8 w-8 place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white shadow-sm">
+              <div className="flex items-center gap-2.5 border-l border-border/80 pl-3">
+                <div className="grid h-9 w-9 place-items-center rounded-2xl bg-orange-500/10 text-xs font-bold text-orange-600 dark:text-orange-400 border border-orange-500/20 shadow-2xs">
                   {getInitials(activeProfile.name)}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-28">
+                  <div className="text-xs font-bold text-foreground truncate max-w-28">
                     {activeProfile.name}
                   </div>
-                  <div className="text-[10px] font-semibold text-slate-400">
+                  <div className="text-[10px] font-semibold text-muted-foreground">
                     Family Member
                   </div>
                 </div>
@@ -331,7 +318,7 @@ export default function UserLayout() {
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 dark:bg-slate-950">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-background">
           <div className="mx-auto max-w-6xl">
             {error && (
               <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs font-bold text-rose-700 dark:text-rose-300">
@@ -342,8 +329,8 @@ export default function UserLayout() {
             {loading && !data ? (
               <div className="grid place-items-center h-[calc(100vh-200px)]">
                 <div className="flex flex-col items-center gap-3">
-                  <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Loading Patient Portal...
                   </span>
                 </div>
@@ -371,29 +358,29 @@ export default function UserLayout() {
 
       {/* Add Patient Profile Modal */}
       {manageOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-sm animate-fadeIn">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleCreateProfile();
             }}
-            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4"
+            className="w-full max-w-md bg-card text-card-foreground rounded-3xl border border-border/80 p-6 shadow-scms-modal space-y-4"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-border/70">
+              <h3 className="text-base font-bold text-foreground">
                 Add Family Patient Profile
               </h3>
               <button
                 type="button"
                 onClick={() => setManageOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+                className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary"
               >
                 <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
 
             <label className="block text-xs">
-              <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Full Name</span>
+              <span className="mb-1 block font-bold text-foreground">Full Name</span>
               <input
                 required
                 value={newProfile.name}
@@ -405,7 +392,7 @@ export default function UserLayout() {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <label className="block">
-                <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Gender</span>
+                <span className="mb-1 block font-bold text-foreground">Gender</span>
                 <select
                   value={newProfile.gender}
                   onChange={(e) => setNewProfile((p) => ({ ...p, gender: e.target.value }))}
@@ -419,7 +406,7 @@ export default function UserLayout() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Blood Type</span>
+                <span className="mb-1 block font-bold text-foreground">Blood Type</span>
                 <input
                   value={newProfile.bloodType}
                   onChange={(e) => setNewProfile((p) => ({ ...p, bloodType: e.target.value }))}
@@ -430,7 +417,7 @@ export default function UserLayout() {
             </div>
 
             <label className="block text-xs">
-              <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Mobile Number</span>
+              <span className="mb-1 block font-bold text-foreground">Mobile Number</span>
               <input
                 value={newProfile.mobileNo}
                 onChange={(e) => setNewProfile((p) => ({ ...p, mobileNo: e.target.value }))}
@@ -440,7 +427,7 @@ export default function UserLayout() {
             </label>
 
             <label className="block text-xs">
-              <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Address (optional)</span>
+              <span className="mb-1 block font-bold text-foreground">Address (optional)</span>
               <input
                 value={newProfile.actualAddress}
                 onChange={(e) => setNewProfile((p) => ({ ...p, actualAddress: e.target.value }))}
@@ -449,7 +436,7 @@ export default function UserLayout() {
               />
             </label>
 
-            <div className="pt-2 flex justify-end gap-2">
+            <div className="pt-2 flex justify-end gap-2 border-t border-border/70">
               <button
                 type="button"
                 onClick={() => setManageOpen(false)}
@@ -467,3 +454,4 @@ export default function UserLayout() {
     </div>
   );
 }
+

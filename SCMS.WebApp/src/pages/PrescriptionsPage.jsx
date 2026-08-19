@@ -166,22 +166,22 @@ export default function PrescriptionsPage() {
 
       {/* Main Table / Grid */}
       {loading ? (
-        <div className="grid place-items-center h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+        <div className="grid place-items-center h-64 rounded-3xl border border-border/80 bg-card">
+          <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
         </div>
       ) : prescriptions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <FileTextIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-2 animate-pulse" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Prescriptions Issued</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+        <div className="flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed border-border/80 bg-card">
+          <FileTextIcon className="w-12 h-12 text-muted-foreground/40 mb-2 animate-pulse" />
+          <h3 className="text-base font-bold text-foreground">No Prescriptions Issued</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
             Completed doctor consultations will generate prescription records here.
           </p>
         </div>
       ) : viewMode === "table" ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3.5 w-12 text-center">No.</th>
                   <th className="px-4 py-3.5">Prescription ID</th>
@@ -191,35 +191,35 @@ export default function PrescriptionsPage() {
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-border/60">
                 {prescriptions.map((p, index) => (
                   <tr
                     key={p.id || p.prescriptionId || index}
                     onClick={() => openDetailModal(p)}
-                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+                    className="hover:bg-secondary/60 cursor-pointer transition-colors"
                   >
-                    <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
+                    <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">
                       {(page - 1) * pageSize + index + 1}
                     </td>
-                    <td className="px-4 py-3.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    <td className="px-4 py-3.5 font-mono font-bold text-orange-600 dark:text-orange-400">
                       RX-{String(p.id || p.prescriptionId).padStart(4, "0")}
                     </td>
-                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                    <td className="px-4 py-3.5 font-bold text-foreground">
                       {p.patientName || p.patient?.name || `Patient #${p.patientId}`}
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-300">
-                      <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 font-semibold">
+                    <td className="px-4 py-3.5 text-xs text-muted-foreground">
+                      <span className="rounded-full bg-secondary px-2.5 py-0.5 font-semibold text-secondary-foreground">
                         {p.diseaseName || p.disease?.name || "General Medical"}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 font-mono text-xs text-slate-500">
+                    <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">
                       {p.prescribedAt ? String(p.prescribedAt).slice(0, 10) : "-"}
                     </td>
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={(e) => handleDownloadPdf(e, p.id || p.prescriptionId)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-slate-600 dark:text-slate-300 btn-target"
+                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-foreground btn-target"
                           title="Download Prescription PDF"
                         >
                           <DownloadIcon className="w-4 h-4" />
@@ -245,29 +245,29 @@ export default function PrescriptionsPage() {
             <div
               key={p.id || p.prescriptionId || index}
               onClick={() => openDetailModal(p)}
-              className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-md cursor-pointer transition-all space-y-3"
+              className="rounded-3xl border border-border/80 bg-card/95 p-5 shadow-scms hover:shadow-scms-raised cursor-pointer transition-all space-y-3"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                <span className="font-mono text-xs font-bold text-orange-600 dark:text-orange-400">
                   RX-{String(p.id || p.prescriptionId).padStart(4, "0")}
                 </span>
-                <span className="font-mono text-[10px] text-slate-400">
+                <span className="font-mono text-[10px] text-muted-foreground font-semibold">
                   {p.prescribedAt ? String(p.prescribedAt).slice(0, 10) : "Recent"}
                 </span>
               </div>
 
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">
+                <h3 className="font-bold text-foreground">
                   {p.patientName || p.patient?.name || `Patient #${p.patientId}`}
                 </h3>
-                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">
                   {p.diseaseName || p.disease?.name || "Clinical Rx"}
                 </p>
               </div>
 
-              {p.notes && <p className="text-xs text-slate-400 italic truncate">{p.notes}</p>}
+              {p.notes && <p className="text-xs text-muted-foreground italic truncate">{p.notes}</p>}
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={(e) => handleDownloadPdf(e, p.id || p.prescriptionId)}
                   className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"

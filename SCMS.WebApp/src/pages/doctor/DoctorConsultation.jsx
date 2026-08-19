@@ -337,7 +337,7 @@ export default function DoctorConsultation() {
                   Token #{appointment?.tokenNumber || appointment?.appointmentCode || "1"}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {patient?.gender || "Patient"} • {patient?.phone || "No phone listed"} • Blood Type:{" "}
                 <strong className="text-rose-600 dark:text-rose-400 font-bold">
                   {patient?.bloodType || "O+"}
@@ -347,7 +347,7 @@ export default function DoctorConsultation() {
           </div>
 
           {patient?.allergies && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs text-rose-800 dark:text-rose-300 max-w-sm">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/40 p-3.5 text-xs text-rose-800 dark:text-rose-300 max-w-sm">
               <strong className="block font-bold">Known Allergies:</strong>
               {patient.allergies}
             </div>
@@ -360,10 +360,10 @@ export default function DoctorConsultation() {
         {/* Left Column: Vitals & Diagnosis (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
           {/* Vitals Matrix */}
-          <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-4">
+          <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <HeartIcon className="w-4 h-4 text-rose-500" />
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <HeartIcon className="w-4 h-4 text-orange-500" />
                 <span>{t.vitalsMatrix}</span>
               </h2>
               {bmi && (
@@ -381,7 +381,7 @@ export default function DoctorConsultation() {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <label className="block">
-                <span className="mb-1 block font-semibold text-slate-600 dark:text-slate-400">
+                <span className="mb-1 block font-semibold text-muted-foreground">
                   {t.weight}
                 </span>
                 <input
@@ -395,7 +395,7 @@ export default function DoctorConsultation() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block font-semibold text-slate-600 dark:text-slate-400">
+                <span className="mb-1 block font-semibold text-muted-foreground">
                   {t.height}
                 </span>
                 <input
@@ -408,7 +408,7 @@ export default function DoctorConsultation() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block font-semibold text-slate-600 dark:text-slate-400">
+                <span className="mb-1 block font-semibold text-muted-foreground">
                   BP (Systolic / Diastolic)
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -421,7 +421,7 @@ export default function DoctorConsultation() {
                     }
                     placeholder="120"
                   />
-                  <span className="text-slate-400 font-bold">/</span>
+                  <span className="text-muted-foreground font-bold">/</span>
                   <input
                     type="number"
                     className="scms-input w-full h-10 min-h-10 text-xs font-mono text-center"
@@ -436,13 +436,13 @@ export default function DoctorConsultation() {
 
               <label className="block">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-slate-600 dark:text-slate-400">
+                  <span className="font-semibold text-muted-foreground">
                     {t.temperature} (°{tempUnit})
                   </span>
                   <button
                     type="button"
                     onClick={() => setTempUnit((u) => (u === "F" ? "C" : "F"))}
-                    className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:underline"
                   >
                     Switch to °{tempUnit === "F" ? "C" : "F"}
                   </button>

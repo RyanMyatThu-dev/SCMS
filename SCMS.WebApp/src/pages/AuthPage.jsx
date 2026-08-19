@@ -179,7 +179,7 @@ export default function AuthPage({ mode = "login" }) {
                     className={cn(
                       "flex items-center justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer select-none",
                       isSelected
-                        ? "bg-background border-foreground/30 text-foreground shadow-sm font-semibold ring-1 ring-ring/10"
+                        ? "bg-orange-50/80 dark:bg-orange-950/40 border-orange-300 dark:border-orange-800 text-foreground shadow-xs font-semibold ring-1 ring-orange-400/30"
                         : "bg-background/40 border-border/60 text-muted-foreground hover:bg-background/80 hover:text-foreground hover:border-border"
                     )}
                   >
@@ -187,7 +187,7 @@ export default function AuthPage({ mode = "login" }) {
                       <CheckCircledIcon
                         className={cn(
                           "w-5 h-5 shrink-0 transition-colors",
-                          isSelected ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/30"
+                          isSelected ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground/30"
                         )}
                       />
                       <div className="min-w-0">
@@ -195,7 +195,7 @@ export default function AuthPage({ mode = "login" }) {
                         <div className="text-xs text-muted-foreground font-mono truncate">{acc.email}</div>
                       </div>
                     </div>
-                    <Badge variant={isSelected ? "default" : "secondary"} className="shrink-0 ml-2">
+                    <Badge variant={isSelected ? "default" : "secondary"} className={cn("shrink-0 ml-2", isSelected && "bg-orange-500 hover:bg-orange-600 text-white")}>
                       {acc.badge}
                     </Badge>
                   </button>
