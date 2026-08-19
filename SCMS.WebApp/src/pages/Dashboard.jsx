@@ -18,6 +18,8 @@ import RevenueAreaChart from "../components/widgets/RevenueAreaChart";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { appointmentsApi, dashboardsApi, medicinesApi, reportsApi } from "../services/scmsApi";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -90,6 +92,8 @@ export default function Dashboard() {
   // Detail Modal State
   const [selectedAppt, setSelectedAppt] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  useScrollLock(detailOpen);
 
   const loadAppointments = async (pageNum) => {
     try {
@@ -467,8 +471,11 @@ export default function Dashboard() {
       </section>
 
       {/* Appointment Detail Modal */}
-      {detailOpen && selectedAppt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-sm animate-fadeIn">
+      <ModalPortal
+        isOpen={detailOpen && Boolean(selectedAppt)}
+        onClose={() => setDetailOpen(false)}
+      >
+        {selectedAppt && (
           <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-border/70">
               <div>
@@ -522,8 +529,8 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

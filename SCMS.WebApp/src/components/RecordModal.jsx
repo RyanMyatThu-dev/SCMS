@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { useLanguage } from "../context/LanguageContext";
+import useScrollLock from "../hooks/useScrollLock";
 
 export default function RecordModal({
   title,
@@ -16,6 +18,8 @@ export default function RecordModal({
   const { t } = useLanguage();
   const modalRef = useRef(null);
 
+  useScrollLock(true);
+
   // Close on Escape key press
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -27,12 +31,17 @@ export default function RecordModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-sm animate-fadeIn"
+      className="scms-modal-backdrop animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
     >
       <div
         ref={modalRef}
@@ -138,7 +147,8 @@ export default function RecordModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -17,6 +17,8 @@ import { Input } from "../components/ui/input";
 import { paymentsApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -48,6 +50,8 @@ export default function PaymentsPage() {
   // Detail Modal State
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  useScrollLock(detailOpen);
 
   const loadPayments = async (pageNum = page, currentQuery = query) => {
     try {
@@ -135,14 +139,19 @@ export default function PaymentsPage() {
 
       {/* Filter and View Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
-        <form onSubmit={handleSearch} className="flex-1 w-full max-w-xs">
+        <form onSubmit={handleSearch} className="flex-1 w-full max-w-sm flex items-center gap-2">
           <Input
             type="text"
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by code or patient..."
+            className="flex-1"
           />
+          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
+            <MagnifyingGlassIcon className="w-4 h-4" />
+            <span>Search</span>
+          </button>
         </form>
 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -270,7 +279,7 @@ export default function PaymentsPage() {
                             <button
                               onClick={(e) => handleApprove(e, pId)}
                               disabled={approvingId === pId}
-                              className="scms-btn-primary px-3 h-8 min-h-8 text-xs font-bold flex items-center gap-1 btn-target rounded-xl"
+                              className="scms-btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 border-none"
                             >
                               {approvingId === pId ? (
                                 <span className="loading loading-spinner loading-xs" />
@@ -282,8 +291,9 @@ export default function PaymentsPage() {
                           )}
                           <button
                             onClick={(e) => handleDownloadInvoice(e, pId)}
-                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-foreground btn-target"
+                            className="scms-btn-icon"
                             title="Download Invoice PDF"
+                            aria-label="Download Invoice PDF"
                           >
                             <DownloadIcon className="w-4 h-4" />
                           </button>
@@ -319,7 +329,7 @@ export default function PaymentsPage() {
                     INV-{String(pId).padStart(4, "0")}
                   </span>
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
                       isPending
                         ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                         : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
@@ -330,22 +340,22 @@ export default function PaymentsPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white">
+                  <h3 className="font-bold text-foreground">
                     {p.patientName || p.patient?.name || `Appt #${p.appointmentId}`}
                   </h3>
-                  <p className="text-xs text-slate-500 font-semibold">{p.paymentMethod || "Mobile Transfer"}</p>
+                  <p className="text-xs text-muted-foreground font-semibold">{p.paymentMethod || "Mobile Transfer"}</p>
                 </div>
 
-                <div className="font-mono text-base font-bold text-slate-900 dark:text-white">
+                <div className="font-mono text-base font-bold text-foreground">
                   {Number(p.amount || 0).toLocaleString()} MMK
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {isPending && (
                     <button
                       onClick={(e) => handleApprove(e, pId)}
                       disabled={approvingId === pId}
-                      className="scms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 h-8 min-h-8 text-xs font-bold flex items-center gap-1 btn-target"
+                      className="scms-btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 border-none"
                     >
                       <CheckIcon className="w-3.5 h-3.5" />
                       <span>Approve</span>
@@ -353,7 +363,7 @@ export default function PaymentsPage() {
                   )}
                   <button
                     onClick={(e) => handleDownloadInvoice(e, pId)}
-                    className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                    className="scms-btn-icon"
                     title="Download Invoice"
                   >
                     <DownloadIcon className="w-4 h-4" />
@@ -374,9 +384,12 @@ export default function PaymentsPage() {
       />
 
       {/* Payment Detail & Screenshot Verification Modal */}
-      {detailOpen && selectedPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+      <ModalPortal
+        isOpen={detailOpen && Boolean(selectedPayment)}
+        onClose={() => setDetailOpen(false)}
+      >
+        {selectedPayment && (
+          <div className="w-full max-w-lg rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -445,8 +458,8 @@ export default function PaymentsPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

@@ -11,6 +11,9 @@ import PaginationControls from "../../components/PaginationControls";
 import { Input } from "../../components/ui/input";
 import { patientsApi, downloadBlob } from "../../services/scmsApi";
 import { showAlert, showError } from "../../services/dialogs";
+import { parsePrescriptionNotes } from "../../utils/clinical";
+import useScrollLock from "../../hooks/useScrollLock";
+import ModalPortal from "../../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -32,6 +35,8 @@ export default function DoctorPatients() {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyData, setHistoryData] = useState(null);
+
+  useScrollLock(Boolean(selectedPatient));
 
   const loadPatients = async (pageNum = page, currentQuery = query) => {
     try {
@@ -116,16 +121,19 @@ export default function DoctorPatients() {
             placeholder="Search patients by name, phone, or MRN..."
           />
         </div>
-        <button type="submit" className="scms-btn-primary text-xs font-bold btn-target shadow-xs">
-          Search
+        <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
+          <MagnifyingGlassIcon className="w-4 h-4" />
+          <span>Search</span>
         </button>
         <button
           type="button"
           onClick={() => {
             setQuery("");
-            loadPatients(1);
+            loadPatients(1, "");
           }}
-          className="scms-btn-outline px-3 btn-target shadow-xs"
+          className="scms-btn-icon"
+          title="Reload"
+          aria-label="Reload"
         >
           <ReloadIcon className="w-4 h-4 shrink-0" />
         </button>
@@ -167,14 +175,15 @@ export default function DoctorPatients() {
           <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => handleDownloadSummaryPdf(row)}
-              className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-slate-600 dark:text-slate-300 btn-target"
+              className="scms-btn-icon"
               title="Download Medical Summary PDF"
+              aria-label="Download Medical Summary PDF"
             >
               <DownloadIcon className="w-4 h-4" />
             </button>
             <button
               onClick={() => handleOpenPatientHistory(row)}
-              className="scms-btn-outline px-3 h-8 min-h-8 text-xs font-bold btn-target"
+              className="scms-btn-sm"
             >
               View Chart
             </button>
@@ -191,8 +200,11 @@ export default function DoctorPatients() {
       />
 
       {/* Clinical History Modal */}
-      {selectedPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <ModalPortal
+        isOpen={Boolean(selectedPatient)}
+        onClose={() => setSelectedPatient(null)}
+      >
+        {selectedPatient && (
           <div className="w-full max-w-2xl rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-border/70">
               <div className="flex items-center gap-3">
@@ -254,7 +266,11 @@ export default function DoctorPatients() {
                               {pres.prescribedAt ? String(pres.prescribedAt).slice(0, 10) : "Recent"}
                             </span>
                           </div>
-                          {pres.notes && <p className="text-slate-500 italic mt-1">{pres.notes}</p>}
+                          {pres.notes && (
+                            <p className="text-slate-500 italic mt-1">
+                              {parsePrescriptionNotes(pres.notes)}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -275,8 +291,8 @@ export default function DoctorPatients() {
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

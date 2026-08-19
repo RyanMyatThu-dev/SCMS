@@ -28,6 +28,9 @@ import {
 import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
 import { calculateQuantity, commonDosageValues, dosageOptions, fahrenheitToCelsius } from "../utils/clinical";
+import { sanitizeText, validateClinicalVitals, validateNumberRange } from "../utils/validation";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -61,6 +64,8 @@ export default function AppointmentsPage() {
   const [emrOpen, setEmrOpen] = useState(false);
   const [activeAppt, setActiveAppt] = useState(null);
   
+  useScrollLock(detailOpen || emrOpen);
+
   // Vitals & Consultation Notes
   const [vitals, setVitals] = useState({
     weightKg: "",
@@ -325,10 +330,40 @@ export default function AppointmentsPage() {
 
   const handleSaveConsult = async () => {
     if (!activeAppt) return;
-    // Allow consultation without medicine if prescribedItems is empty
-    if (scheduleFollowUp && !followUpDate) {
-      showAlert("Please select a due date for the follow-up visit.");
+    
+    // Validate physiological limits of clinical vitals
+    const vitalsValidation = validateClinicalVitals({
+      systolic: vitals.bloodPressureSystolic,
+      diastolic: vitals.bloodPressureDiastolic,
+      temperature: vitals.temperatureF,
+      pulse: vitals.pulseBpm,
+      spO2: vitals.spo2Percent,
+      weight: vitals.weightKg,
+      height: vitals.heightCm,
+    });
+
+    if (!vitalsValidation.isValid) {
+      showError(vitalsValidation.error, "Clinical Vitals Out of Range");
       return;
+    }
+
+    if (scheduleFollowUp && !followUpDate) {
+      showError("Please select a due date for the scheduled follow-up visit.", "Missing Follow-up Date");
+      return;
+    }
+
+    // Validate medication quantities and days
+    for (const item of prescribedItems) {
+      const qVal = validateNumberRange(item.quantity, { label: `${item.medicineName} Quantity`, min: 1, max: 10000, isInteger: true });
+      if (!qVal.isValid) {
+        showError(qVal.error, "Invalid Medication Quantity");
+        return;
+      }
+      const dVal = validateNumberRange(item.days, { label: `${item.medicineName} Days`, min: 1, max: 365, isInteger: true });
+      if (!dVal.isValid) {
+        showError(dVal.error, "Invalid Treatment Days");
+        return;
+      }
     }
 
     try {
@@ -347,18 +382,18 @@ export default function AppointmentsPage() {
         temperatureC: tempC,
         pulseBpm: vitals.pulseBpm ? Number(vitals.pulseBpm) : null,
         spo2Percent: vitals.spo2Percent ? Number(vitals.spo2Percent) : null,
-        notes: vitals.notes.trim() || null,
+        notes: sanitizeText(vitals.notes) || null,
         items: prescribedItems.map(item => ({
           medicineId: item.medicineId,
-          dosage: item.dosage,
+          dosage: sanitizeText(item.dosage) || "Once daily",
           days: Number(item.days),
           quantity: Number(item.quantity),
-          instruction: item.instruction,
+          instruction: sanitizeText(item.instruction) || "As directed",
           doseTime: item.doseTime,
-          doseQuantity: Number(item.doseQuantity),
-          doseUnit: item.doseUnit,
-          mealTiming: item.mealTiming,
-          route: item.route,
+          doseQuantity: Number(item.doseQuantity) || 1,
+          doseUnit: item.doseUnit || "tablet",
+          mealTiming: item.mealTiming || "after_meal",
+          route: item.route || "oral",
         }))
       };
 
@@ -425,38 +460,40 @@ export default function AppointmentsPage() {
   };
 
   const handleSaveTemplate = async () => {
-    if (!templateName.trim()) {
-      showAlert("Please enter a template name.");
+    const cleanTplName = sanitizeText(templateName);
+    if (!cleanTplName || cleanTplName.length < 2) {
+      showError("Please enter a valid template name (at least 2 characters).", "Invalid Template Name");
       return;
     }
     if (!selectedDiseaseId) {
-      showAlert("Please select a disease first before saving a template.");
+      showError("Please select a disease / diagnosis first before saving a template.", "Disease Required");
       return;
     }
     if (prescribedItems.length === 0) {
-      showAlert("Please add at least one medicine to save as a template.");
+      showError("Please add at least one medication to save in this prescription template.", "No Medications");
       return;
     }
 
     try {
       setSavingTemplate(true);
       await prescriptionsApi.saveTemplate({
-        name: templateName.trim(),
+        name: cleanTplName,
         diseaseId: Number(selectedDiseaseId),
         items: prescribedItems.map(item => ({
           medicineId: item.medicineId,
-          dosage: item.dosage,
+          dosage: sanitizeText(item.dosage) || "Once daily",
           days: Number(item.days),
           quantity: Number(item.quantity),
-          instruction: item.instruction
-        }))
+          instruction: sanitizeText(item.instruction) || "As directed",
+        })),
       });
       setTemplateName("");
-      showAlert("Prescription template saved successfully!");
+      showAlert("Prescription protocol template saved successfully!", "Template Saved");
       const res = await prescriptionsApi.templates({ diseaseId: selectedDiseaseId });
       setTemplates(toArray(res));
-    } catch (e) {
-      showError(e?.response?.data?.message || "Failed to save prescription template.");
+    } catch (err) {
+      console.error(err);
+      showError(err);
     } finally {
       setSavingTemplate(false);
     }
@@ -670,9 +707,12 @@ export default function AppointmentsPage() {
       />
 
       {/* --- APPOINTMENT DETAILS MODAL --- */}
-      {detailOpen && selectedAppt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative">
+      <ModalPortal
+        isOpen={detailOpen && Boolean(selectedAppt)}
+        onClose={() => setDetailOpen(false)}
+      >
+        {selectedAppt && (
+          <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal relative">
             <div className="flex justify-between items-start gap-3 border-b border-slate-100 pb-3 mb-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -712,13 +752,16 @@ export default function AppointmentsPage() {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
 
       {/* --- EMR CLINICAL CONSULT WORKSPACE MODAL (Wizard/Single-Screen EHR Layout) --- */}
-      {emrOpen && activeAppt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-6xl bg-white rounded-3xl border border-scms-border p-6 shadow-2xl relative max-h-[92vh] overflow-hidden flex flex-col justify-between">
+      <ModalPortal
+        isOpen={emrOpen && Boolean(activeAppt)}
+        onClose={() => setEmrOpen(false)}
+      >
+        {activeAppt && (
+          <div className="w-full max-w-6xl rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal relative max-h-[92vh] overflow-hidden flex flex-col justify-between">
             
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
@@ -1097,8 +1140,8 @@ export default function AppointmentsPage() {
             </div>
 
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

@@ -193,7 +193,7 @@ export default function ResourcePage({ config }) {
             {config.rowActions?.map((action) => (
               <button
                 key={action.label}
-                className="scms-btn-outline px-2.5 h-8 min-h-8 text-xs font-semibold flex items-center gap-1 btn-target shadow-xs"
+                className="scms-btn-sm flex items-center gap-1"
                 onClick={() => (action.download ? download(action, row) : runAction(action, row))}
               >
                 {action.download ? <DownloadIcon className="w-3.5 h-3.5 shrink-0" /> : action.icon}
@@ -202,18 +202,20 @@ export default function ResourcePage({ config }) {
             ))}
             {config.update && (
               <button
-                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target shadow-xs"
+                className="scms-btn-icon"
                 onClick={() => openEdit(row)}
                 title={t.edit}
+                aria-label={t.edit}
               >
                 <Pencil1Icon className="w-4 h-4 shrink-0" />
               </button>
             )}
             {config.remove && (
               <button
-                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-destructive hover:bg-destructive/10 btn-target shadow-xs"
+                className="scms-btn-icon-danger"
                 onClick={() => remove(row)}
                 title="Delete"
+                aria-label="Delete"
               >
                 <TrashIcon className="w-4 h-4 shrink-0" />
               </button>

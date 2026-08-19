@@ -275,7 +275,7 @@ export default function DoctorDashboard() {
               onClick={() =>
                 navigate(`/doctor/consult/${row.id || row.appointmentId || row.appointmentCode}`)
               }
-              className="scms-btn-outline px-3 h-8 min-h-8 text-xs font-semibold btn-target"
+              className="scms-btn-sm-primary"
             >
               Consult
             </button>

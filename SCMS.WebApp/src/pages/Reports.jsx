@@ -11,6 +11,8 @@ import DateInput from "../components/DateInput";
 import { useLanguage } from "../context/LanguageContext";
 import { downloadBlob, reportsApi } from "../services/scmsApi";
 import { showError, showAlert } from "../services/dialogs";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -79,6 +81,8 @@ export default function Reports() {
   // Detailed Modal State
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
+
+  useScrollLock(previewOpen);
 
   const params = () => ({ reportType, date });
 
@@ -269,9 +273,12 @@ export default function Reports() {
       )}
 
       {/* Detailed Modal Preview */}
-      {previewOpen && selectedRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[80vh] overflow-y-auto">
+      <ModalPortal
+        isOpen={previewOpen && Boolean(selectedRow)}
+        onClose={() => setPreviewOpen(false)}
+      >
+        {selectedRow && (
+          <div className="w-full max-w-lg rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
@@ -330,8 +337,8 @@ export default function Reports() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

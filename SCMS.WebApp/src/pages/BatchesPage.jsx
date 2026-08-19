@@ -19,6 +19,9 @@ import { Input } from "../components/ui/input";
 import { medicinesApi } from "../services/scmsApi";
 import { showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { sanitizeText, validateNumberRange } from "../utils/validation";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -48,6 +51,8 @@ export default function BatchesPage() {
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
+
+  useScrollLock(modalOpen);
   const [form, setForm] = useState({
     medicineId: "",
     batchNumber: "",
@@ -133,20 +138,57 @@ export default function BatchesPage() {
 
   const handleSaveBatch = async (e) => {
     e.preventDefault();
-    if (!form.medicineId || !form.batchNumber.trim() || !form.quantity) {
-      showError("Please fill all required batch fields.");
+    if (!form.medicineId) {
+      showError("Please select a medicine for this batch.", "Medicine Required");
       return;
+    }
+
+    const cleanBatchNo = sanitizeText(form.batchNumber);
+    if (!cleanBatchNo || cleanBatchNo.length < 2) {
+      showError("Batch number / Lot code is required (at least 2 characters).", "Invalid Batch Number");
+      return;
+    }
+
+    const qtyValidation = validateNumberRange(form.quantity, {
+      label: "Batch Quantity",
+      min: 1,
+      max: 10000000,
+      isInteger: true,
+      isRequired: true,
+    });
+    if (!qtyValidation.isValid) {
+      showError(qtyValidation.error, "Invalid Quantity");
+      return;
+    }
+
+    if (!form.expiryDate) {
+      showError("Batch expiry date is required.", "Expiry Date Required");
+      return;
+    }
+
+    const expDate = new Date(form.expiryDate);
+    if (isNaN(expDate.getTime())) {
+      showError("Invalid expiry date format.", "Invalid Expiry Date");
+      return;
+    }
+
+    if (form.manufactureDate) {
+      const mfgDate = new Date(form.manufactureDate);
+      if (!isNaN(mfgDate.getTime()) && mfgDate > expDate) {
+        showError("Manufacture date cannot be after the expiry date.", "Invalid Date Sequence");
+        return;
+      }
     }
 
     try {
       setSaving(true);
       const payload = {
         medicineId: Number(form.medicineId),
-        batchNumber: form.batchNumber.trim(),
-        quantity: Number(form.quantity),
-        expiryDate: form.expiryDate ? `${form.expiryDate}T00:00:00` : null,
+        batchNumber: cleanBatchNo,
+        quantity: qtyValidation.value,
+        expiryDate: `${form.expiryDate}T00:00:00`,
         manufactureDate: form.manufactureDate ? `${form.manufactureDate}T00:00:00` : null,
-        supplierName: form.supplierName.trim() || undefined,
+        supplierName: sanitizeText(form.supplierName) || undefined,
       };
 
       if (editingBatch) {
@@ -161,7 +203,7 @@ export default function BatchesPage() {
       setModalOpen(false);
       loadBatches(page);
     } catch (err) {
-      showError(err?.response?.data?.message || "Failed to save batch.");
+      showError(err);
     } finally {
       setSaving(false);
     }
@@ -182,7 +224,7 @@ export default function BatchesPage() {
       showSuccess("Batch removed.");
       loadBatches(page);
     } catch (err) {
-      showError(err?.response?.data?.message || "Failed to delete batch.");
+      showError(err, "Cannot Delete Batch");
     } finally {
       setLoading(false);
     }
@@ -215,14 +257,19 @@ export default function BatchesPage() {
 
       {/* Filter & Layout Switcher */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
-        <form onSubmit={handleSearch} className="flex-1 w-full max-w-sm">
+        <form onSubmit={handleSearch} className="flex-1 w-full max-w-sm flex items-center gap-2">
           <Input
             type="text"
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search batches by number or supplier..."
+            className="flex-1"
           />
+          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
+            <MagnifyingGlassIcon className="w-4 h-4" />
+            <span>Search</span>
+          </button>
         </form>
 
         <div className="w-full sm:w-auto min-w-[200px]">
@@ -309,15 +356,17 @@ export default function BatchesPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openEditModal(b)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
-                          title="Edit"
+                          className="scms-btn-icon"
+                          title="Edit Batch"
+                          aria-label="Edit Batch"
                         >
                           <Pencil1Icon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, b)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
-                          title="Delete"
+                          className="scms-btn-icon-danger"
+                          title="Delete Batch"
+                          aria-label="Delete Batch"
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -347,28 +396,28 @@ export default function BatchesPage() {
               </div>
 
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">
+                <h3 className="font-bold text-foreground">
                   {b.medicineName || b.medicine?.name || `Medicine #${b.medicineId}`}
                 </h3>
-                <p className="text-xs text-slate-500">Supplier: {b.supplierName || "Direct"}</p>
+                <p className="text-xs text-muted-foreground">Supplier: {b.supplierName || "Direct"}</p>
               </div>
 
-              <div className="text-xs text-slate-600 dark:text-slate-400 font-mono">
+              <div className="text-xs text-muted-foreground font-mono">
                 Expires: {b.expiryDate ? String(b.expiryDate).slice(0, 10) : "-"}
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5">
+              <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => openEditModal(b)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
-                  title="Edit"
+                  className="scms-btn-icon"
+                  title="Edit Batch"
                 >
                   <Pencil1Icon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => handleDelete(e, b)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 btn-target"
-                  title="Delete"
+                  className="scms-btn-icon-danger"
+                  title="Delete Batch"
                 >
                   <TrashIcon className="w-4 h-4" />
                 </button>
@@ -387,9 +436,8 @@ export default function BatchesPage() {
       />
 
       {/* Create / Edit Batch Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+      <ModalPortal isOpen={modalOpen} onClose={() => setModalOpen(false)}>
+        <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingBatch ? "Edit Batch Record" : "Add Inventory Batch"}
@@ -501,8 +549,7 @@ export default function BatchesPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </ModalPortal>
     </div>
   );
 }

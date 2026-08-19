@@ -170,13 +170,98 @@ textarea {
   @apply inline-flex h-11 min-h-11 items-center justify-center rounded-2xl border border-input bg-background/80 px-5 text-sm font-semibold text-foreground hover:bg-secondary active:scale-[0.98] transition-all;
 }
 
-/* Standardize 44x44px minimum target sizes for primary buttons */
-.btn-target {
+/* Dedicated Action & Compact Icon Buttons */
+.scms-btn-icon {
+  display: inline-flex !important;
+  height: 2rem !important;
+  width: 2rem !important;
+  min-height: 2rem !important;
+  min-width: 2rem !important;
+  padding: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+.scms-btn-icon:hover {
+  background-color: hsl(var(--secondary)) !important;
+  border-color: hsl(var(--ring) / 0.5) !important;
+  color: hsl(var(--accent)) !important;
+}
+
+.scms-btn-icon-danger {
+  display: inline-flex !important;
+  height: 2rem !important;
+  width: 2rem !important;
+  min-height: 2rem !important;
+  min-width: 2rem !important;
+  padding: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid rgba(244, 63, 94, 0.3) !important;
+  background-color: rgba(244, 63, 94, 0.08) !important;
+  color: #e11d48 !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+.scms-btn-icon-danger:hover {
+  background-color: rgba(244, 63, 94, 0.18) !important;
+  border-color: #e11d48 !important;
+}
+
+.scms-btn-sm {
+  display: inline-flex !important;
+  height: 2rem !important;
+  min-height: 2rem !important;
+  padding: 0 0.75rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+.scms-btn-sm:hover {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+.scms-btn-sm-primary {
+  display: inline-flex !important;
+  height: 2rem !important;
+  min-height: 2rem !important;
+  padding: 0 0.75rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.75rem !important;
+  border: none !important;
+  background-color: #ea580c !important;
+  color: #ffffff !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.3) !important;
+}
+.scms-btn-sm-primary:hover {
+  background-color: #c2410c !important;
+}
+
+/* Primary buttons accessible touch targets */
+.btn-target:not(.scms-btn-icon):not(.scms-btn-icon-danger):not(.scms-btn-sm):not(.scms-btn-sm-primary) {
   min-height: 44px;
   min-width: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Reduced motion preference */
@@ -237,9 +322,118 @@ input[type="number"] {
   background: transparent;
 }
 
-/* Prevent unwanted horizontal scrolling across main containers */
-.no-scrollbar-x {
-  overflow-x: hidden !important;
+/* Body and HTML scroll locking when modals/drawers are active */
+html.modal-open,
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+  -webkit-overflow-scrolling: auto !important;
+  overscroll-behavior: contain !important;
+}
+
+/* Standard Deep Frosted Modal Backdrop with Portal-grade coverage */
+.scms-modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  background-color: rgba(15, 23, 42, 0.72) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+}
+
+.dark .scms-modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Custom SweetAlert2 Theme Integration with Deep Frosted Backdrop */
+.scms-swal-container {
+  z-index: 100000 !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+}
+
+.dark .scms-swal-container {
+  background: rgba(0, 0, 0, 0.85) !important;
+}
+
+.scms-swal-popup {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 1.5rem !important;
+  padding: 1.75rem !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  font-family: inherit !important;
+}
+
+.scms-swal-title {
+  color: hsl(var(--foreground)) !important;
+  font-size: 1.125rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  padding: 0 !important;
+  margin-top: 0.5rem !important;
+}
+
+.scms-swal-html {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  margin-top: 0.5rem !important;
+  padding: 0 !important;
+}
+
+.scms-swal-confirm-btn {
+  background: #ea580c !important; /* Orange 600 */
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  padding: 0.625rem 1.25rem !important;
+  border-radius: 0.875rem !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25) !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+.scms-swal-confirm-btn:hover {
+  background: #c2410c !important; /* Orange 700 */
+  transform: translateY(-1px);
+}
+
+.scms-swal-cancel-btn {
+  background: transparent !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  padding: 0.625rem 1.25rem !important;
+  border-radius: 0.875rem !important;
+  border: 1px solid hsl(var(--border)) !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+.scms-swal-cancel-btn:hover {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.scms-swal-toast-popup {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+  font-family: inherit !important;
 }
 
 

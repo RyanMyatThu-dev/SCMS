@@ -19,6 +19,9 @@ import { Input } from "../components/ui/input";
 import { medicinesApi } from "../services/scmsApi";
 import { showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { sanitizeText, validateNumberRange } from "../utils/validation";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -46,6 +49,8 @@ export default function MedicinesPage() {
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState(null);
+
+  useScrollLock(modalOpen);
   const [form, setForm] = useState({
     name: "",
     genericName: "",
@@ -139,19 +144,31 @@ export default function MedicinesPage() {
 
   const handleSaveMedicine = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      showError("Medicine name is required.");
+    const cleanName = sanitizeText(form.name);
+    if (!cleanName || cleanName.length < 2) {
+      showError("Medicine brand/trade name is required (at least 2 characters).", "Invalid Input");
+      return;
+    }
+
+    const priceValidation = validateNumberRange(form.unitPrice, {
+      label: "Unit Price",
+      min: 1,
+      max: 100000000,
+      isRequired: true,
+    });
+    if (!priceValidation.isValid) {
+      showError(priceValidation.error, "Invalid Price");
       return;
     }
 
     try {
       setSaving(true);
       const formData = new FormData();
-      formData.append("name", form.name.trim());
-      if (form.genericName) formData.append("genericName", form.genericName.trim());
-      if (form.category) formData.append("category", form.category.trim());
-      if (form.unitPrice) formData.append("unitPrice", form.unitPrice);
-      if (form.description) formData.append("description", form.description.trim());
+      formData.append("name", cleanName);
+      if (form.genericName) formData.append("genericName", sanitizeText(form.genericName));
+      if (form.category) formData.append("category", sanitizeText(form.category));
+      formData.append("unitPrice", priceValidation.value);
+      if (form.description) formData.append("description", sanitizeText(form.description));
 
       if (editingMedicine) {
         const id = editingMedicine.id || editingMedicine.medicineId;
@@ -165,7 +182,7 @@ export default function MedicinesPage() {
       setModalOpen(false);
       loadMedicines(page);
     } catch (err) {
-      showError(err?.response?.data?.message || "Failed to save medicine.");
+      showError(err);
     } finally {
       setSaving(false);
     }
@@ -186,7 +203,7 @@ export default function MedicinesPage() {
       showSuccess("Medicine removed from catalog.");
       loadMedicines(page);
     } catch (err) {
-      showError(err?.response?.data?.message || "Failed to delete medicine.");
+      showError(err, "Cannot Delete Medicine");
     } finally {
       setLoading(false);
     }
@@ -229,14 +246,19 @@ export default function MedicinesPage() {
 
       {/* Search & Layout Toggles */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
-        <form onSubmit={handleSearch} className="flex-1 w-full">
+        <form onSubmit={handleSearch} className="flex-1 w-full flex items-center gap-2">
           <Input
             type="text"
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search medicines by trade or generic name..."
+            className="flex-1"
           />
+          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
+            <MagnifyingGlassIcon className="w-4 h-4" />
+            <span>Search</span>
+          </button>
         </form>
 
         <SegmentedControl
@@ -320,15 +342,17 @@ export default function MedicinesPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => openEditModal(med)}
-                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
-                            title="Edit"
+                            className="scms-btn-icon"
+                            title="Edit Medicine"
+                            aria-label="Edit Medicine"
                           >
                             <Pencil1Icon className="w-4 h-4" />
                           </button>
                           <button
                             onClick={(e) => handleDelete(e, med)}
-                            className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
-                            title="Delete"
+                            className="scms-btn-icon-danger"
+                            title="Delete Medicine"
+                            aria-label="Delete Medicine"
                           >
                             <TrashIcon className="w-4 h-4" />
                           </button>
@@ -367,28 +391,28 @@ export default function MedicinesPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white">{med.name || med.medicineName}</h3>
+                  <h3 className="font-bold text-foreground">{med.name || med.medicineName}</h3>
                   {med.genericName && (
-                    <p className="text-xs text-slate-500 italic">{med.genericName}</p>
+                    <p className="text-xs text-muted-foreground italic">{med.genericName}</p>
                   )}
                 </div>
 
-                <div className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                <div className="font-mono text-xs font-bold text-orange-600 dark:text-orange-400">
                   {Number(med.unitPrice || med.price || 0).toLocaleString()} MMK / unit
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-1.5">
+                <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => openEditModal(med)}
-                    className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
-                    title="Edit"
+                    className="scms-btn-icon"
+                    title="Edit Medicine"
                   >
                     <Pencil1Icon className="w-4 h-4" />
                   </button>
                   <button
                     onClick={(e) => handleDelete(e, med)}
-                    className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 btn-target"
-                    title="Delete"
+                    className="scms-btn-icon-danger"
+                    title="Delete Medicine"
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
@@ -408,9 +432,8 @@ export default function MedicinesPage() {
       />
 
       {/* Create / Edit Medicine Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+      <ModalPortal isOpen={modalOpen} onClose={() => setModalOpen(false)}>
+        <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingMedicine ? "Edit Medicine Record" : "Add Medicine to Catalog"}
@@ -503,8 +526,7 @@ export default function MedicinesPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </ModalPortal>
     </div>
   );
 }

@@ -26,6 +26,13 @@ import {
   calculateQuantity,
   commonDosageValues,
 } from "../../utils/clinical";
+import {
+  sanitizeText,
+  validateClinicalVitals,
+  validateNumberRange,
+} from "../../utils/validation";
+import useScrollLock from "../../hooks/useScrollLock";
+import ModalPortal from "../../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -64,16 +71,20 @@ export default function DoctorConsultation() {
   const [diagnosisNotes, setDiagnosisNotes] = useState("");
 
   const [medicines, setMedicines] = useState([]);
-  const [prescribedItems, setPrescribedItems] = useState([]);
   const [selectedMedId, setSelectedMedId] = useState("");
   const [currentDosage, setCurrentDosage] = useState("1-0-1");
   const [currentDays, setCurrentDays] = useState(5);
   const [currentInstructions, setCurrentInstructions] = useState("After meals");
 
+  // Prescription items state
+  const [prescribedItems, setPrescribedItems] = useState([]);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+
+  useScrollLock(templateModalOpen);
+
   // Template State
   const [templates, setTemplates] = useState([]);
-  const [templateName, setTemplateName] = useState("");
-  const [templateModalOpen, setTemplateModalOpen] = useState(false);
 
   // Follow-up State
   const [hasFollowUp, setHasFollowUp] = useState(false);
@@ -183,16 +194,29 @@ export default function DoctorConsultation() {
 
   // Save Prescription as Template
   const handleSaveTemplate = async () => {
-    if (!templateName.trim() || prescribedItems.length === 0) {
-      showError("Please enter a template name and add at least one medicine.");
+    const cleanTplName = sanitizeText(templateName);
+    if (!cleanTplName || cleanTplName.length < 2) {
+      showError("Please enter a valid template name (at least 2 characters).", "Invalid Template Name");
+      return;
+    }
+    if (prescribedItems.length === 0) {
+      showError("Please add at least one medication to the prescription template.", "No Medications");
       return;
     }
 
     try {
       await prescriptionsApi.saveTemplate({
-        templateName: templateName.trim(),
-        notes: diagnosisNotes,
-        items: prescribedItems,
+        name: cleanTplName,
+        templateName: cleanTplName,
+        notes: sanitizeText(diagnosisNotes) || null,
+        items: prescribedItems.map(p => ({
+          medicineId: Number(p.medicineId),
+          dosage: sanitizeText(p.dosage) || "Once daily",
+          quantity: Number(p.quantity),
+          days: Number(p.days),
+          durationDays: Number(p.days),
+          instructions: sanitizeText(p.instructions) || "As directed",
+        })),
       });
       setTemplateModalOpen(false);
       setTemplateName("");
@@ -200,7 +224,7 @@ export default function DoctorConsultation() {
       const updated = await prescriptionsApi.templates();
       setTemplates(toArray(updated));
     } catch (err) {
-      showError(err?.response?.data?.message || "Failed to save template.");
+      showError(err);
     }
   };
 
@@ -208,6 +232,41 @@ export default function DoctorConsultation() {
   const handleCompleteConsultation = async () => {
     if (!appointment) return;
     const pId = appointment.patientId || patient?.id || patient?.patientId;
+
+    // Validate physiological limits of clinical vitals
+    const vitalsValidation = validateClinicalVitals({
+      systolic: vitals.bloodPressureSystolic,
+      diastolic: vitals.bloodPressureDiastolic,
+      temperature: vitals.temperatureF,
+      pulse: vitals.pulseBpm,
+      spO2: vitals.spo2Percent,
+      weight: vitals.weightKg,
+      height: vitals.heightCm,
+    });
+
+    if (!vitalsValidation.isValid) {
+      showError(vitalsValidation.error, "Clinical Vitals Out of Range");
+      return;
+    }
+
+    if (hasFollowUp && !followUpDate) {
+      showError("Please select a due date for the scheduled follow-up visit.", "Missing Follow-up Date");
+      return;
+    }
+
+    // Validate prescription items
+    for (const item of prescribedItems) {
+      const qVal = validateNumberRange(item.quantity, { label: `${item.medicineName} Quantity`, min: 1, max: 10000, isInteger: true });
+      if (!qVal.isValid) {
+        showError(qVal.error, "Invalid Medication Quantity");
+        return;
+      }
+      const dVal = validateNumberRange(item.days, { label: `${item.medicineName} Days`, min: 1, max: 365, isInteger: true });
+      if (!dVal.isValid) {
+        showError(dVal.error, "Invalid Treatment Days");
+        return;
+      }
+    }
 
     try {
       setSaving(true);
@@ -219,13 +278,14 @@ export default function DoctorConsultation() {
           appointmentId: appointment.id || appointment.appointmentId,
           patientId: pId,
           diseaseId: selectedDiseaseId ? Number(selectedDiseaseId) : null,
-          notes: diagnosisNotes,
+          notes: sanitizeText(diagnosisNotes) || null,
           items: prescribedItems.map((p) => ({
             medicineId: Number(p.medicineId),
-            dosage: p.dosage,
+            dosage: sanitizeText(p.dosage) || "Once daily",
             quantity: Number(p.quantity),
             durationDays: Number(p.days),
-            instructions: p.instructions,
+            days: Number(p.days),
+            instructions: sanitizeText(p.instructions) || "As directed",
           })),
         });
         presId = presRes?.id || presRes?.data?.id;
@@ -237,7 +297,7 @@ export default function DoctorConsultation() {
           patientId: Number(pId),
           appointmentId: Number(appointment.id || appointment.appointmentId),
           followUpDate: `${followUpDate}T09:00:00`,
-          notes: followUpNotes || "Post-consultation follow up",
+          notes: sanitizeText(followUpNotes) || "Post-consultation follow up",
         });
       }
 
@@ -732,9 +792,8 @@ export default function DoctorConsultation() {
       </div>
 
       {/* Save Template Modal */}
-      {templateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+      <ModalPortal isOpen={templateModalOpen} onClose={() => setTemplateModalOpen(false)}>
+        <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 {t.saveAsTemplate}
@@ -777,8 +836,7 @@ export default function DoctorConsultation() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </ModalPortal>
     </div>
   );
 }

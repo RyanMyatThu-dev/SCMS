@@ -41,7 +41,7 @@ export default function SearchForm({
       )}
     >
       <div className="flex flex-1 flex-wrap items-center gap-3 min-w-[280px]">
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-[200px] flex items-center gap-2">
           <Input
             type="text"
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
@@ -49,7 +49,15 @@ export default function SearchForm({
             onChange={handleChange}
             placeholder={placeholder || t.search}
             aria-label={placeholder || t.search}
+            className="flex-1"
           />
+          <button
+            type="submit"
+            className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs"
+          >
+            <MagnifyingGlassIcon className="w-4 h-4" />
+            <span>Search</span>
+          </button>
         </div>
 
         {extraFilters}
