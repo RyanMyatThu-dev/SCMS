@@ -28,7 +28,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Process automated payment gateway callback / webhook.</summary>
         [HttpPost("gateway-callback")]
         [HasPermission("Payments.Update")]
-        [ProducesResponseType(typeof(Result<PaymentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<ProcessPaymentCallbackResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ProcessGatewayCallback([FromBody] ProcessPaymentCallbackRequest request)
         {
@@ -39,7 +39,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Submit screenshot proof for manual bank transfer or mobile wallet payment.</summary>
         [HttpPost("manual-proof")]
         [HasPermission("Payments.Create")]
-        [ProducesResponseType(typeof(Result<PaymentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<ManualPaymentProofResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SubmitManualPaymentProof([FromBody] ManualPaymentProofRequest request)
         {
@@ -50,7 +50,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Approve pending payment transaction.</summary>
         [HttpPost("{id:int}/approve")]
         [HasPermission("Payments.Update")]
-        [ProducesResponseType(typeof(Result<PaymentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<ApprovePaymentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ApprovePayment(int id)
         {
@@ -58,22 +58,33 @@ namespace SCMS.Api.Controllers
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
-        /// <summary>Query billing and payment transactions with status, date, and query filtering.</summary>
+        /// <summary>Query billing and payment transactions with status, date, and pagination.</summary>
         [HttpGet]
         [HasPermission("Payments.View")]
-        [ProducesResponseType(typeof(PagedResult<PaymentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetPaymentsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetPayments(
-            [FromQuery] string? status, 
-            [FromQuery] PaginationRequest paginationRequest,
-            [FromQuery] string? dateFilter = null,
-            [FromQuery] string? query = null)
+        public async Task<IActionResult> GetPayments([FromQuery] GetPaymentsRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            request ??= new GetPaymentsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
-            var result = await _paymentService.GetPaymentsAsync(status, paginationRequest, dateFilter, query);
+            var result = await _paymentService.GetPaymentsAsync(request);
+            return result.IsFailure ? BadRequest(result) : Ok(result);
+        }
+
+        /// <summary>Search billing and payment transactions with keyword query, status, date, and pagination.</summary>
+        [HttpGet("search")]
+        [HasPermission("Payments.View")]
+        [ProducesResponseType(typeof(PagedResult<SearchPaymentsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SearchPayments([FromQuery] SearchPaymentsRequest request)
+        {
+            request ??= new SearchPaymentsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var result = await _paymentService.SearchPaymentsAsync(request);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
@@ -89,7 +100,22 @@ namespace SCMS.Api.Controllers
                 return BadRequest(result);
             }
 
-            var bytes = _pdfDocumentService.CreateInvoicePdf(result.Data);
+            var legacyDetails = new PaymentDetailsResponse
+            {
+                Id = result.Data.Id,
+                AppointmentId = result.Data.AppointmentId,
+                AppointmentCode = result.Data.AppointmentCode,
+                PatientName = result.Data.PatientName,
+                Amount = result.Data.Amount,
+                Tax = result.Data.Tax,
+                Charges = result.Data.Charges,
+                PaymentMethod = result.Data.PaymentMethod,
+                PaymentStatus = result.Data.PaymentStatus,
+                PaymentScreenshot = result.Data.PaymentScreenshot,
+                PaidAt = result.Data.PaidAt
+            };
+
+            var bytes = _pdfDocumentService.CreateInvoicePdf(legacyDetails);
             return File(bytes, "application/pdf", $"invoice-{id}.pdf");
         }
     }

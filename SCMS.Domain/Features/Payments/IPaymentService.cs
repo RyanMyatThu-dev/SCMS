@@ -6,10 +6,11 @@ namespace SCMS.Domain.Features.Payments
 {
     public interface IPaymentService
     {
-        Task<Result<PaymentDetailsResponse>> ProcessGatewayCallbackAsync(ProcessPaymentCallbackRequest request);
-        Task<Result<PaymentDetailsResponse>> SubmitManualPaymentProofAsync(ManualPaymentProofRequest request);
-        Task<Result<PaymentDetailsResponse>> ApprovePaymentAsync(int paymentId);
-        Task<PagedResult<PaymentDetailsResponse>> GetPaymentsAsync(string? status, PaginationRequest paginationRequest, string? dateFilter = null, string? searchQuery = null);
-        Task<Result<PaymentDetailsResponse>> GetPaymentByIdAsync(int id);
+        Task<Result<ProcessPaymentCallbackResponse>> ProcessGatewayCallbackAsync(ProcessPaymentCallbackRequest request);
+        Task<Result<ManualPaymentProofResponse>> SubmitManualPaymentProofAsync(ManualPaymentProofRequest request);
+        Task<Result<ApprovePaymentResponse>> ApprovePaymentAsync(int paymentId);
+        Task<PagedResult<GetPaymentsResponse>> GetPaymentsAsync(GetPaymentsRequest request);
+        Task<PagedResult<SearchPaymentsResponse>> SearchPaymentsAsync(SearchPaymentsRequest request);
+        Task<Result<GetPaymentByIdResponse>> GetPaymentByIdAsync(int id);
     }
 }

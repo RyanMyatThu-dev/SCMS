@@ -1,8 +1,12 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Payments;
 using SCMS.Domain.Features.Payments.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
+using Xunit;
 
 namespace SCMS.Domain.Tests.Payments;
 
@@ -91,9 +95,48 @@ public class PaymentServiceTests
         using var db = new TestDatabase();
         var service = new PaymentService(db.Context);
 
-        var result = await service.GetPaymentsAsync("complete", new PaginationRequest());
+        var result = await service.GetPaymentsAsync(new GetPaymentsRequest { Status = "complete" });
 
         Assert.True(result.IsFailure);
         Assert.Empty(result.Data);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_ReturnsAscendingOrderedPayments()
+    {
+        using var db = new TestDatabase();
+        var user = TestData.AddUser(db);
+        var patient = TestData.AddPatient(db, user);
+        var appt1 = TestData.AddAppointment(db, patient);
+        var appt2 = TestData.AddAppointment(db, patient);
+        var pay1 = TestData.AddPayment(db, appt1, amount: 10000m);
+        var pay2 = TestData.AddPayment(db, appt2, amount: 20000m);
+        var service = new PaymentService(db.Context);
+
+        var result = await service.GetPaymentsAsync(new GetPaymentsRequest());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Data.Count);
+        Assert.True(result.Data[0].Id < result.Data[1].Id);
+    }
+
+    [Fact]
+    public async Task SearchPaymentsAsync_FiltersByKeyword()
+    {
+        using var db = new TestDatabase();
+        var user = TestData.AddUser(db);
+        var patient1 = TestData.AddPatient(db, user, name: "Daw Mya");
+        var patient2 = TestData.AddPatient(db, user, name: "U Ba");
+        var appt1 = TestData.AddAppointment(db, patient1);
+        var appt2 = TestData.AddAppointment(db, patient2);
+        TestData.AddPayment(db, appt1, amount: 10000m);
+        TestData.AddPayment(db, appt2, amount: 20000m);
+        var service = new PaymentService(db.Context);
+
+        var result = await service.SearchPaymentsAsync(new SearchPaymentsRequest { Query = "Daw Mya" });
+
+        Assert.True(result.IsSuccess);
+        var payment = Assert.Single(result.Data);
+        Assert.Equal("Daw Mya", payment.PatientName);
     }
 }
