@@ -4,6 +4,7 @@ using SCMS.Domain.Features.Patients;
 using SCMS.Domain.Features.Patients.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
+using Xunit;
 
 namespace SCMS.Domain.Tests.Patients;
 
@@ -20,7 +21,7 @@ public class PatientServiceTests
         var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
         var service = new PatientService(db.Context, appointmentsService, prescriptionService);
 
-        var createResult = await service.AddPatientProfileAsync(new PatientProfileRequest
+        var createResult = await service.AddPatientProfileAsync(new CreatePatientProfileRequest
         {
             Name = " Mg Mg ",
             ActualAddress = "Yangon",
@@ -32,7 +33,7 @@ public class PatientServiceTests
         Assert.Equal("Mg Mg", createResult.Data!.Name);
         Assert.Equal("Aspirin", createResult.Data.Allergies);
 
-        var listResult = await service.GetPatientProfilesAsync(new PatientProfilesRequest(), user.UserId);
+        var listResult = await service.GetPatientProfilesAsync(new GetPatientProfilesRequest(), user.UserId);
         Assert.True(listResult.IsSuccess);
         Assert.Single(listResult.Data);
         Assert.Equal("Mg Mg", listResult.Data[0].Name);
@@ -52,11 +53,34 @@ public class PatientServiceTests
         var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
         var service = new PatientService(db.Context, appointmentsService, prescriptionService);
 
-        var listResult = await service.GetPatientProfilesAsync(new PatientProfilesRequest(), staff.UserId, isStaff: true);
+        var listResult = await service.GetPatientProfilesAsync(new GetPatientProfilesRequest(), staff.UserId, isStaff: true);
 
         Assert.True(listResult.IsSuccess);
         Assert.Equal(2, listResult.Data.Count);
         Assert.Equal(new[] { "Aye Aye", "Mg Mg" }, listResult.Data.Select(p => p.Name));
+    }
+
+    [Fact]
+    public async Task SearchPatientProfilesAsync_FiltersByKeyword()
+    {
+        using var db = new TestDatabase();
+        var staff = TestData.AddUser(db, role: "owner");
+        var firstUser = TestData.AddUser(db);
+        var secondUser = TestData.AddUser(db);
+        var patient1 = TestData.AddPatient(db, firstUser, "Aye Aye");
+        patient1.MobileNo = "09111111";
+        var patient2 = TestData.AddPatient(db, secondUser, "Mg Mg");
+        patient2.MobileNo = "09222222";
+        db.Context.SaveChanges();
+        var appointmentsService = new SCMS.Domain.Features.Appointments.AppointmentsService(db.Context);
+        var prescriptionService = new SCMS.Domain.Features.Prescriptions.PrescriptionService(db.Context);
+        var service = new PatientService(db.Context, appointmentsService, prescriptionService);
+
+        var searchResult = await service.SearchPatientProfilesAsync(new SearchPatientProfilesRequest { Query = "Aye" }, staff.UserId, isStaff: true);
+
+        Assert.True(searchResult.IsSuccess);
+        Assert.Single(searchResult.Data);
+        Assert.Equal("Aye Aye", searchResult.Data[0].Name);
     }
 
     [Fact]

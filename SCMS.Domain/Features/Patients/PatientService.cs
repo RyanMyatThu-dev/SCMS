@@ -28,7 +28,7 @@ namespace SCMS.Domain.Features.Patients
             _prescriptionService = prescriptionService;
         }
 
-        public async Task<Result<PatientProfileResponse>> AddPatientProfileAsync(PatientProfileRequest request, int userId)
+        public async Task<Result<CreatePatientProfileResponse>> AddPatientProfileAsync(CreatePatientProfileRequest request, int userId)
         {
             var patient = new TblPatient
             {
@@ -53,10 +53,10 @@ namespace SCMS.Domain.Features.Patients
             _context.TblPatients.Add(patient);
             await _context.SaveChangesAsync();
 
-            return Result<PatientProfileResponse>.Success(MapToResponse(patient), "Patient profile created successfully.");
+            return Result<CreatePatientProfileResponse>.Success(MapToCreateResponse(patient), "Patient profile created successfully.");
         }
 
-        public async Task<PagedResult<PatientProfileResponse>> GetPatientProfilesAsync(PatientProfilesRequest request, int userId, bool isStaff = false)
+        public async Task<PagedResult<GetPatientProfilesResponse>> GetPatientProfilesAsync(GetPatientProfilesRequest request, int userId, bool isStaff = false)
         {
             var query = _context.TblPatients
                 .AsNoTracking()
@@ -67,9 +67,33 @@ namespace SCMS.Domain.Features.Patients
                 query = query.Where(p => p.UserId == userId);
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Search))
+            var totalCount = await query.CountAsync();
+            var patients = await query
+                .OrderBy(p => p.Name)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
+
+            var list = patients.Select(MapToGetResponse).ToList();
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+
+            return PagedResult<GetPatientProfilesResponse>.Success(list, pagination);
+        }
+
+        public async Task<PagedResult<SearchPatientProfilesResponse>> SearchPatientProfilesAsync(SearchPatientProfilesRequest request, int userId, bool isStaff = false)
+        {
+            var query = _context.TblPatients
+                .AsNoTracking()
+                .Where(p => p.DeleteFlag != true);
+
+            if (!isStaff)
             {
-                var cleanSearch = request.Search.Trim().ToLower();
+                query = query.Where(p => p.UserId == userId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Query))
+            {
+                var cleanSearch = request.Query.Trim().ToLower();
                 query = query.Where(p => 
                     p.Name.ToLower().Contains(cleanSearch) || 
                     (p.MobileNo != null && p.MobileNo.Contains(cleanSearch)) || 
@@ -84,10 +108,10 @@ namespace SCMS.Domain.Features.Patients
                 .Take(request.PageSize)
                 .ToListAsync();
 
-            var list = patients.Select(MapToResponse).ToList();
+            var list = patients.Select(MapToSearchResponse).ToList();
             var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
 
-            return PagedResult<PatientProfileResponse>.Success(list, pagination);
+            return PagedResult<SearchPatientProfilesResponse>.Success(list, pagination);
         }
 
         public async Task<Result> DeletePatientProfileAsync(int id, int userId)
@@ -111,21 +135,21 @@ namespace SCMS.Domain.Features.Patients
             return Result.Success("Patient profile deleted successfully.");
         }
 
-        public async Task<Result<PatientProfileResponse>> GetPatientProfileByIdAsync(int id, int userId)
+        public async Task<Result<GetPatientProfileByIdResponse>> GetPatientProfileByIdAsync(int id, int userId)
         {
             var patient = await _context.TblPatients
                 .FirstOrDefaultAsync(p => p.PatientId == id && p.DeleteFlag != true);
 
             if (patient == null)
             {
-                return Result<PatientProfileResponse>.Failure("Patient profile not found.");
+                return Result<GetPatientProfileByIdResponse>.Failure("Patient profile not found.");
             }
             if (!await CanAccessPatientAsync(patient.PatientId, userId))
             {
-                return Result<PatientProfileResponse>.Failure("Patient profile not found.");
+                return Result<GetPatientProfileByIdResponse>.Failure("Patient profile not found.");
             }
 
-            return Result<PatientProfileResponse>.Success(MapToResponse(patient));
+            return Result<GetPatientProfileByIdResponse>.Success(MapToGetByIdResponse(patient));
         }
 
         public async Task<Result<PatientHistoryResponse>> GetPatientHistoryAsync(int patientId, int userId)
@@ -148,8 +172,13 @@ namespace SCMS.Domain.Features.Patients
             };
 
             // 1. Fetch Appointments via AppointmentsService
-            var appointmentsResult = await _appointmentsService.GetAppointmentsAsync(null, null, null, patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 }, userId, true);
-            var appointments = appointmentsResult.Data ?? new List<AppointmentDetailsResponse>();
+            var appointmentsResult = await _appointmentsService.GetAppointmentsAsync(new GetAppointmentsRequest
+            {
+                PatientId = patientId,
+                PageNumber = 1,
+                PageSize = 20
+            }, userId, true);
+            var appointments = appointmentsResult.Data ?? new List<GetAppointmentsResponse>();
 
             foreach (var a in appointments)
             {
@@ -164,8 +193,13 @@ namespace SCMS.Domain.Features.Patients
             }
 
             // 2. Fetch Prescriptions & Vitals via PrescriptionService
-            var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 });
-            var prescriptions = prescriptionsResult.Data ?? new List<PrescriptionResponse>();
+            var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(new GetPrescriptionsRequest
+            {
+                PatientId = patientId,
+                PageNumber = 1,
+                PageSize = 20
+            });
+            var prescriptions = prescriptionsResult.Data ?? new List<GetPrescriptionsResponse>();
 
             foreach (var p in prescriptions)
             {
@@ -238,8 +272,13 @@ namespace SCMS.Domain.Features.Patients
             };
 
             // Fetch prescriptions to aggregate Vitals history and Active prescriptions
-            var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(patientId, new PaginationRequest { PageNumber = 1, PageSize = 20 });
-            var prescriptions = prescriptionsResult.Data ?? new List<PrescriptionResponse>();
+            var prescriptionsResult = await _prescriptionService.GetPrescriptionsAsync(new GetPrescriptionsRequest
+            {
+                PatientId = patientId,
+                PageNumber = 1,
+                PageSize = 20
+            });
+            var prescriptions = prescriptionsResult.Data ?? new List<GetPrescriptionsResponse>();
             
             // Order chronologically (GetPrescriptionsAsync might return desc)
             prescriptions = prescriptions.OrderBy(p => p.CreatedAt).ToList();
@@ -496,6 +535,94 @@ namespace SCMS.Domain.Features.Patients
                 </div>
             </body>
             </html>";
+        }
+
+        private CreatePatientProfileResponse MapToCreateResponse(TblPatient p)
+        {
+            return new CreatePatientProfileResponse
+            {
+                PatientId = p.PatientId,
+                UserId = p.UserId,
+                Name = p.Name,
+                MobileNo = p.MobileNo,
+                Email = p.Email,
+                DateOfBirth = p.DateOfBirth,
+                Gender = p.Gender,
+                BloodType = p.BloodType,
+                ActualAddress = p.Address,
+                Allergies = p.Allergies,
+                ChronicConditions = p.ChronicConditions,
+                PastSurgeries = p.PastSurgeries,
+                FamilyHistory = p.FamilyHistory,
+                VaccinationHistory = p.VaccinationHistory,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private GetPatientProfilesResponse MapToGetResponse(TblPatient p)
+        {
+            return new GetPatientProfilesResponse
+            {
+                PatientId = p.PatientId,
+                UserId = p.UserId,
+                Name = p.Name,
+                MobileNo = p.MobileNo,
+                Email = p.Email,
+                DateOfBirth = p.DateOfBirth,
+                Gender = p.Gender,
+                BloodType = p.BloodType,
+                ActualAddress = p.Address,
+                Allergies = p.Allergies,
+                ChronicConditions = p.ChronicConditions,
+                PastSurgeries = p.PastSurgeries,
+                FamilyHistory = p.FamilyHistory,
+                VaccinationHistory = p.VaccinationHistory,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private SearchPatientProfilesResponse MapToSearchResponse(TblPatient p)
+        {
+            return new SearchPatientProfilesResponse
+            {
+                PatientId = p.PatientId,
+                UserId = p.UserId,
+                Name = p.Name,
+                MobileNo = p.MobileNo,
+                Email = p.Email,
+                DateOfBirth = p.DateOfBirth,
+                Gender = p.Gender,
+                BloodType = p.BloodType,
+                ActualAddress = p.Address,
+                Allergies = p.Allergies,
+                ChronicConditions = p.ChronicConditions,
+                PastSurgeries = p.PastSurgeries,
+                FamilyHistory = p.FamilyHistory,
+                VaccinationHistory = p.VaccinationHistory,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private GetPatientProfileByIdResponse MapToGetByIdResponse(TblPatient p)
+        {
+            return new GetPatientProfileByIdResponse
+            {
+                PatientId = p.PatientId,
+                UserId = p.UserId,
+                Name = p.Name,
+                MobileNo = p.MobileNo,
+                Email = p.Email,
+                DateOfBirth = p.DateOfBirth,
+                Gender = p.Gender,
+                BloodType = p.BloodType,
+                ActualAddress = p.Address,
+                Allergies = p.Allergies,
+                ChronicConditions = p.ChronicConditions,
+                PastSurgeries = p.PastSurgeries,
+                FamilyHistory = p.FamilyHistory,
+                VaccinationHistory = p.VaccinationHistory,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
         }
 
         private PatientProfileResponse MapToResponse(TblPatient p)

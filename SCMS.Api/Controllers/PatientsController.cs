@@ -28,10 +28,10 @@ namespace SCMS.Api.Controllers
         /// <summary>Create or link a patient medical profile for a user.</summary>
         [HttpPost]
         [HasPermission("Patients.Create")]
-        [ProducesResponseType(typeof(Result<PatientProfileResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<CreatePatientProfileResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> AddPatientProfile([FromBody] PatientProfileRequest request)
+        public async Task<IActionResult> AddPatientProfile([FromBody] CreatePatientProfileRequest request)
         {
             var userId = User.GetUserId();
             if (!userId.HasValue)
@@ -43,15 +43,15 @@ namespace SCMS.Api.Controllers
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
-        /// <summary>Query patient profiles with search and pagination.</summary>
+        /// <summary>List patient profiles with pagination.</summary>
         [HttpGet]
         [HasPermission("Patients.View")]
-        [ProducesResponseType(typeof(PagedResult<PatientProfileResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetPatientProfilesResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetPatientProfiles([FromQuery] PatientProfilesRequest request)
+        public async Task<IActionResult> GetPatientProfiles([FromQuery] GetPatientProfilesRequest request)
         {
-            request ??= new PatientProfilesRequest();
+            request ??= new GetPatientProfilesRequest();
             if (request.PageNumber <= 0) request.PageNumber = 1;
             if (request.PageSize <= 0) request.PageSize = 10;
 
@@ -65,10 +65,32 @@ namespace SCMS.Api.Controllers
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
+        /// <summary>Search patient profiles with keyword query and pagination.</summary>
+        [HttpGet("search")]
+        [HasPermission("Patients.View")]
+        [ProducesResponseType(typeof(PagedResult<SearchPatientProfilesResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> SearchPatientProfiles([FromQuery] SearchPatientProfilesRequest request)
+        {
+            request ??= new SearchPatientProfilesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            var result = await _patientService.SearchPatientProfilesAsync(request, userId.Value, User.IsStaff());
+            return result.IsFailure ? BadRequest(result) : Ok(result);
+        }
+
         /// <summary>Get patient profile by patient ID.</summary>
         [HttpGet("patients/{id:int}")]
         [HasPermission("Patients.View")]
-        [ProducesResponseType(typeof(Result<PatientProfileResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<GetPatientProfileByIdResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetPatientProfileById(int id)
