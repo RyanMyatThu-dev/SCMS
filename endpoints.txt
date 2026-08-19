@@ -20,6 +20,7 @@
 
 ## Patients
 - `POST   /api/Patients`                            # Add patient profile
+- `PUT    /api/Patients/{id}`                       # Update patient profile
 - `GET    /api/Patients`                            # List profiles (pagination)
 - `GET    /api/Patients/search`                     # Search profiles by keyword
 - `GET    /api/Patients/patients/{id}`              # Get patient by ID

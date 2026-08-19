@@ -7,6 +7,7 @@ namespace SCMS.Domain.Features.Patients
     public interface IPatientService
     {
         Task<Result<CreatePatientProfileResponse>> AddPatientProfileAsync(CreatePatientProfileRequest request, int userId);
+        Task<Result<UpdatePatientProfileResponse>> UpdatePatientProfileAsync(UpdatePatientProfileRequest request, int userId, bool isStaff = false);
         Task<PagedResult<GetPatientProfilesResponse>> GetPatientProfilesAsync(GetPatientProfilesRequest request, int userId, bool isStaff = false);
         Task<PagedResult<SearchPatientProfilesResponse>> SearchPatientProfilesAsync(SearchPatientProfilesRequest request, int userId, bool isStaff = false);
         Task<Result> DeletePatientProfileAsync(int id, int userId);

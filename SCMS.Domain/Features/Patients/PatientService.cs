@@ -9,6 +9,7 @@ using SCMS.Domain.Features.Patients.Models;
 using SCMS.Domain.Features.Appointments.Models;
 using SCMS.Domain.Features.Prescriptions.Models;
 using SCMS.Shared;
+using SCMS.Domain.Common;
 using SCMS.Domain.Features.Appointments;
 using SCMS.Domain.Features.Prescriptions;
 
@@ -30,21 +31,52 @@ namespace SCMS.Domain.Features.Patients
 
         public async Task<Result<CreatePatientProfileResponse>> AddPatientProfileAsync(CreatePatientProfileRequest request, int userId)
         {
+            var cleanName = ValidationHelper.SanitizeText(request.Name, 150);
+            if (string.IsNullOrWhiteSpace(cleanName))
+            {
+                return Result<CreatePatientProfileResponse>.Failure("Patient full name is required.");
+            }
+
+            string? normalizedMobile = null;
+            if (!string.IsNullOrWhiteSpace(request.MobileNo))
+            {
+                if (!ValidationHelper.IsValidMyanmarMobile(request.MobileNo, out var cleanPhone))
+                {
+                    return Result<CreatePatientProfileResponse>.Failure("Please provide a valid Myanmar mobile number (e.g. 09xxxxxxxxx).");
+                }
+                normalizedMobile = cleanPhone;
+            }
+
+            string? normalizedEmail = null;
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                if (!ValidationHelper.IsValidEmail(request.Email, out var cleanMail))
+                {
+                    return Result<CreatePatientProfileResponse>.Failure("Please provide a valid email address.");
+                }
+                normalizedEmail = cleanMail;
+            }
+
+            if (!ValidationHelper.ValidateDateOfBirth(request.DateOfBirth, out var dobError))
+            {
+                return Result<CreatePatientProfileResponse>.Failure(dobError!);
+            }
+
             var patient = new TblPatient
             {
                 UserId = userId,
-                Name = request.Name.Trim(),
-                MobileNo = request.MobileNo,
-                Email = request.Email,
+                Name = cleanName,
+                MobileNo = normalizedMobile,
+                Email = normalizedEmail,
                 DateOfBirth = request.DateOfBirth,
-                Gender = request.Gender,
-                BloodType = request.BloodType,
-                Address = request.ActualAddress,
-                Allergies = request.Allergies,
-                ChronicConditions = request.ChronicConditions,
-                PastSurgeries = request.PastSurgeries,
-                FamilyHistory = request.FamilyHistory,
-                VaccinationHistory = request.VaccinationHistory,
+                Gender = ValidationHelper.NormalizeGender(request.Gender),
+                BloodType = ValidationHelper.NormalizeBloodType(request.BloodType),
+                Address = ValidationHelper.SanitizeText(request.ActualAddress, 300),
+                Allergies = ValidationHelper.SanitizeText(request.Allergies, 500),
+                ChronicConditions = ValidationHelper.SanitizeText(request.ChronicConditions, 500),
+                PastSurgeries = ValidationHelper.SanitizeText(request.PastSurgeries, 500),
+                FamilyHistory = ValidationHelper.SanitizeText(request.FamilyHistory, 500),
+                VaccinationHistory = ValidationHelper.SanitizeText(request.VaccinationHistory, 500),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 DeleteFlag = false
@@ -56,6 +88,90 @@ namespace SCMS.Domain.Features.Patients
             return Result<CreatePatientProfileResponse>.Success(MapToCreateResponse(patient), "Patient profile created successfully.");
         }
 
+        public async Task<Result<UpdatePatientProfileResponse>> UpdatePatientProfileAsync(UpdatePatientProfileRequest request, int userId, bool isStaff = false)
+        {
+            var patient = await _context.TblPatients
+                .FirstOrDefaultAsync(p => p.PatientId == request.Id && p.DeleteFlag != true);
+
+            if (patient == null)
+            {
+                return Result<UpdatePatientProfileResponse>.Failure("Patient profile not found.");
+            }
+
+            if (!isStaff && patient.UserId != userId && !await CanAccessPatientAsync(patient.PatientId, userId))
+            {
+                return Result<UpdatePatientProfileResponse>.Failure("You are not authorized to update this patient profile.");
+            }
+
+            var cleanName = ValidationHelper.SanitizeText(request.Name, 150);
+            if (string.IsNullOrWhiteSpace(cleanName))
+            {
+                return Result<UpdatePatientProfileResponse>.Failure("Patient full name is required.");
+            }
+
+            string? normalizedMobile = null;
+            if (!string.IsNullOrWhiteSpace(request.MobileNo))
+            {
+                if (!ValidationHelper.IsValidMyanmarMobile(request.MobileNo, out var cleanPhone))
+                {
+                    return Result<UpdatePatientProfileResponse>.Failure("Please provide a valid Myanmar mobile number (e.g. 09xxxxxxxxx).");
+                }
+                normalizedMobile = cleanPhone;
+            }
+
+            string? normalizedEmail = null;
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                if (!ValidationHelper.IsValidEmail(request.Email, out var cleanMail))
+                {
+                    return Result<UpdatePatientProfileResponse>.Failure("Please provide a valid email address.");
+                }
+                normalizedEmail = cleanMail;
+            }
+
+            if (!ValidationHelper.ValidateDateOfBirth(request.DateOfBirth, out var dobError))
+            {
+                return Result<UpdatePatientProfileResponse>.Failure(dobError!);
+            }
+
+            patient.Name = cleanName;
+            patient.MobileNo = normalizedMobile;
+            patient.Email = normalizedEmail;
+            patient.DateOfBirth = request.DateOfBirth;
+            patient.Gender = ValidationHelper.NormalizeGender(request.Gender);
+            patient.BloodType = ValidationHelper.NormalizeBloodType(request.BloodType);
+            patient.Address = ValidationHelper.SanitizeText(request.ActualAddress, 300);
+            patient.Allergies = ValidationHelper.SanitizeText(request.Allergies, 500);
+            patient.ChronicConditions = ValidationHelper.SanitizeText(request.ChronicConditions, 500);
+            patient.PastSurgeries = ValidationHelper.SanitizeText(request.PastSurgeries, 500);
+            patient.FamilyHistory = ValidationHelper.SanitizeText(request.FamilyHistory, 500);
+            patient.VaccinationHistory = ValidationHelper.SanitizeText(request.VaccinationHistory, 500);
+            patient.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var response = new UpdatePatientProfileResponse
+            {
+                PatientId = patient.PatientId,
+                UserId = patient.UserId,
+                Name = patient.Name,
+                MobileNo = patient.MobileNo,
+                Email = patient.Email,
+                DateOfBirth = patient.DateOfBirth,
+                Gender = patient.Gender,
+                BloodType = patient.BloodType,
+                ActualAddress = patient.Address,
+                Allergies = patient.Allergies,
+                ChronicConditions = patient.ChronicConditions,
+                PastSurgeries = patient.PastSurgeries,
+                FamilyHistory = patient.FamilyHistory,
+                VaccinationHistory = patient.VaccinationHistory,
+                UpdatedAt = patient.UpdatedAt ?? DateTime.UtcNow
+            };
+
+            return Result<UpdatePatientProfileResponse>.Success(response, "Patient profile updated successfully.");
+        }
+
         public async Task<PagedResult<GetPatientProfilesResponse>> GetPatientProfilesAsync(GetPatientProfilesRequest request, int userId, bool isStaff = false)
         {
             var query = _context.TblPatients
@@ -64,7 +180,16 @@ namespace SCMS.Domain.Features.Patients
 
             if (!isStaff)
             {
-                query = query.Where(p => p.UserId == userId);
+                var user = await _context.TblUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserId == userId);
+
+                var userEmail = !string.IsNullOrWhiteSpace(user?.Email) ? user.Email.Trim().ToLowerInvariant() : null;
+                var userMobile = !string.IsNullOrWhiteSpace(user?.MobileNo) ? user.MobileNo.Trim() : null;
+
+                query = query.Where(p => p.UserId == userId ||
+                    (userEmail != null && p.Email != null && p.Email.ToLower() == userEmail) ||
+                    (userMobile != null && p.MobileNo != null && p.MobileNo == userMobile));
             }
 
             var totalCount = await query.CountAsync();
@@ -88,7 +213,16 @@ namespace SCMS.Domain.Features.Patients
 
             if (!isStaff)
             {
-                query = query.Where(p => p.UserId == userId);
+                var user = await _context.TblUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserId == userId);
+
+                var userEmail = !string.IsNullOrWhiteSpace(user?.Email) ? user.Email.Trim().ToLowerInvariant() : null;
+                var userMobile = !string.IsNullOrWhiteSpace(user?.MobileNo) ? user.MobileNo.Trim() : null;
+
+                query = query.Where(p => p.UserId == userId ||
+                    (userEmail != null && p.Email != null && p.Email.ToLower() == userEmail) ||
+                    (userMobile != null && p.MobileNo != null && p.MobileNo == userMobile));
             }
 
             if (!string.IsNullOrWhiteSpace(request.Query))
@@ -126,6 +260,24 @@ namespace SCMS.Domain.Features.Patients
             if (!await CanAccessPatientAsync(id, userId))
             {
                 return Result.Failure("Access denied.");
+            }
+
+            // Check for active or upcoming appointments
+            var activeAppointments = await _context.TblAppointments
+                .CountAsync(a => a.PatientId == id && a.Status != "completed" && a.Status != "cancelled");
+
+            if (activeAppointments > 0)
+            {
+                return Result.Failure($"Cannot delete patient profile '{patient.Name}' because there are {activeAppointments} active or upcoming appointment(s). Please complete or cancel the appointments first.");
+            }
+
+            // Check for pending payments
+            var pendingPayments = await _context.TblPayments
+                .CountAsync(p => p.Appointment.PatientId == id && p.PaymentStatus == "pending");
+
+            if (pendingPayments > 0)
+            {
+                return Result.Failure($"Cannot delete patient profile '{patient.Name}' because there are {pendingPayments} pending payment invoice(s). Please settle or cancel the invoices first.");
             }
 
             patient.DeleteFlag = true;
@@ -651,8 +803,15 @@ namespace SCMS.Domain.Features.Patients
         {
             if (userId <= 0) return false;
 
+            var user = await _context.TblUsers.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == userId);
+            var userEmail = !string.IsNullOrWhiteSpace(user?.Email) ? user.Email.Trim().ToLowerInvariant() : null;
+            var userMobile = !string.IsNullOrWhiteSpace(user?.MobileNo) ? user.MobileNo.Trim() : null;
+
             var ownsPatient = await _context.TblPatients
-                .AnyAsync(p => p.PatientId == patientId && p.UserId == userId && p.DeleteFlag != true);
+                .AnyAsync(p => p.PatientId == patientId && p.DeleteFlag != true &&
+                    (p.UserId == userId ||
+                     (userEmail != null && p.Email != null && p.Email.ToLower() == userEmail) ||
+                     (userMobile != null && p.MobileNo != null && p.MobileNo == userMobile)));
             if (ownsPatient) return true;
 
             return await _context.TblUserRoles

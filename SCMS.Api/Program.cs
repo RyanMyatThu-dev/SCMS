@@ -23,7 +23,12 @@ try
     //Add Serilog
     builder.Services.AddSerilog();
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.Converters.Add(new SCMS.Domain.Common.DateOnlyJsonConverter());
+            options.JsonSerializerOptions.Converters.Add(new SCMS.Domain.Common.NullableDateOnlyJsonConverter());
+        });
     builder.Services.AddExceptionHandler<ApiExceptionHandler>();
     builder.Services.AddProblemDetails();
     builder.Services.AddScmsFeatureServices(builder.Configuration);

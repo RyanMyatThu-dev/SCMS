@@ -42,6 +42,7 @@
 | Method | Endpoint | Allowed Roles | Description |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/Patients` | Authenticated (`user`, `owner`, `admin`, `doctor`) | Creates a new patient profile (`CreatePatientProfileRequest` -> `CreatePatientProfileResponse`) |
+| `PUT` | `/api/Patients/{id}` | Authenticated (`user`, `owner`, `admin`, `doctor`) | Updates an existing patient profile (`UpdatePatientProfileRequest` -> `UpdatePatientProfileResponse`) |
 | `GET` | `/api/Patients` | Authenticated (`user`, `owner`, `admin`, `doctor`) | Lists patient profiles with pagination (`GetPatientProfilesRequest` -> `GetPatientProfilesResponse`) |
 | `GET` | `/api/Patients/search` | Authenticated (`user`, `owner`, `admin`, `doctor`) | Searches patient profiles by query keyword (`SearchPatientProfilesRequest` -> `SearchPatientProfilesResponse`) |
 | `GET` | `/api/Patients/patients/{id}` | Authenticated (`user`, `owner`, `admin`, `doctor`) | Retrieves detailed patient profile information by ID (`GetPatientProfileByIdResponse`) |

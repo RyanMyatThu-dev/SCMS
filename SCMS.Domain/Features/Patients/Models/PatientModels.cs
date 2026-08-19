@@ -117,6 +117,48 @@ namespace SCMS.Domain.Features.Patients.Models
         public DateTime CreatedAt { get; init; }
     }
 
+    /// <summary>Request parameters and payload for updating a patient profile.</summary>
+    public sealed record UpdatePatientProfileRequest
+    {
+        public int Id { get; set; }
+
+        [Required(ErrorMessage = "Patient name is required.")]
+        public required string Name { get; init; }
+
+        public string? MobileNo { get; init; }
+        public string? Email { get; init; }
+        public DateOnly? DateOfBirth { get; init; }
+        public string? Gender { get; init; }
+        public string? BloodType { get; init; }
+        public string? ActualAddress { get; init; }
+
+        public string? Allergies { get; init; }
+        public string? ChronicConditions { get; init; }
+        public string? PastSurgeries { get; init; }
+        public string? FamilyHistory { get; init; }
+        public string? VaccinationHistory { get; init; }
+    }
+
+    /// <summary>Response returned upon updating a patient profile.</summary>
+    public sealed record UpdatePatientProfileResponse
+    {
+        public int PatientId { get; init; }
+        public int UserId { get; init; }
+        public string Name { get; init; } = null!;
+        public string? MobileNo { get; init; }
+        public string? Email { get; init; }
+        public DateOnly? DateOfBirth { get; init; }
+        public string? Gender { get; init; }
+        public string? BloodType { get; init; }
+        public string? ActualAddress { get; init; }
+        public string? Allergies { get; init; }
+        public string? ChronicConditions { get; init; }
+        public string? PastSurgeries { get; init; }
+        public string? FamilyHistory { get; init; }
+        public string? VaccinationHistory { get; init; }
+        public DateTime UpdatedAt { get; init; }
+    }
+
     // Backward-compatibility models
     public class PatientProfilesRequest : PaginationRequest
     {

@@ -43,6 +43,30 @@ namespace SCMS.Api.Controllers
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
+        /// <summary>Update an existing patient medical profile.</summary>
+        [HttpPut("{id:int}")]
+        [HasPermission("Patients.Update")]
+        [ProducesResponseType(typeof(Result<UpdatePatientProfileResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> UpdatePatientProfile(int id, [FromBody] UpdatePatientProfileRequest request)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(Result.Failure("Invalid patient ID."));
+            }
+
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(Result.Failure("User id is required."));
+            }
+
+            request.Id = id;
+            var result = await _patientService.UpdatePatientProfileAsync(request, userId.Value, User.IsStaff());
+            return result.IsFailure ? BadRequest(result) : Ok(result);
+        }
+
         /// <summary>List patient profiles with pagination.</summary>
         [HttpGet]
         [HasPermission("Patients.View")]

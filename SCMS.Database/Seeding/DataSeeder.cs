@@ -158,7 +158,7 @@ namespace SCMS.Database.Seeding
             var userPermKeys = new[]
             {
                 "appointments.view", "appointments.create",
-                "patients.view",
+                "patients.view", "patients.create", "patients.update",
                 "prescriptions.view",
                 "payments.view", "payments.create",
                 "notifications.view", "notifications.update",
