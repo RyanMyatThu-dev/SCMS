@@ -347,6 +347,15 @@ namespace SCMS.Domain.Features.Users
                 return Result.Failure("The Owner account cannot be deleted.");
             }
 
+            // Check if user has active appointments
+            var activeAppointments = await _context.TblAppointments
+                .CountAsync(a => a.Patient.UserId == userId && a.Status != "completed" && a.Status != "cancelled", cancellationToken);
+
+            if (activeAppointments > 0)
+            {
+                return Result.Failure($"Cannot delete user account '{user.Name}' because they have {activeAppointments} active or upcoming appointment(s). Please complete or cancel those appointments first.");
+            }
+
             user.DeleteFlag = true;
             user.UpdatedAt = DateTime.UtcNow;
 

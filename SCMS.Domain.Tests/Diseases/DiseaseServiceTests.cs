@@ -142,7 +142,8 @@ namespace SCMS.Domain.Tests.Diseases
 
             // Assert
             Assert.False(result.IsSuccess);
-            Assert.Contains("Cannot deactivate disease as it is referenced in active prescriptions", result.Message!);
+            Assert.Contains("Cannot delete disease diagnosis", result.Message!);
+            Assert.Contains("clinical prescription record(s)", result.Message!);
 
             // Verify the disease is still active
             var activeDisease = await _context.TblDiseases.FindAsync(disease.Id);

@@ -152,12 +152,29 @@ namespace SCMS.Domain.Features.Diseases
                 return Result<bool>.Failure("Disease not found.");
             }
 
-            // Check if disease is referenced in any active prescriptions
-            var isReferenced = await _context.TblPrescriptions
-                .AnyAsync(p => p.DiseaseId == id && p.DeleteFlag != true);
-            if (isReferenced)
+            // Check if disease is referenced in prescriptions or clinical templates
+            var prescriptionQuery = _context.TblPrescriptions
+                .Where(p => p.DiseaseId == id && p.DeleteFlag != true);
+            var prescriptionCount = await prescriptionQuery.CountAsync();
+            var patientCount = await prescriptionQuery.Select(p => p.PatientId).Distinct().CountAsync();
+
+            var templateCount = await _context.TblPrescriptionTemplates
+                .CountAsync(t => t.DiseaseId == id && t.DeleteFlag != true);
+
+            if (prescriptionCount > 0 || templateCount > 0)
             {
-                return Result<bool>.Failure("Cannot deactivate disease as it is referenced in active prescriptions.");
+                var reasons = new List<string>();
+                if (prescriptionCount > 0)
+                {
+                    reasons.Add($"{patientCount} patient(s) have {prescriptionCount} clinical prescription record(s)");
+                }
+                if (templateCount > 0)
+                {
+                    reasons.Add($"{templateCount} prescription template(s)");
+                }
+
+                var reasonStr = string.Join(" and ", reasons);
+                return Result<bool>.Failure($"Cannot delete disease diagnosis '{disease.Name}' because {reasonStr} documented with this diagnosis. Please reassign or archive those medical records first.");
             }
 
             disease.DeleteFlag = true;

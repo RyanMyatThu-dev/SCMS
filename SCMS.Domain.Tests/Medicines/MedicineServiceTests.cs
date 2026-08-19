@@ -229,7 +229,8 @@ public class MedicineServiceTests
         var result = await service.DeleteMedicineAsync(med.MedicineId);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("allocated to active prescription", result.Message);
+        Assert.Contains("allocated to", result.Message);
+        Assert.Contains("active prescription", result.Message);
 
         var dbMed = await db.Context.TblMedicines.FindAsync(med.MedicineId);
         Assert.False(dbMed!.DeleteFlag);

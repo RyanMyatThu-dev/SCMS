@@ -478,14 +478,17 @@ namespace SCMS.Domain.Features.Medicines
             }
 
             // Check for active prescriptions referencing this batch
-            var activeAllocationExists = await _context.TblPrescriptionItems
-                .Where(pi => pi.MedicineBatchId == id && pi.DeleteFlag != true)
-                .AnyAsync(pi => pi.Prescription.Appointment.Status != "completed"
+            var activeItems = _context.TblPrescriptionItems
+                .Where(pi => pi.MedicineBatchId == id && pi.DeleteFlag != true
+                             && pi.Prescription.Appointment.Status != "completed"
                              && pi.Prescription.Appointment.Status != "cancelled");
 
-            if (activeAllocationExists)
+            var activeCount = await activeItems.Select(pi => pi.PrescriptionId).Distinct().CountAsync();
+            var activePatientCount = await activeItems.Select(pi => pi.Prescription.PatientId).Distinct().CountAsync();
+
+            if (activeCount > 0)
             {
-                return Result.Failure("Cannot delete this batch. It is allocated to active prescription(s). Complete or cancel the related appointment(s) first.");
+                return Result.Failure($"Cannot delete batch '{batch.BatchNo}' ({batch.Med?.Name ?? "Medicine"}) because it is allocated to {activeCount} active prescription(s) for {activePatientCount} patient(s). Please complete or update those appointments first.");
             }
 
             // Check for any historical prescriptions
@@ -679,14 +682,18 @@ namespace SCMS.Domain.Features.Medicines
                 return Result.Failure("Medicine not found.");
             }
 
-            var activeAllocationExists = await _context.TblPrescriptionItems
-                .Where(pi => pi.MedicineId == id && pi.DeleteFlag != true)
-                .AnyAsync(pi => pi.Prescription.Appointment.Status != "completed"
+            // 1. Check for active prescriptions
+            var activeItems = _context.TblPrescriptionItems
+                .Where(pi => pi.MedicineId == id && pi.DeleteFlag != true
+                             && pi.Prescription.Appointment.Status != "completed"
                              && pi.Prescription.Appointment.Status != "cancelled");
 
-            if (activeAllocationExists)
+            var activePrescriptionCount = await activeItems.Select(pi => pi.PrescriptionId).Distinct().CountAsync();
+            var activePatientCount = await activeItems.Select(pi => pi.Prescription.PatientId).Distinct().CountAsync();
+
+            if (activePrescriptionCount > 0)
             {
-                return Result.Failure("Cannot delete this medicine. It is allocated to active prescription(s). Complete or cancel the related appointment(s) first.");
+                return Result.Failure($"Cannot delete medicine '{medicine.Name}'. It is allocated to {activePrescriptionCount} active prescription(s) across {activePatientCount} patient(s). Please complete or cancel the related appointment(s) first.");
             }
 
             medicine.DeleteFlag = true;
