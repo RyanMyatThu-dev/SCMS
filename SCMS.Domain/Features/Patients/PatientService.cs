@@ -17,11 +17,11 @@ namespace SCMS.Domain.Features.Patients
     public class PatientService : IPatientService
     {
         private readonly AppDbContext _context;
-        private readonly AppointmentsService _appointmentsService;
-        private readonly PrescriptionService _prescriptionService;
+        private readonly IAppointmentsService _appointmentsService;
+        private readonly IPrescriptionService _prescriptionService;
         private static readonly string DateTimeFormat = Common.FormatHelper.DateFormat + " HH:mm";
 
-        public PatientService(AppDbContext context, AppointmentsService appointmentsService, PrescriptionService prescriptionService)
+        public PatientService(AppDbContext context, IAppointmentsService appointmentsService, IPrescriptionService prescriptionService)
         {
             _context = context;
             _appointmentsService = appointmentsService;

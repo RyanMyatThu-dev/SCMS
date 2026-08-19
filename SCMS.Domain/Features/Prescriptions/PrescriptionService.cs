@@ -15,10 +15,10 @@ namespace SCMS.Domain.Features.Prescriptions
     public class PrescriptionService : IPrescriptionService
     {
         private readonly AppDbContext _context;
-        private readonly NotificationService? _notificationService;
+        private readonly INotificationService? _notificationService;
         private const int LowStockThreshold = 20;
 
-        public PrescriptionService(AppDbContext context, NotificationService? notificationService = null)
+        public PrescriptionService(AppDbContext context, INotificationService? notificationService = null)
         {
             _context = context;
             _notificationService = notificationService;
@@ -100,7 +100,7 @@ namespace SCMS.Domain.Features.Prescriptions
                     .Select(a => a.Trim().ToLower())
                     .ToList();
 
-                foreach (var item in request.Items)
+                foreach (var item in items)
                 {
                     if (medMap.TryGetValue(item.MedicineId, out var med))
                     {
@@ -123,16 +123,17 @@ namespace SCMS.Domain.Features.Prescriptions
                 .Include(pi => pi.Medicine)
                 .Where(pi => pi.Prescription.PatientId == request.PatientId
                              && pi.DeleteFlag != true
+                             && pi.Prescription.Appointment != null
                              && pi.Prescription.Appointment.Status != "cancelled"
                              && pi.Prescription.Appointment.Status != "completed")
                 .ToListAsync();
 
-            foreach (var item in request.Items)
+            foreach (var item in items)
             {
                 var activeItem = activePrescriptions.FirstOrDefault(pi => pi.MedicineId == item.MedicineId);
                 if (activeItem != null)
                 {
-                    warnings.Add($"Duplicate medication warning: Patient is currently already prescribed '{activeItem.Medicine.Name}' in active appointment {activeItem.Prescription.AppointmentId}.");
+                    warnings.Add($"Duplicate medication warning: Patient is currently already prescribed '{activeItem.Medicine?.Name ?? "medication"}' in active appointment {activeItem.Prescription.AppointmentId}.");
                 }
             }
 
@@ -169,7 +170,7 @@ namespace SCMS.Domain.Features.Prescriptions
             try
             {
                 // Lock and validate inventory batches
-                foreach (var item in request.Items)
+                foreach (var item in items)
                 {
                     if (item.Quantity <= 0)
                     {

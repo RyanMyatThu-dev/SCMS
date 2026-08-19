@@ -18,9 +18,9 @@ namespace SCMS.Domain.Features.Mcp
         private static readonly string DateTimeFormat = DateFormat + " hh:mm tt";
 
         private readonly AppDbContext _context;
-        private readonly DashboardService _dashboardService;
+        private readonly IDashboardService _dashboardService;
 
-        public McpService(AppDbContext context, DashboardService? dashboardService = null)
+        public McpService(AppDbContext context, IDashboardService? dashboardService = null)
         {
             _context = context;
             _dashboardService = dashboardService ?? new DashboardService(context);

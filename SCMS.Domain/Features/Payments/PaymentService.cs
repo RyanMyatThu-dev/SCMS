@@ -13,7 +13,7 @@ namespace SCMS.Domain.Features.Payments
     public class PaymentService : IPaymentService
     {
         private readonly AppDbContext _context;
-        private readonly NotificationService? _notificationService;
+        private readonly INotificationService? _notificationService;
         private static readonly HashSet<string> AllowedPaymentStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
             "pending",
@@ -23,7 +23,7 @@ namespace SCMS.Domain.Features.Payments
             "refunded"
         };
 
-        public PaymentService(AppDbContext context, NotificationService? notificationService = null)
+        public PaymentService(AppDbContext context, INotificationService? notificationService = null)
         {
             _context = context;
             _notificationService = notificationService;
