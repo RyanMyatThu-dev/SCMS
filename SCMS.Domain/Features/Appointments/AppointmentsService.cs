@@ -318,12 +318,12 @@ namespace SCMS.Domain.Features.Appointments
                 var dailyActiveAppts = await _context.TblAppointments
                     .AsNoTracking()
                     .Where(a => a.Datetime >= minDate && a.Datetime < maxDate && a.Status != "cancelled")
-                    .OrderBy(a => a.Datetime.Date)
+                    .OrderBy(a => a.Datetime)
                     .ThenBy(a => a.Id)
-                    .Select(a => new { a.Id, Date = a.Datetime.Date })
+                    .Select(a => new { a.Id, a.Datetime })
                     .ToListAsync();
 
-                foreach (var group in dailyActiveAppts.GroupBy(x => x.Date))
+                foreach (var group in dailyActiveAppts.GroupBy(x => x.Datetime.Date))
                 {
                     int seq = 1;
                     foreach (var item in group)
