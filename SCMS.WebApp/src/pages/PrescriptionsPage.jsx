@@ -15,6 +15,9 @@ import SegmentedControl from "../components/SegmentedControl";
 import { prescriptionsApi, diseasesApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { parsePrescriptionData, parsePrescriptionNotes } from "../utils/clinical";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -46,6 +49,8 @@ export default function PrescriptionsPage() {
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  useScrollLock(detailOpen);
 
   const loadPrescriptions = async (pageNum = page) => {
     try {
@@ -219,14 +224,15 @@ export default function PrescriptionsPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={(e) => handleDownloadPdf(e, p.id || p.prescriptionId)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-foreground btn-target"
+                          className="scms-btn-icon"
                           title="Download Prescription PDF"
+                          aria-label="Download Prescription PDF"
                         >
                           <DownloadIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => openDetailModal(p)}
-                          className="scms-btn-outline px-3 h-8 min-h-8 text-xs font-bold btn-target"
+                          className="scms-btn-sm"
                         >
                           View Details
                         </button>
@@ -265,12 +271,16 @@ export default function PrescriptionsPage() {
                 </p>
               </div>
 
-              {p.notes && <p className="text-xs text-muted-foreground italic truncate">{p.notes}</p>}
+              {p.notes && (
+                <p className="text-xs text-muted-foreground italic truncate">
+                  {parsePrescriptionNotes(p.notes)}
+                </p>
+              )}
 
               <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={(e) => handleDownloadPdf(e, p.id || p.prescriptionId)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                  className="scms-btn-icon"
                   title="Download PDF"
                 >
                   <DownloadIcon className="w-4 h-4" />
@@ -290,9 +300,12 @@ export default function PrescriptionsPage() {
       />
 
       {/* Prescription Detail Modal */}
-      {detailOpen && selectedPrescription && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-2xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+      <ModalPortal
+        isOpen={detailOpen && Boolean(selectedPrescription)}
+        onClose={() => setDetailOpen(false)}
+      >
+        {selectedPrescription && (
+          <div className="w-full max-w-2xl rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white">
@@ -319,16 +332,94 @@ export default function PrescriptionsPage() {
               <div className="py-8 text-center text-xs text-slate-400">Loading prescription details...</div>
             ) : (
               <div className="space-y-4 text-xs">
-                {selectedPrescription.notes && (
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                    <span className="font-bold text-slate-600 dark:text-slate-300 block mb-1">
-                      Doctor Advice / Diagnostic Notes:
-                    </span>
-                    <p className="text-slate-600 dark:text-slate-400 italic">
-                      &ldquo;{selectedPrescription.notes}&rdquo;
-                    </p>
-                  </div>
-                )}
+                {(() => {
+                  const parsedRx = parsePrescriptionData(selectedPrescription);
+                  return (
+                    <>
+                      {/* Doctor Advice / Clinical Notes */}
+                      {parsedRx.actualNotes && (
+                        <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 space-y-1">
+                          <span className="font-bold text-indigo-950 dark:text-indigo-200 block text-xs flex items-center gap-1.5">
+                            <FileTextIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                            <span>Doctor Advice / Diagnostic Notes</span>
+                          </span>
+                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                            {parsedRx.actualNotes}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Recorded Vitals & Patient Biometrics */}
+                      {parsedRx.hasVitals && (
+                        <div className="rounded-2xl border border-border/80 bg-secondary/30 p-3.5 space-y-2">
+                          <span className="font-bold text-foreground block text-xs">
+                            Recorded Vitals & Measurements
+                          </span>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            {parsedRx.vitals.bloodPressure && (
+                              <div className="p-2.5 rounded-xl bg-card border border-border/70">
+                                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Blood Pressure</span>
+                                <span className="font-bold font-mono text-foreground">{parsedRx.vitals.bloodPressure}</span>
+                              </div>
+                            )}
+                            {parsedRx.vitals.temperatureC != null && (
+                              <div className="p-2.5 rounded-xl bg-card border border-border/70">
+                                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Body Temp</span>
+                                <span className="font-bold font-mono text-foreground">{parsedRx.vitals.temperatureC} °C ({parsedRx.vitals.temperatureF} °F)</span>
+                              </div>
+                            )}
+                            {parsedRx.vitals.pulseBpm && (
+                              <div className="p-2.5 rounded-xl bg-card border border-border/70">
+                                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Pulse / Heart Rate</span>
+                                <span className="font-bold font-mono text-foreground">{parsedRx.vitals.pulseBpm}</span>
+                              </div>
+                            )}
+                            {parsedRx.vitals.spo2 && (
+                              <div className="p-2.5 rounded-xl bg-card border border-border/70">
+                                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Oxygen (SpO2)</span>
+                                <span className="font-bold font-mono text-foreground">{parsedRx.vitals.spo2}</span>
+                              </div>
+                            )}
+                            {parsedRx.vitals.weightKg && (
+                              <div className="p-2.5 rounded-xl bg-card border border-border/70">
+                                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Weight</span>
+                                <span className="font-bold font-mono text-foreground">{parsedRx.vitals.weightKg}</span>
+                              </div>
+                            )}
+                            {parsedRx.vitals.heightCm && (
+                              <div className="p-2.5 rounded-xl bg-card border border-border/70">
+                                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Height</span>
+                                <span className="font-bold font-mono text-foreground">{parsedRx.vitals.heightCm}</span>
+                              </div>
+                            )}
+                            {parsedRx.vitals.bmi && (
+                              <div className="p-2.5 rounded-xl bg-card border border-border/70">
+                                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">BMI</span>
+                                <span className="font-bold font-mono text-foreground">{parsedRx.vitals.bmi}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Lab / Diagnostic Test Orders */}
+                      {parsedRx.labTests.length > 0 && (
+                        <div className="rounded-2xl border border-amber-200/70 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 p-3.5 space-y-1.5">
+                          <span className="font-bold text-amber-900 dark:text-amber-300 block text-xs">
+                            🧪 Diagnostic & Laboratory Tests Ordered
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {parsedRx.labTests.map((test, i) => (
+                              <span key={i} className="px-2.5 py-1 rounded-lg bg-card text-amber-800 dark:text-amber-200 font-semibold border border-amber-200 dark:border-amber-900 text-xs">
+                                {test}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 <div>
                   <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-1.5">
@@ -387,8 +478,8 @@ export default function PrescriptionsPage() {
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

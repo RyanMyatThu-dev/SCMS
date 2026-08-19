@@ -4,6 +4,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Domain.Features.Prescriptions.Models;
@@ -710,6 +711,52 @@ namespace SCMS.Domain.Features.Prescriptions
                 });
             }
 
+            var notesText = p.Notes;
+            double? tempC = p.TemperatureC;
+            int? pulse = p.PulseBpm;
+            int? spo2 = p.Spo2Percent;
+            double? height = p.HeightCm;
+            double? bmi = p.Bmi;
+            string? labTests = p.LabTestRequests;
+
+            if (!string.IsNullOrEmpty(notesText) && notesText.TrimStart().StartsWith("{"))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(notesText);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("ActualNotes", out var anProp))
+                    {
+                        notesText = anProp.GetString();
+                    }
+                    if (root.TryGetProperty("TemperatureC", out var tcProp) && !tempC.HasValue && tcProp.TryGetDouble(out var tcVal))
+                    {
+                        tempC = tcVal;
+                    }
+                    if (root.TryGetProperty("PulseBpm", out var pbProp) && !pulse.HasValue && pbProp.TryGetInt32(out var pbVal))
+                    {
+                        pulse = pbVal;
+                    }
+                    if (root.TryGetProperty("Spo2Percent", out var spProp) && !spo2.HasValue && spProp.TryGetInt32(out var spVal))
+                    {
+                        spo2 = spVal;
+                    }
+                    if (root.TryGetProperty("HeightCm", out var hProp) && !height.HasValue && hProp.TryGetDouble(out var hVal))
+                    {
+                        height = hVal;
+                    }
+                    if (root.TryGetProperty("Bmi", out var bmiProp) && !bmi.HasValue && bmiProp.TryGetDouble(out var bmiVal))
+                    {
+                        bmi = bmiVal;
+                    }
+                    if (root.TryGetProperty("LabTestRequests", out var ltProp) && string.IsNullOrEmpty(labTests))
+                    {
+                        labTests = ltProp.GetString();
+                    }
+                }
+                catch { }
+            }
+
             return new PrescriptionResponse
             {
                 Id = p.Id,
@@ -722,13 +769,13 @@ namespace SCMS.Domain.Features.Prescriptions
                 WeightKg = p.WeightKg,
                 BloodPressureSystolic = p.BloodPressureSystolic,
                 BloodPressureDiastolic = p.BloodPressureDiastolic,
-                Notes = p.Notes,
-                TemperatureC = p.TemperatureC,
-                PulseBpm = p.PulseBpm,
-                Spo2Percent = p.Spo2Percent,
-                HeightCm = p.HeightCm,
-                Bmi = p.Bmi,
-                LabTestRequests = p.LabTestRequests,
+                Notes = notesText,
+                TemperatureC = tempC,
+                PulseBpm = pulse,
+                Spo2Percent = spo2,
+                HeightCm = height,
+                Bmi = bmi,
+                LabTestRequests = labTests,
                 Items = itemResponseDtos,
                 CreatedAt = p.CreatedAt ?? DateTime.UtcNow
             };
