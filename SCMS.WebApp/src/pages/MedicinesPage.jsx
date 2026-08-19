@@ -54,14 +54,21 @@ export default function MedicinesPage() {
     description: "",
   });
 
-  const loadMedicines = async (pageNum = page) => {
+  const loadMedicines = async (pageNum = page, currentQuery = query) => {
     try {
       setLoading(true);
-      const res = await medicinesApi.list({
-        pageNumber: pageNum,
-        pageSize,
-        name: query || undefined,
-      });
+      const trimmed = (currentQuery || "").trim();
+      const res = trimmed
+        ? await medicinesApi.search({
+            query: trimmed,
+            pageNumber: pageNum,
+            pageSize,
+          })
+        : await medicinesApi.list({
+            pageNumber: pageNum,
+            pageSize,
+          });
+
       if (res) {
         setMedicines(toArray(res));
         if (res.pagination) {
@@ -77,14 +84,14 @@ export default function MedicinesPage() {
   };
 
   useEffect(() => {
-    loadMedicines(page);
+    loadMedicines(page, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     setPage(1);
-    loadMedicines(1);
+    loadMedicines(1, query);
   };
 
   const handleQuarantineExpired = async () => {

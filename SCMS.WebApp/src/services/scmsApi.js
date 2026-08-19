@@ -25,6 +25,7 @@ export const appointmentsApi = {
 
 export const patientsApi = {
   list: (params) => api.get("/Patients", { params: toQuery(params) }).then(unwrap),
+  search: (params) => api.get("/Patients/search", { params: toQuery(params) }).then(unwrap),
   create: (payload) => api.post("/Patients", payload).then(unwrap),
   get: (id) => api.get(`/Patients/patients/${id}`).then(unwrap),
   history: (id) => api.get(`/Patients/${id}/history`).then(unwrap),
@@ -46,6 +47,7 @@ export const prescriptionsApi = {
 
 export const medicinesApi = {
   list: (params) => api.get("/Medicines", { params: toQuery(params) }).then(unwrap),
+  search: (params) => api.get("/Medicines/search", { params: toQuery(params) }).then(unwrap),
   create: (payload) => api.post("/Medicines", payload, { headers: { "Content-Type": "multipart/form-data" } }).then(unwrap),
   update: (id, payload) => api.put(`/Medicines/${id}`, payload, { headers: { "Content-Type": "multipart/form-data" } }).then(unwrap),
   remove: (id) => api.delete(`/Medicines/${id}`).then(unwrap),
@@ -53,14 +55,16 @@ export const medicinesApi = {
   quarantineExpired: () => api.post("/Medicines/quarantine-expired").then(unwrap),
   alerts: () => api.get("/Medicines/alerts").then(unwrap),
   batches: (params) => api.get("/Medicines/batches", { params: toQuery(params) }).then(unwrap),
+  searchBatches: (params) => api.get("/Medicines/batches/search", { params: toQuery(params) }).then(unwrap),
   batch: (id) => api.get(`/Medicines/batches/${id}`).then(unwrap),
   createBatch: (payload) => api.post("/Medicines/batches", payload).then(unwrap),
-  updateBatch: (id, payload) => api.put(`/Medicines/batches/${id}`, payload).then(unwrap),
-  deleteBatch: (id) => api.delete(`/Medicines/batches/${id}`).then(unwrap),
+  updateBatch: (id, payload) => api.put(`/Medicines/${id}`, payload).then(unwrap),
+  deleteBatch: (id) => api.delete(`/Medicines/${id}`).then(unwrap),
 };
 
 export const diseasesApi = {
   list: (params) => api.get("/Diseases", { params: toQuery(params) }).then(unwrap),
+  search: (params) => api.get("/Diseases/search", { params: toQuery(params) }).then(unwrap),
   create: (payload) => api.post("/Diseases", payload).then(unwrap),
   update: (payload) => api.put("/Diseases", payload).then(unwrap),
   remove: (id) => api.delete(`/Diseases/${id}`).then(unwrap),
@@ -68,10 +72,20 @@ export const diseasesApi = {
 
 export const paymentsApi = {
   list: (params) => api.get("/Payments", { params: toQuery(params) }).then(unwrap),
+  search: (params) => api.get("/Payments/search", { params: toQuery(params) }).then(unwrap),
   gatewayCallback: (payload) => api.post("/Payments/gateway-callback", payload).then(unwrap),
   manualProof: (payload) => api.post("/Payments/manual-proof", payload).then(unwrap),
   approve: (id) => api.post(`/Payments/${id}/approve`).then(unwrap),
   invoicePdf: (id) => api.get(`/Payments/${id}/invoice/pdf`, { responseType: "blob" }),
+};
+
+export const usersApi = {
+  list: (params) => api.get("/Users", { params: toQuery(params) }).then(unwrap),
+  search: (params) => api.get("/Users/search", { params: toQuery(params) }).then(unwrap),
+  get: (id) => api.get(`/Users/${id}`).then(unwrap),
+  createStaff: (payload) => api.post("/Users/staff", payload).then(unwrap),
+  updateRoles: (id, payload) => api.put(`/Users/${id}/roles`, payload).then(unwrap),
+  delete: (id) => api.delete(`/Users/${id}`).then(unwrap),
 };
 
 export const followUpsApi = {

@@ -33,14 +33,20 @@ export default function DoctorPatients() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyData, setHistoryData] = useState(null);
 
-  const loadPatients = async (pageNum = 1) => {
+  const loadPatients = async (pageNum = page, currentQuery = query) => {
     try {
       setLoading(true);
-      const res = await patientsApi.list({
-        pageNumber: pageNum,
-        pageSize: 10,
-        name: query || undefined,
-      });
+      const trimmed = (currentQuery || "").trim();
+      const res = trimmed
+        ? await patientsApi.search({
+            query: trimmed,
+            pageNumber: pageNum,
+            pageSize: 10,
+          })
+        : await patientsApi.list({
+            pageNumber: pageNum,
+            pageSize: 10,
+          });
       setPatients(toArray(res));
       if (res?.pagination) {
         setTotalPages(res.pagination.totalPages || 1);
@@ -54,14 +60,14 @@ export default function DoctorPatients() {
   };
 
   useEffect(() => {
-    loadPatients(page);
+    loadPatients(page, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const handleSearch = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setPage(1);
-    loadPatients(1);
+    loadPatients(1, query);
   };
 
   const handleOpenPatientHistory = async (patientRow) => {

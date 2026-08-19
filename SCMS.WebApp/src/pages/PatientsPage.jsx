@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   PersonIcon,
   PlusIcon,
@@ -28,9 +29,11 @@ const toArray = (data) => {
 
 export default function PatientsPage() {
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
   const pageSize = 8;
   const [patients, setPatients] = useState([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [viewMode, setViewMode] = useState("table"); // "table" or "card"
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,14 +61,21 @@ export default function PatientsPage() {
 
   const [errors, setErrors] = useState({});
 
-  const loadPatients = async () => {
+  const loadPatients = async (pageNum = page, currentQuery = query) => {
     try {
       setLoading(true);
-      const res = await patientsApi.list({
-        pageNumber: page,
-        pageSize: pageSize,
-        name: query || undefined,
-      });
+      const trimmed = (currentQuery || "").trim();
+      const res = trimmed
+        ? await patientsApi.search({
+            query: trimmed,
+            pageNumber: pageNum,
+            pageSize,
+          })
+        : await patientsApi.list({
+            pageNumber: pageNum,
+            pageSize,
+          });
+
       setPatients(toArray(res));
       if (res?.pagination) {
         setTotalPages(res.pagination.totalPages || 1);
@@ -80,14 +90,14 @@ export default function PatientsPage() {
   };
 
   useEffect(() => {
-    loadPatients();
+    loadPatients(page, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const handleSearchSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setPage(1);
-    loadPatients();
+    loadPatients(1, query);
   };
 
   const openCreateModal = () => {

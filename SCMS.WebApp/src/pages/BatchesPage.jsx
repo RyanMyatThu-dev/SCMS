@@ -9,11 +9,13 @@ import {
   TrashIcon,
   Cross2Icon,
   ChevronLeftIcon,
+  MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
 import SegmentedControl from "../components/SegmentedControl";
+import { Input } from "../components/ui/input";
 import { medicinesApi } from "../services/scmsApi";
 import { showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -33,6 +35,7 @@ export default function BatchesPage() {
   const [batches, setBatches] = useState([]);
   const [medicines, setMedicines] = useState([]);
   const [selectedMedId, setSelectedMedId] = useState("");
+  const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("table");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,14 +57,23 @@ export default function BatchesPage() {
     supplierName: "",
   });
 
-  const loadBatches = async (pageNum = page) => {
+  const loadBatches = async (pageNum = page, currentQuery = query) => {
     try {
       setLoading(true);
-      const res = await medicinesApi.batches({
-        pageNumber: pageNum,
-        pageSize,
-        medicineId: selectedMedId || undefined,
-      });
+      const trimmed = (currentQuery || "").trim();
+      const res = trimmed
+        ? await medicinesApi.searchBatches({
+            query: trimmed,
+            medicineId: selectedMedId ? Number(selectedMedId) : undefined,
+            pageNumber: pageNum,
+            pageSize,
+          })
+        : await medicinesApi.batches({
+            pageNumber: pageNum,
+            pageSize,
+            medicineId: selectedMedId ? Number(selectedMedId) : undefined,
+          });
+
       if (res) {
         setBatches(toArray(res));
         if (res.pagination) {
@@ -83,9 +95,15 @@ export default function BatchesPage() {
   }, []);
 
   useEffect(() => {
-    loadBatches(page);
+    loadBatches(page, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, selectedMedId]);
+
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+    setPage(1);
+    loadBatches(1, query);
+  };
 
   const openCreateModal = () => {
     setEditingBatch(null);
@@ -197,7 +215,17 @@ export default function BatchesPage() {
 
       {/* Filter & Layout Switcher */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
-        <div className="flex-1 w-full max-w-xs">
+        <form onSubmit={handleSearch} className="flex-1 w-full max-w-sm">
+          <Input
+            type="text"
+            startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search batches by number or supplier..."
+          />
+        </form>
+
+        <div className="w-full sm:w-auto min-w-[200px]">
           <select
             className="scms-select w-full text-xs"
             value={selectedMedId}

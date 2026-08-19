@@ -58,14 +58,21 @@ export default function DiseasesPage() {
   const [templates, setTemplates] = useState([]);
   const [templateLoading, setTemplateLoading] = useState(false);
 
-  const loadDiseases = async () => {
+  const loadDiseases = async (pageNum = page, currentQuery = query) => {
     try {
       setLoading(true);
-      const res = await diseasesApi.list({
-        pageNumber: page,
-        pageSize: pageSize,
-        name: query || undefined,
-      });
+      const trimmed = (currentQuery || "").trim();
+      const res = trimmed
+        ? await diseasesApi.search({
+            query: trimmed,
+            pageNumber: pageNum,
+            pageSize: pageSize,
+          })
+        : await diseasesApi.list({
+            pageNumber: pageNum,
+            pageSize: pageSize,
+          });
+
       setDiseases(toArray(res));
       if (res?.pagination) {
         setTotalPages(res.pagination.totalPages || 1);
@@ -80,14 +87,14 @@ export default function DiseasesPage() {
   };
 
   useEffect(() => {
-    loadDiseases();
+    loadDiseases(page, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const handleSearch = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setPage(1);
-    loadDiseases();
+    loadDiseases(1, query);
   };
 
   const openCreateModal = () => {

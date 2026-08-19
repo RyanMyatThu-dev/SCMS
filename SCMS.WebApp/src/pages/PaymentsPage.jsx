@@ -7,11 +7,13 @@ import {
   DownloadIcon,
   CheckIcon,
   Cross2Icon,
+  MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
 import SegmentedControl from "../components/SegmentedControl";
+import { Input } from "../components/ui/input";
 import { paymentsApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -34,6 +36,7 @@ export default function PaymentsPage() {
   const [viewMode, setViewMode] = useState("table");
 
   // Filters
+  const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
 
@@ -46,15 +49,24 @@ export default function PaymentsPage() {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const loadPayments = async (pageNum = page) => {
+  const loadPayments = async (pageNum = page, currentQuery = query) => {
     try {
       setLoading(true);
-      const res = await paymentsApi.list({
-        pageNumber: pageNum,
-        pageSize,
-        status: statusFilter === "all" ? undefined : statusFilter,
-        date: dateFilter || undefined,
-      });
+      const trimmed = (currentQuery || "").trim();
+      const res = trimmed
+        ? await paymentsApi.search({
+            query: trimmed,
+            status: statusFilter === "all" ? undefined : statusFilter,
+            dateFilter: dateFilter || undefined,
+            pageNumber: pageNum,
+            pageSize,
+          })
+        : await paymentsApi.list({
+            pageNumber: pageNum,
+            pageSize,
+            status: statusFilter === "all" ? undefined : statusFilter,
+            date: dateFilter || undefined,
+          });
 
       if (res) {
         setPayments(toArray(res));
@@ -71,9 +83,15 @@ export default function PaymentsPage() {
   };
 
   useEffect(() => {
-    loadPayments(page);
+    loadPayments(page, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter, dateFilter]);
+
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+    setPage(1);
+    loadPayments(1, query);
+  };
 
   const handleApprove = async (e, paymentId) => {
     e.stopPropagation();
@@ -87,7 +105,7 @@ export default function PaymentsPage() {
       setApprovingId(paymentId);
       await paymentsApi.approve(paymentId);
       showSuccess("Payment transaction approved and settled.");
-      loadPayments(page);
+      loadPayments(page, query);
       if (selectedPayment) setDetailOpen(false);
     } catch (err) {
       showError(err?.response?.data?.message || "Failed to approve payment.");
@@ -101,22 +119,33 @@ export default function PaymentsPage() {
     try {
       const blob = await paymentsApi.invoicePdf(paymentId);
       downloadBlob(blob, `invoice-${paymentId}.pdf`);
-      showAlert("Invoice receipt PDF downloaded successfully.");
+      showAlert("Invoice PDF generated and downloaded.");
     } catch {
-      showError("Failed to download invoice PDF.");
+      showError("Failed to export invoice PDF.");
     }
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* Page Header */}
       <PageHeader
         title={t.payments}
-        subtitle="Clinic billing, invoice settlements, mobile KBZPay/WavePay transfer verification, and receipts."
+        subtitle="Manage billing statements, verify mobile payment screenshots, approve transactions, and generate receipts."
       />
 
       {/* Filter and View Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
-        <div className="flex flex-1 flex-wrap items-center gap-3 w-full">
+        <form onSubmit={handleSearch} className="flex-1 w-full max-w-xs">
+          <Input
+            type="text"
+            startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by code or patient..."
+          />
+        </form>
+
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <select
             className="scms-select min-w-[160px] text-xs font-semibold"
             value={statusFilter}
@@ -142,9 +171,11 @@ export default function PaymentsPage() {
 
           <button
             onClick={() => {
+              setQuery("");
               setStatusFilter("all");
               setDateFilter("");
               setPage(1);
+              loadPayments(1, "");
             }}
             className="scms-btn-outline px-3 btn-target shadow-xs"
             title={t.refresh}
