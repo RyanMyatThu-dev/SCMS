@@ -17,6 +17,9 @@ import { Input } from "../components/ui/input";
 import { diseasesApi, prescriptionsApi } from "../services/scmsApi";
 import { showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { sanitizeText } from "../utils/validation";
+import useScrollLock from "../hooks/useScrollLock";
+import ModalPortal from "../components/ModalPortal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -57,6 +60,8 @@ export default function DiseasesPage() {
   const [selectedDiseaseForTemplate, setSelectedDiseaseForTemplate] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [templateLoading, setTemplateLoading] = useState(false);
+
+  useScrollLock(modalOpen || templateModalOpen);
 
   const loadDiseases = async (pageNum = page, currentQuery = query) => {
     try {
@@ -121,7 +126,8 @@ export default function DiseasesPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (disease) => {
+  const handleDelete = async (e, disease) => {
+    if (e) e.stopPropagation();
     const ok = await showConfirm(`Are you sure you want to delete "${disease.name}"?`);
     if (!ok) return;
     try {
@@ -130,32 +136,45 @@ export default function DiseasesPage() {
       loadDiseases();
     } catch (err) {
       console.error(err);
-      showError(err?.response?.data?.message || "Failed to delete disease.");
+      showError(err, "Cannot Delete Disease");
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSaveDisease = async (e) => {
     e.preventDefault();
+    const cleanName = sanitizeText(form.name);
+    if (!cleanName || cleanName.length < 2) {
+      showError("Disease / Diagnosis name is required (at least 2 characters).", "Invalid Input");
+      return;
+    }
+
     try {
       setSaving(true);
+      const payload = {
+        name: cleanName,
+        icdCode: sanitizeText(form.icdCode) || null,
+        category: sanitizeText(form.category) || "General",
+        description: sanitizeText(form.description) || null,
+      };
+
       if (editingDisease) {
-        await diseasesApi.update(editingDisease.diseaseId || editingDisease.id, form);
+        await diseasesApi.update(editingDisease.diseaseId || editingDisease.id, payload);
         showSuccess("Disease updated successfully.");
       } else {
-        await diseasesApi.create(form);
+        await diseasesApi.create(payload);
         showSuccess("Disease created successfully.");
       }
       setModalOpen(false);
       loadDiseases();
     } catch (err) {
       console.error(err);
-      showError(err?.response?.data?.message || "Failed to save disease.");
+      showError(err);
     } finally {
       setSaving(false);
     }
   };
 
-  const openTemplatesModal = async (disease) => {
+  const openTemplateManager = async (disease) => {
     setSelectedDiseaseForTemplate(disease);
     setTemplateModalOpen(true);
     try {
@@ -188,14 +207,19 @@ export default function DiseasesPage() {
 
       {/* Search & Layout Toggles */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
-        <form onSubmit={handleSearch} className="flex-1 w-full">
+        <form onSubmit={handleSearch} className="flex-1 w-full flex items-center gap-2">
           <Input
             type="text"
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search diagnoses by name, category, or ICD code..."
+            className="flex-1"
           />
+          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
+            <MagnifyingGlassIcon className="w-4 h-4" />
+            <span>Search</span>
+          </button>
         </form>
 
         <SegmentedControl
@@ -262,22 +286,25 @@ export default function DiseasesPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openTemplateManager(d)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-orange-600 dark:text-orange-400 btn-target"
+                          className="scms-btn-icon text-orange-600 dark:text-orange-400"
                           title="Prescription Templates"
+                          aria-label="Prescription Templates"
                         >
                           <BookmarkIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => openEditModal(d)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
-                          title="Edit"
+                          className="scms-btn-icon"
+                          title="Edit Diagnosis"
+                          aria-label="Edit Diagnosis"
                         >
                           <Pencil1Icon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, d)}
-                          className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
-                          title="Delete"
+                          className="scms-btn-icon-danger"
+                          title="Delete Diagnosis"
+                          aria-label="Delete Diagnosis"
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -313,24 +340,24 @@ export default function DiseasesPage() {
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5">
+              <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => openTemplateManager(d)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-orange-600 btn-target"
+                  className="scms-btn-icon text-orange-600 dark:text-orange-400"
                   title="Templates"
                 >
                   <BookmarkIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => openEditModal(d)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                  className="scms-btn-icon"
                   title="Edit"
                 >
                   <Pencil1Icon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => handleDelete(e, d)}
-                  className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 btn-target"
+                  className="scms-btn-icon-danger"
                   title="Delete"
                 >
                   <TrashIcon className="w-4 h-4" />
@@ -349,10 +376,9 @@ export default function DiseasesPage() {
         onPageChange={setPage}
       />
 
-      {/* Create / Edit Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+      {/* Create / Edit Disease Modal */}
+      <ModalPortal isOpen={modalOpen} onClose={() => setModalOpen(false)}>
+        <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingDisease ? "Edit Disease Record" : "Add Disease to Catalog"}
@@ -432,13 +458,15 @@ export default function DiseasesPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </ModalPortal>
 
       {/* Template Manager Modal */}
-      {templateModalOpen && selectedDiseaseForTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+      <ModalPortal
+        isOpen={templateModalOpen && Boolean(selectedDiseaseForTemplate)}
+        onClose={() => setTemplateModalOpen(false)}
+      >
+        {selectedDiseaseForTemplate && (
+          <div className="w-full max-w-lg rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -489,8 +517,8 @@ export default function DiseasesPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

@@ -11,7 +11,6 @@ import {
   ReloadIcon,
   BarChartIcon,
   MagicWandIcon,
-  GearIcon,
   HamburgerMenuIcon,
   Cross2Icon,
   ExitIcon,
@@ -30,6 +29,8 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
 import { notificationsApi } from "../services/scmsApi";
+import { showConfirm } from "../services/dialogs";
+import useScrollLock from "../hooks/useScrollLock";
 
 const navItems = [
   { to: "/app/dashboard", key: "dashboard", icon: DashboardIcon },
@@ -43,7 +44,6 @@ const navItems = [
   { to: "/app/follow-ups", key: "followUps", icon: ReloadIcon },
   { to: "/app/reports", key: "reports", icon: BarChartIcon },
   { to: "/app/ai-assistant", key: "aiAssistant", icon: MagicWandIcon },
-  { to: "/app/settings", key: "settings", icon: GearIcon },
 ];
 
 const defaultClinicNotifications = [
@@ -80,6 +80,8 @@ export default function AppShell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  useScrollLock(open);
 
   // Notification Dropdown State
   const [notifOpen, setNotifOpen] = useState(false);
@@ -133,9 +135,17 @@ export default function AppShell() {
     };
   }, [notifOpen]);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    const confirmed = await showConfirm(
+      language === "mm" ? "အကောင့်မှ ထွက်ခွာရန် သေချာပါသလား?" : "Are you sure you want to log out of your session?",
+      language === "mm" ? "အကောင့်ထွက်ရန် အတည်ပြုပါ" : "Confirm Sign Out",
+      language === "mm" ? "ထွက်မည်" : "Log Out",
+      language === "mm" ? "မထွက်ပါ" : "Cancel"
+    );
+    if (confirmed) {
+      logout();
+      navigate("/login", { replace: true });
+    }
   };
 
   const handleNotificationClick = (item) => {
@@ -157,7 +167,7 @@ export default function AppShell() {
       {/* Mobile overlay backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-md lg:hidden transition-all duration-300 animate-fadeIn"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
@@ -172,7 +182,7 @@ export default function AppShell() {
         <div className="flex items-center justify-between pb-4 border-b border-border/70">
           <BrandLogo subtitle={t.ownerPortal} collapsed={collapsed} />
           <button
-            className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary lg:hidden btn-target"
+            className="lg:hidden grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary transition cursor-pointer"
             onClick={() => setOpen(false)}
             aria-label={t.close}
           >
@@ -193,7 +203,7 @@ export default function AppShell() {
                 to={item.to}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center rounded-2xl px-3.5 py-2.5 text-xs font-semibold transition-all btn-target ${
+                  `flex items-center rounded-2xl px-3.5 py-2.5 text-xs font-semibold transition-all ${
                     collapsed ? "justify-center gap-0" : "gap-3"
                   } ${
                     isActive
@@ -218,7 +228,7 @@ export default function AppShell() {
                 Upgrade Plan
               </span>
               <button
-                onClick={() => navigate("/app/settings")}
+                onClick={() => navigate("/app/ai-assistant")}
                 className="grid h-6 w-6 place-items-center rounded-full bg-orange-500 text-white shadow-2xs hover:bg-orange-600 transition"
                 aria-label="Upgrade plan details"
               >
@@ -235,7 +245,7 @@ export default function AppShell() {
         <div className="pt-3 border-t border-border/70 space-y-2">
           <button
             onClick={handleLogout}
-            className={`flex items-center rounded-2xl text-xs font-semibold text-destructive hover:bg-destructive/10 w-full py-2.5 px-3 transition-colors btn-target ${
+            className={`flex items-center rounded-2xl text-xs font-semibold text-destructive hover:bg-destructive/10 w-full py-2.5 px-3 transition-colors ${
               collapsed ? "justify-center" : "gap-3"
             }`}
             title={collapsed ? t.logout : undefined}
@@ -257,16 +267,17 @@ export default function AppShell() {
           {/* Left Controls */}
           <div className="flex items-center gap-3">
             <button
-              className="grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground lg:hidden btn-target shadow-2xs"
+              className="lg:hidden grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground hover:bg-secondary transition shadow-2xs cursor-pointer"
               onClick={() => setOpen(true)}
-              aria-label="Toggle mobile menu"
+              aria-label="Open mobile menu"
             >
               <HamburgerMenuIcon className="w-4 h-4" />
             </button>
             <button
-              className="hidden lg:grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground hover:bg-secondary transition btn-target shadow-2xs"
+              className="hidden lg:grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground hover:bg-secondary transition shadow-2xs cursor-pointer"
               onClick={() => setCollapsed(!collapsed)}
-              aria-label="Collapse sidebar"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               <HamburgerMenuIcon className="w-4 h-4" />
             </button>

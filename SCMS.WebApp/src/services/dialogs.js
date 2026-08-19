@@ -4,56 +4,110 @@ import "sweetalert2/dist/sweetalert2.min.css";
 const baseOptions = {
   buttonsStyling: false,
   customClass: {
-    popup: "rounded-lg text-scms-text",
-    title: "text-scms-text text-xl font-black",
-    htmlContainer: "text-scms-muted text-sm",
-    confirmButton: "btn min-h-11 rounded-xl border-0 bg-scms-primary px-5 text-white hover:bg-scms-primaryDark",
-    cancelButton: "btn min-h-11 rounded-xl border-scms-border bg-white px-5 text-scms-text hover:bg-scms-primaryLight",
-    actions: "gap-2",
+    container: "scms-swal-container",
+    popup: "scms-swal-popup",
+    title: "scms-swal-title",
+    htmlContainer: "scms-swal-html",
+    confirmButton: "scms-swal-confirm-btn",
+    cancelButton: "scms-swal-cancel-btn",
+    actions: "flex items-center justify-end gap-2.5 mt-5 w-full",
   },
   heightAuto: false,
+  showClass: {
+    popup: "animate-fadeIn",
+  },
 };
 
-export const showAlert = (message, title = "ကုမယ်") =>
+/**
+ * Extracts a user-friendly error message from any Axios error, ASP.NET ProblemDetails, or string.
+ */
+export const extractErrorMessage = (error, defaultMessage = "An unexpected error occurred. Please try again.") => {
+  if (!error) return defaultMessage;
+  if (typeof error === "string") return error;
+
+  const data = error.response?.data;
+  if (!data) return error.message || defaultMessage;
+
+  // ASP.NET RFC 7807 ValidationProblemDetails errors dictionary
+  if (data.errors && typeof data.errors === "object") {
+    const messages = Object.values(data.errors).flat().filter(Boolean);
+    if (messages.length > 0) return messages.join(" ");
+  }
+
+  // Standard SCMS Result.Failure or custom message
+  if (data.message && typeof data.message === "string") {
+    return data.message;
+  }
+
+  if (data.title && typeof data.title === "string") {
+    return data.detail ? `${data.title}: ${data.detail}` : data.title;
+  }
+
+  return error.message || defaultMessage;
+};
+
+export const showAlert = (message, title = "Notice") =>
   Swal.fire({
     ...baseOptions,
     title,
-    text: message,
-    confirmButtonText: "OK",
+    text: typeof message === "string" ? message : extractErrorMessage(message),
+    confirmButtonText: "Got it",
   });
 
 export const showSuccess = (message, title = "Success") =>
   Swal.fire({
     ...baseOptions,
     title,
-    text: message,
+    text: typeof message === "string" ? message : extractErrorMessage(message),
     icon: "success",
-    confirmButtonText: "OK",
-    customClass: {
-      ...baseOptions.customClass,
-      confirmButton: "btn min-h-11 rounded-xl border-0 bg-emerald-600 hover:bg-emerald-700 px-5 text-white",
-    }
+    confirmButtonText: "Done",
   });
 
-export const showError = (message, title = "Error") =>
+export const showError = (message, title = "Action Failed") =>
   Swal.fire({
     ...baseOptions,
     title,
-    text: message,
+    text: typeof message === "string" ? message : extractErrorMessage(message),
     icon: "error",
-    confirmButtonText: "OK",
+    confirmButtonText: "Dismiss",
   });
 
-export const showConfirm = async (message, title = "Confirm") => {
+export const showConfirm = async (message, title = "Confirm Action", confirmText = "Confirm", cancelText = "Cancel") => {
   const result = await Swal.fire({
     ...baseOptions,
     title,
-    text: message,
+    text: typeof message === "string" ? message : extractErrorMessage(message),
     showCancelButton: true,
     reverseButtons: true,
-    confirmButtonText: "Confirm",
-    cancelButtonText: "Cancel",
+    confirmButtonText: confirmText,
+    cancelButtonText: cancelText,
   });
 
   return result.isConfirmed;
+};
+
+/**
+ * Non-blocking toast notification in top-right corner
+ */
+export const showToast = (message, icon = "success") => {
+  const Toast = Swal.mixin({
+    toast: true,
+    position: "top-end",
+    showConfirmButton: false,
+    timer: 3500,
+    timerProgressBar: true,
+    customClass: {
+      popup: "scms-swal-toast-popup",
+      title: "text-xs font-bold text-foreground",
+    },
+    didOpen: (toast) => {
+      toast.addEventListener("mouseenter", Swal.stopTimer);
+      toast.addEventListener("mouseleave", Swal.resumeTimer);
+    },
+  });
+
+  return Toast.fire({
+    icon,
+    title: typeof message === "string" ? message : extractErrorMessage(message),
+  });
 };

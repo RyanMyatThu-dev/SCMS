@@ -52,6 +52,7 @@ export const medicinesApi = {
   search: (params) => api.get("/Medicines/search", { params: toQuery(params) }).then(unwrap),
   create: (payload) => api.post("/Medicines", payload, { headers: { "Content-Type": "multipart/form-data" } }).then(unwrap),
   update: (id, payload) => api.put(`/Medicines/${id}`, payload, { headers: { "Content-Type": "multipart/form-data" } }).then(unwrap),
+  delete: (id) => api.delete(`/Medicines/${id}`).then(unwrap),
   remove: (id) => api.delete(`/Medicines/${id}`).then(unwrap),
   categories: () => api.get("/Medicines/categories").then(unwrap),
   quarantineExpired: () => api.post("/Medicines/quarantine-expired").then(unwrap),
@@ -60,8 +61,8 @@ export const medicinesApi = {
   searchBatches: (params) => api.get("/Medicines/batches/search", { params: toQuery(params) }).then(unwrap),
   batch: (id) => api.get(`/Medicines/batches/${id}`).then(unwrap),
   createBatch: (payload) => api.post("/Medicines/batches", payload).then(unwrap),
-  updateBatch: (id, payload) => api.put(`/Medicines/${id}`, payload).then(unwrap),
-  deleteBatch: (id) => api.delete(`/Medicines/${id}`).then(unwrap),
+  updateBatch: (id, payload) => api.put(`/Medicines/batches/${id}`, payload).then(unwrap),
+  deleteBatch: (id) => api.delete(`/Medicines/batches/${id}`).then(unwrap),
 };
 
 export const diseasesApi = {
@@ -69,6 +70,7 @@ export const diseasesApi = {
   search: (params) => api.get("/Diseases/search", { params: toQuery(params) }).then(unwrap),
   create: (payload) => api.post("/Diseases", payload).then(unwrap),
   update: (payload) => api.put("/Diseases", payload).then(unwrap),
+  delete: (id) => api.delete(`/Diseases/${id}`).then(unwrap),
   remove: (id) => api.delete(`/Diseases/${id}`).then(unwrap),
 };
 
@@ -88,6 +90,7 @@ export const usersApi = {
   createStaff: (payload) => api.post("/Users/staff", payload).then(unwrap),
   updateRoles: (id, payload) => api.put(`/Users/${id}/roles`, payload).then(unwrap),
   delete: (id) => api.delete(`/Users/${id}`).then(unwrap),
+  remove: (id) => api.delete(`/Users/${id}`).then(unwrap),
 };
 
 export const followUpsApi = {

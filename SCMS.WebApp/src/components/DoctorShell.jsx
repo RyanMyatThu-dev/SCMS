@@ -20,7 +20,8 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
 import { appointmentsApi } from "../services/scmsApi";
-import { showAlert, showError } from "../services/dialogs";
+import { showAlert, showError, showConfirm } from "../services/dialogs";
+import useScrollLock from "../hooks/useScrollLock";
 
 const doctorNav = [
   { to: "/doctor/dashboard", key: "doctorQueue", icon: ActivityLogIcon },
@@ -38,9 +39,19 @@ export default function DoctorShell() {
   const [callingNext, setCallingNext] = useState(false);
   const [announcement, setAnnouncement] = useState("");
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
+  useScrollLock(open);
+
+  const handleLogout = async () => {
+    const confirmed = await showConfirm(
+      language === "mm" ? "ဆရာဝန်အကောင့်မှ ထွက်ခွာရန် သေချာပါသလား?" : "Are you sure you want to log out of your clinical session?",
+      language === "mm" ? "အကောင့်ထွက်ရန် အတည်ပြုပါ" : "Confirm Sign Out",
+      language === "mm" ? "ထွက်မည်" : "Log Out",
+      language === "mm" ? "မထွက်ပါ" : "Cancel"
+    );
+    if (confirmed) {
+      logout();
+      navigate("/login", { replace: true });
+    }
   };
 
   const handleCallNext = async () => {
@@ -70,7 +81,7 @@ export default function DoctorShell() {
       {/* Mobile drawer backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-md lg:hidden transition-all duration-300 animate-fadeIn"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
@@ -85,7 +96,7 @@ export default function DoctorShell() {
         <div className="flex items-center justify-between pb-4 border-b border-border/70">
           <BrandLogo subtitle={t.doctorPortal} />
           <button
-            className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary lg:hidden btn-target"
+            className="lg:hidden grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary transition cursor-pointer"
             onClick={() => setOpen(false)}
             aria-label={t.close}
           >
@@ -98,7 +109,7 @@ export default function DoctorShell() {
           <button
             onClick={handleCallNext}
             disabled={callingNext}
-            className="scms-btn-primary w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white shadow-xs btn-target rounded-2xl"
+            className="scms-btn-primary w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white shadow-xs rounded-2xl"
           >
             {callingNext ? (
               <span className="loading loading-spinner loading-xs" />
@@ -119,7 +130,7 @@ export default function DoctorShell() {
                 to={item.to}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-xs font-semibold transition-all btn-target ${
+                  `flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-xs font-semibold transition-all ${
                     isActive
                       ? "bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 font-bold border border-orange-200/60 dark:border-orange-900/40 shadow-xs"
                       : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
@@ -137,7 +148,7 @@ export default function DoctorShell() {
         <div className="pt-3 border-t border-border/70 space-y-2">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 rounded-2xl text-xs font-semibold text-destructive hover:bg-destructive/10 w-full py-2.5 px-3 transition-colors btn-target"
+            className="flex items-center gap-3 rounded-2xl text-xs font-semibold text-destructive hover:bg-destructive/10 w-full py-2.5 px-3 transition-colors"
           >
             <ExitIcon className="w-4 h-4 shrink-0" />
             <span>{t.logout}</span>
@@ -151,9 +162,9 @@ export default function DoctorShell() {
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/80 bg-background/85 backdrop-blur-2xl px-4 sm:px-6 gap-4">
           <div className="flex items-center gap-3">
             <button
-              className="grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground lg:hidden btn-target shadow-2xs"
+              className="lg:hidden grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground hover:bg-secondary transition shadow-2xs cursor-pointer"
               onClick={() => setOpen(true)}
-              aria-label="Toggle menu"
+              aria-label="Toggle mobile menu"
             >
               <HamburgerMenuIcon className="w-4 h-4" />
             </button>

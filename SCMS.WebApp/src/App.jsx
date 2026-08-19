@@ -17,7 +17,6 @@ import PrescriptionsPage from "./pages/PrescriptionsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import NotFound from "./pages/NotFound";
 import Reports from "./pages/Reports";
-import Settings from "./pages/Settings";
 import AiAssistant from "./pages/AiAssistant";
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 import DoctorConsultation from "./pages/doctor/DoctorConsultation";
@@ -54,7 +53,6 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="reports" element={<Reports />} />
         <Route path="ai-assistant" element={<AiAssistant />} />
-        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* Doctor Workspace */}
