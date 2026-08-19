@@ -28,7 +28,8 @@ export default function SearchForm({
 
   const handleChange = (e) => {
     if (!onChange) return;
-    onChange(e);
+    const val = e && e.target !== undefined ? e.target.value : e;
+    onChange(val);
   };
 
   return (

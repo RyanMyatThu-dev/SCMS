@@ -14,12 +14,9 @@ import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
 import PaginationControls from "../components/PaginationControls";
 import RevenueAreaChart from "../components/widgets/RevenueAreaChart";
-import DistributionDonutChart from "../components/widgets/DistributionDonutChart";
-import RecentActivityWidget from "../components/widgets/RecentActivityWidget";
-import TasksWidget from "../components/widgets/TasksWidget";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
-import { appointmentsApi, dashboardsApi, medicinesApi } from "../services/scmsApi";
+import { appointmentsApi, dashboardsApi, medicinesApi, reportsApi } from "../services/scmsApi";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -50,7 +47,8 @@ export default function Dashboard() {
   });
   const [appointments, setAppointments] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [dateRange, setDateRange] = useState("May 12 – May 18, 2025");
+  const [revenueChartData, setRevenueChartData] = useState([]);
+  const [dateRange, setDateRange] = useState("This Month");
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -85,6 +83,48 @@ export default function Dashboard() {
     }
   };
 
+  const buildMonthlyChartData = (revenueReport) => {
+    const items = revenueReport?.items || revenueReport?.data?.items || toArray(revenueReport);
+    const now = new Date();
+    const currentMonthName = now.toLocaleString("en-US", { month: "short" });
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    // Initialize map of all days in current month
+    const dayMap = {};
+    for (let day = 1; day <= daysInMonth; day++) {
+      const label = `${currentMonthName} ${String(day).padStart(2, "0")}`;
+      dayMap[label] = 0;
+    }
+
+    if (Array.isArray(items)) {
+      items.forEach((item) => {
+        if (item.paidAt) {
+          const itemDate = new Date(item.paidAt);
+          if (itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear()) {
+            const label = `${currentMonthName} ${String(itemDate.getDate()).padStart(2, "0")}`;
+            dayMap[label] = (dayMap[label] || 0) + Number(item.total || item.amount || 0);
+          }
+        }
+      });
+    }
+
+    return Object.entries(dayMap).map(([label, value]) => ({ label, value }));
+  };
+
+  const loadRevenueData = async () => {
+    try {
+      const todayStr = getLocalDateStr(new Date());
+      const revRes = await reportsApi.revenue({
+        reportType: "monthly",
+        date: todayStr,
+      });
+      const chartPoints = buildMonthlyChartData(revRes);
+      setRevenueChartData(chartPoints);
+    } catch (e) {
+      console.error("Failed to load monthly revenue report for dashboard", e);
+    }
+  };
+
   useEffect(() => {
     const loadTelemetry = async () => {
       try {
@@ -98,10 +138,10 @@ export default function Dashboard() {
           medicineAlerts.status === "fulfilled" ? toArray(medicineAlerts.value).slice(0, 6) : []
         );
         setStats({
-          todayPatients: dashboardData?.data?.todayPatientsCount ?? 856,
-          todayAppointments: dashboardData?.data?.todayAppointmentsCount ?? 1248,
-          totalMedicines: dashboardData?.data?.totalMedicinesCount ?? 432,
-          totalRevenue: dashboardData?.data?.totalRevenue ?? 24780,
+          todayPatients: dashboardData?.data?.todayPatientsCount ?? dashboardData?.todayPatientsCount ?? 18,
+          todayAppointments: dashboardData?.data?.todayAppointmentsCount ?? dashboardData?.todayAppointmentsCount ?? 24,
+          totalMedicines: dashboardData?.data?.totalMedicinesCount ?? dashboardData?.totalMedicinesCount ?? 45,
+          totalRevenue: dashboardData?.data?.totalRevenue ?? dashboardData?.totalRevenue ?? dashboardData?.data?.totalIncome ?? 4850000,
         });
       } catch (err) {
         console.error("Telemetry loading failed", err);
@@ -109,13 +149,14 @@ export default function Dashboard() {
     };
 
     loadTelemetry();
+    loadRevenueData();
   }, []);
 
   useEffect(() => {
     loadAppointments(page);
   }, [page]);
 
-  const userName = user?.name || "Olivia";
+  const userName = user?.name || "Dr. Thandar Hlaing";
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
@@ -140,21 +181,21 @@ export default function Dashboard() {
               className="bg-transparent pr-6 text-xs font-semibold text-foreground focus-visible:outline-none cursor-pointer appearance-none"
               aria-label="Filter dashboard date range"
             >
-              <option value="May 12 – May 18, 2025">May 12 – May 18, 2025</option>
+              <option value="This Month">August 2026 (This Month)</option>
               <option value="Today">Today</option>
               <option value="This Week">This Week</option>
-              <option value="This Month">This Month</option>
+              <option value="All Time">All Time</option>
             </select>
             <ChevronDownIcon className="pointer-events-none absolute right-3 w-3.5 h-3.5 text-muted-foreground" />
           </div>
         </div>
       </div>
 
-      {/* Row of 4 KPI Metric Stat Cards (Matching Reference Mockup) */}
+      {/* Row of 4 KPI Metric Stat Cards (Matching Clinical Domain & Reference Style) */}
       <section className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Revenue"
-          value={`$${Number(stats.totalRevenue || 24780).toLocaleString()}`}
+          value={`${Number(stats.totalRevenue || 0).toLocaleString()} MMK`}
           icon={CardStackIcon}
           tone="apricot"
           trend="12.5%"
@@ -163,8 +204,8 @@ export default function Dashboard() {
           subtitle="Settled billing & invoices"
         />
         <StatCard
-          label="Orders"
-          value={Number(stats.todayAppointments || 1248).toLocaleString()}
+          label="Appointments"
+          value={Number(stats.todayAppointments || 0).toLocaleString()}
           icon={CalendarIcon}
           tone="apricot"
           trend="8.2%"
@@ -173,8 +214,8 @@ export default function Dashboard() {
           subtitle="Scheduled appointments"
         />
         <StatCard
-          label="Customers"
-          value={Number(stats.todayPatients || 856).toLocaleString()}
+          label="Patients"
+          value={Number(stats.todayPatients || 0).toLocaleString()}
           icon={PersonIcon}
           tone="apricot"
           trend="16.3%"
@@ -183,8 +224,8 @@ export default function Dashboard() {
           subtitle="Registered clinic patients"
         />
         <StatCard
-          label="Conversion Rate"
-          value="3.42%"
+          label="Consultation Rate"
+          value="98.5%"
           icon={ActivityLogIcon}
           tone="apricot"
           trend="5.7%"
@@ -194,184 +235,166 @@ export default function Dashboard() {
         />
       </section>
 
-      {/* Charts Grid: Revenue Overview Line/Area Chart & Traffic Sources Donut Chart */}
-      <section className="grid gap-6 grid-cols-1 lg:grid-cols-[1.5fr_1fr]">
+      {/* Chart: Revenue Overview Line/Area Chart for August */}
+      <section className="w-full">
         <RevenueAreaChart
-          title="Revenue Overview"
-          currency="$"
-          onPeriodChange={(period) => console.log("Period changed:", period)}
-        />
-        <DistributionDonutChart
-          title="Traffic Sources"
-          segments={[
-            { label: "Direct", value: 40, color: "#F97316" },
-            { label: "Organic Search", value: 30, color: "#FED7AA" },
-            { label: "Social Media", value: 20, color: "#EA580C" },
-            { label: "Referral", value: 10, color: "#475569" },
-          ]}
+          title="Revenue Overview (August 2026)"
+          data={revenueChartData.length > 0 ? revenueChartData : undefined}
+          currency="MMK"
+          periodOptions={["This Month", "This Week", "Today"]}
+          onPeriodChange={(period) => {
+            if (period === "This Month") loadRevenueData();
+          }}
         />
       </section>
 
-      {/* Bottom Composite Grid: Consultation Queue & Stock Warnings with Activity & Tasks */}
+      {/* Bottom Grid: Consultation Queue & Stock Warnings */}
       <section className="grid gap-6 grid-cols-1 lg:grid-cols-[1.5fr_1fr]">
-        {/* Left Column: Schedule Table & Activity */}
-        <div className="space-y-6">
-          <div className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
-                Today&apos;s Consultation Schedule
-              </h2>
-              <button
-                onClick={() => navigate("/app/appointments")}
-                className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline"
-              >
-                View all slots
-              </button>
-            </div>
-
-            <DataTable
-              loading={loading}
-              rows={appointments}
-              showIndex
-              indexOffset={(page - 1) * pageSize}
-              onRowClick={(row) => {
-                setSelectedAppt(row);
-                setDetailOpen(true);
-              }}
-              columns={[
-                {
-                  label: "Token",
-                  key: (r) => `#${r.tokenNumber || r.appointmentCode || "-"}`,
-                  cellClassName: "font-mono font-bold text-orange-600 dark:text-orange-400",
-                },
-                {
-                  label: t.patient || "Patient",
-                  key: (row) => row.patientName || row.patient?.name || `Patient #${row.patientId}`,
-                  cellClassName: "font-bold text-foreground",
-                },
-                {
-                  label: "Visit Reason",
-                  key: (row) => row.notes || row.reason || "General Consultation",
-                  cellClassName: "text-xs text-muted-foreground truncate max-w-xs",
-                },
-                {
-                  label: t.status || "Status",
-                  key: (row) => row.status || row.appointmentStatus,
-                  type: "status",
-                },
-              ]}
-            />
-
-            <PaginationControls
-              page={page}
-              totalPages={totalPages}
-              totalCount={totalCount}
-              label="appointments"
-              loading={loading}
-              onPageChange={setPage}
-            />
+        {/* Left Column: Schedule Table */}
+        <div className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
+              Today&apos;s Consultation Schedule
+            </h2>
+            <button
+              onClick={() => navigate("/app/appointments")}
+              className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline"
+            >
+              View all slots
+            </button>
           </div>
 
-          {/* Recent Activity Widget */}
-          <RecentActivityWidget
-            onViewAll={() => navigate("/app/appointments")}
+          <DataTable
+            loading={loading}
+            rows={appointments}
+            showIndex
+            indexOffset={(page - 1) * pageSize}
+            onRowClick={(row) => {
+              setSelectedAppt(row);
+              setDetailOpen(true);
+            }}
+            columns={[
+              {
+                label: "Token",
+                key: (r) => `#${r.tokenNumber || r.appointmentCode || "-"}`,
+                cellClassName: "font-mono font-bold text-orange-600 dark:text-orange-400",
+              },
+              {
+                label: t.patient || "Patient",
+                key: (row) => row.patientName || row.patient?.name || `Patient #${row.patientId}`,
+                cellClassName: "font-bold text-foreground",
+              },
+              {
+                label: "Visit Reason",
+                key: (row) => row.notes || row.reason || "General Consultation",
+                cellClassName: "text-xs text-muted-foreground truncate max-w-xs",
+              },
+              {
+                label: t.status || "Status",
+                key: (row) => row.status || row.appointmentStatus,
+                type: "status",
+              },
+            ]}
+          />
+
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            label="appointments"
+            loading={loading}
+            onPageChange={setPage}
           />
         </div>
 
-        {/* Right Column: Tasks Checklist & Stock Warnings */}
-        <div className="space-y-6">
-          {/* Today's Tasks Interactive Checklist */}
-          <TasksWidget />
+        {/* Right Column: Pharmacy Stock Warnings */}
+        <div className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-foreground tracking-tight flex items-center gap-2">
+              <span>Inventory Alerts</span>
+              {alerts.length > 0 && (
+                <span className="rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-2 py-0.5 text-xs font-bold font-mono">
+                  {alerts.length}
+                </span>
+              )}
+            </h3>
+            <button
+              onClick={() => navigate("/app/medicines")}
+              className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline"
+            >
+              Catalog
+            </button>
+          </div>
 
-          {/* Pharmacy Stock Warnings */}
-          <div className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-foreground tracking-tight flex items-center gap-2">
-                <span>Inventory Alerts</span>
-                {alerts.length > 0 && (
-                  <span className="rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-2 py-0.5 text-xs font-bold font-mono">
-                    {alerts.length}
-                  </span>
-                )}
-              </h3>
-              <button
-                onClick={() => navigate("/app/medicines")}
-                className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline"
-              >
-                Catalog
-              </button>
-            </div>
-
-            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-              {alerts.length ? (
-                alerts.map((alert, index) => {
-                  const isLowStock = alert.alertType === "Low Stock";
-                  return (
-                    <div
-                      key={alert.id || index}
-                      className={`rounded-2xl border p-4 transition-all ${
-                        isLowStock
-                          ? "border-rose-200/80 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20"
-                          : "border-amber-200/80 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20"
-                      } space-y-2`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                            isLowStock
-                              ? "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200"
-                              : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                          }`}
-                        >
-                          <ExclamationTriangleIcon className="w-3 h-3" />
-                          {alert.alertType || "Alert"}
+          <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+            {alerts.length ? (
+              alerts.map((alert, index) => {
+                const isLowStock = alert.alertType === "Low Stock";
+                return (
+                  <div
+                    key={alert.id || index}
+                    className={`rounded-2xl border p-4 transition-all ${
+                      isLowStock
+                        ? "border-rose-200/80 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20"
+                        : "border-amber-200/80 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20"
+                    } space-y-2`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          isLowStock
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                        }`}
+                      >
+                        <ExclamationTriangleIcon className="w-3 h-3" />
+                        {alert.alertType || "Alert"}
+                      </span>
+                      {alert.batchNo && (
+                        <span className="font-mono text-xs font-semibold text-muted-foreground">
+                          Batch: {alert.batchNo}
                         </span>
-                        {alert.batchNo && (
-                          <span className="font-mono text-xs font-semibold text-muted-foreground">
-                            Batch: {alert.batchNo}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                    </div>
 
-                      <div className="text-sm font-bold text-foreground">
-                        {alert.medicineName || alert.name}
-                      </div>
+                    <div className="text-sm font-bold text-foreground">
+                      {alert.medicineName || alert.name}
+                    </div>
 
-                      <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-muted-foreground">
-                        <div>
-                          <span className="block text-[10px] font-bold uppercase text-muted-foreground/70">
-                            Current Stock
-                          </span>
-                          <strong
-                            className={
-                              isLowStock
-                                ? "font-mono font-bold text-rose-600 dark:text-rose-400"
-                                : "font-mono text-foreground"
-                            }
-                          >
-                            {alert.currentQuantity ?? 0} units
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="block text-[10px] font-bold uppercase text-muted-foreground/70">
-                            Milestone
-                          </span>
-                          <strong className="font-mono text-foreground">
-                            {isLowStock
-                              ? "Critical Minimum"
-                              : String(alert.expiryDate || "").slice(0, 10)}
-                          </strong>
-                        </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-muted-foreground">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-muted-foreground/70">
+                          Current Stock
+                        </span>
+                        <strong
+                          className={
+                            isLowStock
+                              ? "font-mono font-bold text-rose-600 dark:text-rose-400"
+                              : "font-mono text-foreground"
+                          }
+                        >
+                          {alert.currentQuantity ?? 0} units
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-muted-foreground/70">
+                          Milestone
+                        </span>
+                        <strong className="font-mono text-foreground">
+                          {isLowStock
+                            ? "Critical Minimum"
+                            : String(alert.expiryDate || "").slice(0, 10)}
+                        </strong>
                       </div>
                     </div>
-                  );
-                })
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                  No active inventory warnings. All batches in healthy stock.
-                </div>
-              )}
-            </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                No active inventory warnings. All batches in healthy stock.
+              </div>
+            )}
           </div>
         </div>
       </section>

@@ -43,6 +43,10 @@ export default function PatientsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Detail Modal State
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
   // Form State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
@@ -52,6 +56,10 @@ export default function PatientsPage() {
     dateOfBirth: "",
     bloodType: "A+",
     mobileNo: "",
+    phone: "",
+    age: "",
+    allergies: "",
+    chronicConditions: "",
     actualAddress: "",
     emergencyContact: "",
     emergencyPhone: "",
@@ -100,6 +108,11 @@ export default function PatientsPage() {
     loadPatients(1, query);
   };
 
+  const openDetail = (patient) => {
+    setSelectedPatient(patient);
+    setDetailOpen(true);
+  };
+
   const openCreateModal = () => {
     setEditingPatient(null);
     setForm({
@@ -108,6 +121,10 @@ export default function PatientsPage() {
       dateOfBirth: "",
       bloodType: "A+",
       mobileNo: "",
+      phone: "",
+      age: "",
+      allergies: "",
+      chronicConditions: "",
       actualAddress: "",
       emergencyContact: "",
       emergencyPhone: "",
@@ -125,6 +142,10 @@ export default function PatientsPage() {
       dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split("T")[0] : "",
       bloodType: patient.bloodType || "A+",
       mobileNo: patient.mobileNo || patient.phone || "",
+      phone: patient.phone || patient.mobileNo || "",
+      age: patient.age || "",
+      allergies: patient.allergies || "",
+      chronicConditions: patient.chronicConditions || "",
       actualAddress: patient.actualAddress || patient.address || "",
       emergencyContact: patient.emergencyContact || "",
       emergencyPhone: patient.emergencyPhone || "",
@@ -134,22 +155,32 @@ export default function PatientsPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (patient) => {
-    const ok = await showConfirm(`Are you sure you want to archive patient record for ${patient.name || patient.fullName}?`);
+  const handleDelete = async (e, patient) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    const target = patient || e;
+    const ok = await showConfirm(
+      `Are you sure you want to archive patient record for ${target.name || target.fullName}?`,
+      "Archive Patient"
+    );
     if (!ok) return;
     try {
-      await patientsApi.remove(patient.patientId || patient.id);
+      await patientsApi.remove(target.patientId || target.id);
       showSuccess("Patient record archived.");
-      loadPatients();
+      loadPatients(page, query);
+      if (selectedPatient?.patientId === (target.patientId || target.id)) {
+        setDetailOpen(false);
+      }
     } catch (err) {
       console.error(err);
       showError(err?.response?.data?.message || "Failed to delete patient.");
     }
   };
 
-  const handleDownloadSummary = async (patient) => {
+  const handleDownloadSummary = async (e, patient) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    const target = patient || e;
     try {
-      const pId = patient.patientId || patient.id;
+      const pId = target.patientId || target.id;
       const blob = await patientsApi.summaryPdf(pId);
       downloadBlob(blob, `medical-summary-${pId}.pdf`);
       showSuccess("Clinical Summary PDF downloaded.");
@@ -159,12 +190,22 @@ export default function PatientsPage() {
     }
   };
 
+  const downloadSummary = handleDownloadSummary;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.name?.trim()) {
+      showError("Patient name is required.");
+      return;
+    }
     try {
       setSaving(true);
       const payload = {
         ...form,
+        name: form.name.trim(),
+        fullName: form.name.trim(),
+        mobileNo: form.mobileNo || form.phone,
+        phone: form.phone || form.mobileNo,
         dateOfBirth: form.dateOfBirth ? new Date(form.dateOfBirth).toISOString() : null,
       };
 
@@ -173,10 +214,10 @@ export default function PatientsPage() {
         showSuccess("Patient updated successfully.");
       } else {
         await patientsApi.create(payload);
-        showSuccess("Patient created successfully.");
+        showSuccess("Patient registered successfully.");
       }
       setModalOpen(false);
-      loadPatients();
+      loadPatients(page, query);
     } catch (err) {
       console.error(err);
       showError(err?.response?.data?.message || "Failed to save patient.");
@@ -404,7 +445,7 @@ export default function PatientsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block sm:col-span-2">
                   <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">

@@ -161,7 +161,7 @@ export default function AppointmentsPage() {
       });
 
       if (res) {
-        let items = res.data || [];
+        let items = toArray(res);
         
         // Search by patient name
         if (patientSearch.trim()) {

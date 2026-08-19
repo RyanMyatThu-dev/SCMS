@@ -30,12 +30,13 @@ export default function RevenueAreaChart({
   const chartHeight = height - paddingTop - paddingBottom;
 
   const values = data.map((d) => d.value);
-  const rawMax = Math.max(...values, 30000);
-  const maxValue = Math.ceil(rawMax / 10000) * 10000;
+  const rawMax = values.length > 0 ? Math.max(...values, 100000) : 100000;
+  const maxValue = Math.ceil(rawMax / 50000) * 50000;
   const minValue = 0;
 
   const points = data.map((d, index) => {
-    const x = paddingLeft + (index / (data.length - 1)) * chartWidth;
+    const divisor = Math.max(1, data.length - 1);
+    const x = paddingLeft + (index / divisor) * chartWidth;
     const y = paddingTop + chartHeight - ((d.value - minValue) / (maxValue - minValue)) * chartHeight;
     return { ...d, x, y };
   });
@@ -43,6 +44,7 @@ export default function RevenueAreaChart({
   // Generate smooth cubic bezier SVG path
   const createSmoothPath = (pts) => {
     if (pts.length === 0) return "";
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y} L ${pts[0].x + 10} ${pts[0].y}`;
     let path = `M ${pts[0].x} ${pts[0].y}`;
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i === 0 ? 0 : i - 1];
@@ -70,9 +72,9 @@ export default function RevenueAreaChart({
   const yTicks = [0, maxValue * 0.333, maxValue * 0.666, maxValue];
 
   const formatYLabel = (val) => {
-    if (val >= 1000000) return `$${(val / 1000000).toFixed(0)}M`;
-    if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
-    return `$${val}`;
+    if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) return `${(val / 1000).toFixed(0)}K`;
+    return `${Math.round(val)}`;
   };
 
   return (

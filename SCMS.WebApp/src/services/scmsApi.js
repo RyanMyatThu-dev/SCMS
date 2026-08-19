@@ -27,12 +27,14 @@ export const patientsApi = {
   list: (params) => api.get("/Patients", { params: toQuery(params) }).then(unwrap),
   search: (params) => api.get("/Patients/search", { params: toQuery(params) }).then(unwrap),
   create: (payload) => api.post("/Patients", payload).then(unwrap),
+  update: (id, payload) => api.put(`/Patients/${id}`, payload).then(unwrap),
   get: (id) => api.get(`/Patients/patients/${id}`).then(unwrap),
   history: (id) => api.get(`/Patients/${id}/history`).then(unwrap),
   summary: (id) => api.get(`/Patients/${id}/summary`).then(unwrap),
   summaryHtml: (id) => api.get(`/Patients/${id}/summary/html`).then(unwrap),
   summaryPdf: (id) => api.get(`/Patients/${id}/summary/pdf`, { responseType: "blob" }),
   delete: (id) => api.delete(`/Patients/${id}`).then(unwrap),
+  remove: (id) => api.delete(`/Patients/${id}`).then(unwrap),
 };
 
 export const prescriptionsApi = {

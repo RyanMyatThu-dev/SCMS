@@ -147,12 +147,17 @@
     "unitPrice": "Unit Price",
 
     "signInFailed": "Sign in was unsuccessful. Please verify your email and password.",
-    "requiredFields": "Please complete all required fields before continuing.",
     "savedSuccessfully": "Record saved successfully.",
     "deletedSuccessfully": "Record removed successfully.",
     "confirmDelete": "Are you sure you want to delete this record?",
     "confirmDeleteTitle": "Confirm Deletion",
-    "confirmDeleteMsg": "Are you sure you want to delete this record? This action cannot be reversed."
+    "confirmDeleteMsg": "Are you sure you want to delete this record? This action cannot be reversed.",
+    "endpointConsole": "System & API Console",
+    "endpointConsoleHint": "Inspect active API routes, backend services, and authentication policies.",
+    "apiBaseUrl": "API Base URL",
+    "complete": "Mark Complete",
+    "markRead": "Mark as Read",
+    "downloadPdf": "Download PDF"
   },
   "mm": {
     "appName": "ကုမယ်",
@@ -307,6 +312,12 @@
     "deletedSuccessfully": "အောင်မြင်စွာ ဖျက်ပြီးပါပြီ။",
     "confirmDelete": "ဤမှတ်တမ်းကို ဖျက်ရန် သေချာပါသလား။",
     "confirmDeleteTitle": "ဖျက်ရန် သေချာပါသလား",
-    "confirmDeleteMsg": "ဤမှတ်တမ်းကို ဖျက်ရန် သေချာပါသလား။ ဤလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍ မရနိုင်ပါ။"
+    "confirmDeleteMsg": "ဤမှတ်တမ်းကို ဖျက်ရန် သေချာပါသလား။ ဤလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍ မရနိုင်ပါ။",
+    "endpointConsole": "စနစ်နှင့် API ဆက်တင်များ",
+    "endpointConsoleHint": "အသုံးပြုနေသော API များ၊ နောက်ခံဝန်ဆောင်မှုများနှင့် လုံခြုံရေးမူဝါဒများအား ကြည့်ရှုပါ။",
+    "apiBaseUrl": "API လိပ်စာ",
+    "complete": "ပြီးစီးကြောင်း သတ်မှတ်မည်",
+    "markRead": "ဖတ်ပြီးကြောင်း မှတ်သားမည်",
+    "downloadPdf": "PDF ဒေါင်းလုဒ်ယူမည်"
   }
 }

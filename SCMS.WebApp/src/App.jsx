@@ -28,7 +28,7 @@ import UserDashboard from "./pages/user/UserDashboard";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
 
