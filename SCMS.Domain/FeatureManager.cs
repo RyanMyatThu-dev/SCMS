@@ -38,37 +38,21 @@ namespace SCMS.Domain
             services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionAuthorizationHandler>();
             services.AddScoped<IPermissionService, PermissionService>();
             services.AddScoped<IRoleService, RoleService>();
-            services.AddScoped<RoleService>();
             services.AddScoped<IUserService, UserService>();
-            services.AddScoped<UserService>();
             services.AddScoped<IAppointmentsService, AppointmentsService>();
-            services.AddScoped<AppointmentsService>();
             services.AddScoped<IAuthService, AuthService>();
-            services.AddScoped<AuthService>();
             services.AddScoped<IDashboardService, DashboardService>();
-            services.AddScoped<DashboardService>();
             services.AddScoped<IDiseaseService, DiseaseService>();
-            services.AddScoped<DiseaseService>();
             services.AddScoped<IFollowUpService, FollowUpService>();
-            services.AddScoped<FollowUpService>();
             services.AddScoped<IMedicineService, MedicineService>();
-            services.AddScoped<MedicineService>();
             services.AddScoped<INotificationService, NotificationService>();
-            services.AddScoped<NotificationService>();
             services.AddScoped<IPatientService, PatientService>();
-            services.AddScoped<PatientService>();
             services.AddScoped<IPaymentService, PaymentService>();
-            services.AddScoped<PaymentService>();
             services.AddScoped<IPdfDocumentService, PdfDocumentService>();
-            services.AddScoped<PdfDocumentService>();
             services.AddScoped<IReportService, ReportService>();
-            services.AddScoped<ReportService>();
             services.AddScoped<IPrescriptionService, PrescriptionService>();
-            services.AddScoped<PrescriptionService>();
             services.AddScoped<IPhotoService, PhotoService>();
-            services.AddScoped<PhotoService>();
             services.AddScoped<IMcpService, McpService>();
-            services.AddScoped<McpService>();
             services.AddScoped<SCMS.Domain.Features.Dev.MassDatabaseSeeder>();
             services.AddHostedService<InventoryMonitorService>();
 
@@ -96,28 +80,47 @@ namespace SCMS.Domain
 
         public static async Task EnsureScmsDatabaseCreatedAsync(this IServiceProvider services, IConfiguration configuration, ILogger logger)
         {
-            if (!ShouldInitializeDatabase(configuration))
-            {
-                return;
-            }
-
-            if (configuration.GetValue("Database:EnsureCreated", true) == false)
-            {
-                return;
-            }
-
-            using var scope = services.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await context.Database.EnsureCreatedAsync();
             if (IsSqliteProvider(configuration))
             {
+                if (configuration.GetValue("Database:EnsureCreated", true) == false)
+                {
+                    return;
+                }
+
+                using var scope = services.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await context.Database.EnsureCreatedAsync();
                 await EnsureSqliteSchemaCompatibilityAsync(context, logger);
+                await SeedSqliteDemoUsersAsync(context, configuration);
+                await EnsureSystemPermissionsSeededAsync(context, logger);
+                await EnsureDefaultRolePermissionsAsync(context, logger);
+                logger.LogInformation("SQLite database initialization completed.");
+                return;
             }
 
-            await SeedSqliteDemoUsersAsync(context, configuration);
-            await EnsureSystemPermissionsSeededAsync(context, logger);
-            await EnsureDefaultRolePermissionsAsync(context, logger);
-            logger.LogInformation("Database initialization completed.");
+            if (IsPostgreSqlProvider(configuration))
+            {
+                if (configuration.GetValue("Database:EnsurePermissionsSeeded", true) == false)
+                {
+                    return;
+                }
+
+                try
+                {
+                    using var scope = services.CreateScope();
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    if (await context.Database.CanConnectAsync())
+                    {
+                        await EnsureSystemPermissionsSeededAsync(context, logger);
+                        await EnsureDefaultRolePermissionsAsync(context, logger);
+                        logger.LogInformation("PostgreSQL system permissions synchronized.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "PostgreSQL permission sync skipped or encountered an issue during startup.");
+                }
+            }
         }
 
         private static readonly (string Menu, string Action)[] SystemPermissions = new[]

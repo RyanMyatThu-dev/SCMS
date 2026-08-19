@@ -25,7 +25,7 @@ namespace SCMS.Domain.Features.Medicines
                 try
                 {
                     using var scope = _scopeFactory.CreateScope();
-                    var medicineService = scope.ServiceProvider.GetRequiredService<MedicineService>();
+                    var medicineService = scope.ServiceProvider.GetRequiredService<IMedicineService>();
                     await medicineService.QuarantineExpiredBatchesAsync();
                     await medicineService.CreateInventoryAlertNotificationsAsync();
                 }

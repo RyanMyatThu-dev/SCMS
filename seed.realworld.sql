@@ -9,7 +9,7 @@
 
 BEGIN;
 
--- Case 1: Clinic staff and patient account owners
+-- Case 1: Clinic staff, standard demo users, and patient account owners
 INSERT INTO tbl_user (user_id, name, mobile_no, email, password_hash, created_at, updated_at, delete_flag) VALUES
 (10001, 'Dr. Thandar Hlaing', '09970001001', 'dr.thandar@scms.demo', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '45 days', CURRENT_TIMESTAMP, false),
 (10002, 'Myo Clinic Reception', '09970001002', 'reception@scms.demo', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '45 days', CURRENT_TIMESTAMP, false),
@@ -17,7 +17,10 @@ INSERT INTO tbl_user (user_id, name, mobile_no, email, password_hash, created_at
 (10004, 'Ma Hnin Ei', '09970001004', 'hnin.ei@example.test', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '25 days', CURRENT_TIMESTAMP, false),
 (10005, 'U Zaw Lin', '09970001005', 'zaw.lin@example.test', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '20 days', CURRENT_TIMESTAMP, false),
 (10006, 'Ko Pyae Sone', '09970001006', 'pyae.sone@example.test', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '12 days', CURRENT_TIMESTAMP, false),
-(10007, 'SCMS Pharmacy Desk', '09970001007', 'pharmacy@scms.demo', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '40 days', CURRENT_TIMESTAMP, false)
+(10007, 'SCMS Pharmacy Desk', '09970001007', 'pharmacy@scms.demo', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '40 days', CURRENT_TIMESTAMP, false),
+(10008, 'SCMS Admin', '09979990001', 'admin@scms.demo', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '45 days', CURRENT_TIMESTAMP, false),
+(10009, 'Dr. Kyaw Zin', '09770000002', 'doctor@scms.demo', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '45 days', CURRENT_TIMESTAMP, false),
+(10010, 'SCMS Patient', '09979990003', 'user@scms.demo', 'demo-password-hash', CURRENT_TIMESTAMP - INTERVAL '30 days', CURRENT_TIMESTAMP, false)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO tbl_user_role (id, user_id, role) VALUES
@@ -27,7 +30,12 @@ INSERT INTO tbl_user_role (id, user_id, role) VALUES
 (10004, 10004, 'user'),
 (10005, 10005, 'user'),
 (10006, 10006, 'user'),
-(10007, 10007, 'admin')
+(10007, 10007, 'admin'),
+(10008, 10008, 'owner'),
+(10009, 10009, 'doctor'),
+(10010, 10010, 'user'),
+(10011, 10001, 'doctor'),
+(10012, 10008, 'admin')
 ON CONFLICT DO NOTHING;
 
 -- Case 2: One user manages multiple family patient profiles
@@ -79,7 +87,15 @@ INSERT INTO tbl_patient (patient_id, user_id, name, mobile_no, email, date_of_bi
   "PastSurgeries": "None",
   "FamilyHistory": "No significant family history",
   "VaccinationHistory": "COVID-19 primary series; hepatitis B dose 1"
-}$$, CURRENT_TIMESTAMP - INTERVAL '12 days', CURRENT_TIMESTAMP, false)
+}$$, CURRENT_TIMESTAMP - INTERVAL '12 days', CURRENT_TIMESTAMP, false),
+(10007, 10010, 'SCMS Patient', '09979990003', 'user@scms.demo', DATE '1990-01-01', 'male', 'O+', $${
+  "ActualAddress": "No. 12, Main Road, Kyauktada Township, Yangon",
+  "Allergies": "No known drug allergies",
+  "ChronicConditions": "None",
+  "PastSurgeries": "None",
+  "FamilyHistory": "None",
+  "VaccinationHistory": "COVID-19 completed"
+}$$, CURRENT_TIMESTAMP - INTERVAL '30 days', CURRENT_TIMESTAMP, false)
 ON CONFLICT DO NOTHING;
 
 -- Case 3: Common diagnoses seen by the clinic
@@ -206,29 +222,103 @@ INSERT INTO tbl_payment (id, appointment_id, prescription_id, amount, tax, charg
 (10004, 10009, 10003, 18500.00, 925.00, 0.00, 'card', 'paid', NULL, CURRENT_TIMESTAMP - INTERVAL '45 days', CURRENT_TIMESTAMP - INTERVAL '45 days')
 ON CONFLICT DO NOTHING;
 
--- Case 8: Permissions for staff dashboard smoke tests
+-- Case 8: Full standard system permissions (50 system permissions)
 INSERT INTO tbl_permission (id, menu, action) VALUES
-(10001, 'Dashboard', 'ViewDoctorDashboard'),
-(10002, 'Appointments', 'ViewQueue'),
-(10003, 'Appointments', 'UpdateStatus'),
-(10004, 'Patients', 'ViewMedicalSummary'),
-(10005, 'Prescriptions', 'Create'),
-(10006, 'Medicines', 'ViewInventoryAlerts'),
-(10007, 'Payments', 'VerifyManualProof')
+(10001, 'Appointments', 'View'),
+(10002, 'Appointments', 'Create'),
+(10003, 'Appointments', 'Update'),
+(10004, 'Appointments', 'UpdateStatus'),
+(10005, 'Appointments', 'Delete'),
+(10006, 'Patients', 'View'),
+(10007, 'Patients', 'Create'),
+(10008, 'Patients', 'Update'),
+(10009, 'Patients', 'Delete'),
+(10010, 'Patients', 'ExportPdf'),
+(10011, 'Prescriptions', 'View'),
+(10012, 'Prescriptions', 'Create'),
+(10013, 'Prescriptions', 'Update'),
+(10014, 'Prescriptions', 'Delete'),
+(10015, 'Prescriptions', 'ExportPdf'),
+(10016, 'Medicines', 'View'),
+(10017, 'Medicines', 'Create'),
+(10018, 'Medicines', 'Update'),
+(10019, 'Medicines', 'Delete'),
+(10020, 'Medicines', 'AdjustStock'),
+(10021, 'Payments', 'View'),
+(10022, 'Payments', 'Create'),
+(10023, 'Payments', 'Update'),
+(10024, 'Payments', 'Delete'),
+(10025, 'Payments', 'ExportPdf'),
+(10026, 'FollowUps', 'View'),
+(10027, 'FollowUps', 'Create'),
+(10028, 'FollowUps', 'Update'),
+(10029, 'FollowUps', 'Delete'),
+(10030, 'Diseases', 'View'),
+(10031, 'Diseases', 'Create'),
+(10032, 'Diseases', 'Update'),
+(10033, 'Diseases', 'Delete'),
+(10034, 'Notifications', 'View'),
+(10035, 'Notifications', 'Create'),
+(10036, 'Notifications', 'Update'),
+(10037, 'Notifications', 'Delete'),
+(10038, 'Dashboards', 'View'),
+(10039, 'Reports', 'View'),
+(10040, 'Reports', 'ExportPdf'),
+(10041, 'Roles', 'View'),
+(10042, 'Roles', 'Create'),
+(10043, 'Roles', 'Update'),
+(10044, 'Roles', 'Delete'),
+(10045, 'Permissions', 'View'),
+(10046, 'Users', 'View'),
+(10047, 'Users', 'Create'),
+(10048, 'Users', 'Update'),
+(10049, 'Users', 'Delete'),
+(10050, 'Mcp', 'Access')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO tbl_role_permission (id, role_id, permission_id) VALUES
-(10001, 10001, 10001),
-(10002, 10001, 10002),
-(10003, 10001, 10003),
-(10004, 10001, 10004),
-(10005, 10001, 10005),
-(10006, 10001, 10006),
-(10007, 10001, 10007),
-(10008, 10002, 10001),
-(10009, 10002, 10002),
-(10010, 10002, 10007),
-(10011, 10007, 10006)
+-- Map role permissions dynamically for all roles
+-- 1. Owner & Admin roles get ALL permissions
+INSERT INTO tbl_role_permission (role_id, permission_id)
+SELECT ur.id, p.id
+FROM tbl_user_role ur
+CROSS JOIN tbl_permission p
+WHERE lower(ur.role) IN ('admin', 'owner')
+ON CONFLICT DO NOTHING;
+
+-- 2. Doctor roles get clinical and consultation permissions
+INSERT INTO tbl_role_permission (role_id, permission_id)
+SELECT ur.id, p.id
+FROM tbl_user_role ur
+CROSS JOIN tbl_permission p
+WHERE lower(ur.role) = 'doctor'
+  AND (lower(p.menu) || '.' || lower(p.action)) IN (
+    'appointments.view', 'appointments.create', 'appointments.update', 'appointments.updatestatus', 'appointments.delete',
+    'patients.view', 'patients.create', 'patients.update', 'patients.exportpdf',
+    'prescriptions.view', 'prescriptions.create', 'prescriptions.update', 'prescriptions.delete', 'prescriptions.exportpdf',
+    'medicines.view',
+    'followups.view', 'followups.create', 'followups.update', 'followups.delete',
+    'diseases.view', 'diseases.create', 'diseases.update',
+    'notifications.view', 'notifications.create', 'notifications.update',
+    'dashboards.view',
+    'reports.view', 'reports.exportpdf',
+    'mcp.access'
+  )
+ON CONFLICT DO NOTHING;
+
+-- 3. Patient / User roles get patient portal permissions
+INSERT INTO tbl_role_permission (role_id, permission_id)
+SELECT ur.id, p.id
+FROM tbl_user_role ur
+CROSS JOIN tbl_permission p
+WHERE lower(ur.role) = 'user'
+  AND (lower(p.menu) || '.' || lower(p.action)) IN (
+    'appointments.view', 'appointments.create',
+    'patients.view',
+    'prescriptions.view',
+    'payments.view', 'payments.create',
+    'notifications.view', 'notifications.update',
+    'dashboards.view'
+  )
 ON CONFLICT DO NOTHING;
 
 -- Case 9: Notifications that make patient and staff dashboards feel populated
