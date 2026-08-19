@@ -23,16 +23,32 @@ const pickToken = (data) =>
   data?.result?.token ||
   "";
 
+const pickRefreshToken = (data) =>
+  data?.refreshToken ||
+  data?.refresh_token ||
+  data?.data?.refreshToken ||
+  data?.result?.refreshToken ||
+  "";
+
 const pickUser = (data, email) => {
   const user = data?.user || data?.data?.user || data?.result?.user || {};
-  const roles = user?.roles || data?.roles || data?.data?.roles || [];
-  const rawRole = String(roles?.[0] || user?.role || data?.role || "admin").toLowerCase();
+  const rawRoles = user?.roles || data?.roles || data?.data?.roles || [];
+  const roles = Array.isArray(rawRoles)
+    ? rawRoles.map((r) => String(r).toLowerCase().trim()).filter(Boolean)
+    : typeof rawRoles === "string" && rawRoles
+    ? [rawRoles.toLowerCase().trim()]
+    : [];
+
+  const primaryRole = roles[0] || (user?.role ? String(user.role).toLowerCase().trim() : "user");
 
   return {
     ...user,
+    userId: user?.userId || user?.id || null,
     name: user?.name || user?.fullName || (email ? email.split("@")[0] : "User"),
-    email: user?.email || email,
-    role: rawRole,
+    email: user?.email || email || "",
+    mobileNo: user?.mobileNo || user?.phone || "",
+    roles: roles.length > 0 ? roles : [primaryRole],
+    role: primaryRole,
   };
 };
 
@@ -49,20 +65,23 @@ export function AuthProvider({ children }) {
       password: password,
     });
     const nextToken = pickToken(data);
+    const nextRefreshToken = pickRefreshToken(data);
 
     if (!nextToken) {
       throw new Error("Token not found in login response.");
     }
 
     const nextUser = pickUser(data, loginId);
-    if (roleHint && (!nextUser.role || nextUser.role === "admin")) {
-      // Allow demo role override if specified
-      if (roleHint === "doctor") nextUser.role = "doctor";
-      if (roleHint === "user") nextUser.role = "user";
+    if (roleHint && (roleHint === "doctor" || roleHint === "user") && nextUser.roles.length === 0) {
+      nextUser.role = roleHint;
+      nextUser.roles = [roleHint];
     }
 
     localStorage.setItem("scms_token", nextToken);
     localStorage.setItem("token", nextToken);
+    if (nextRefreshToken) {
+      localStorage.setItem("scms_refresh_token", nextRefreshToken);
+    }
     localStorage.setItem("scms_user", JSON.stringify(nextUser));
     localStorage.setItem("userRole", nextUser.role);
     setToken(nextToken);
@@ -74,27 +93,52 @@ export function AuthProvider({ children }) {
   const register = async (payload) => authApi.register(payload);
 
   const logout = () => {
-    localStorage.removeItem("scms_token");
-    localStorage.removeItem("token");
-    localStorage.removeItem("scms_user");
-    localStorage.removeItem("userRole");
-    setToken("");
-    setUser(null);
+    const storedRefreshToken = localStorage.getItem("scms_refresh_token") || "";
+    try {
+      if (storedRefreshToken) {
+        authApi.logout({ refreshToken: storedRefreshToken }).catch(() => {});
+      }
+    } catch {
+      // Graceful local sign-out
+    } finally {
+      localStorage.removeItem("scms_token");
+      localStorage.removeItem("token");
+      localStorage.removeItem("scms_refresh_token");
+      localStorage.removeItem("scms_user");
+      localStorage.removeItem("userRole");
+      setToken("");
+      setUser(null);
+    }
   };
+
+  const isOwner = useMemo(() => {
+    const roles = user?.roles || [user?.role];
+    return roles.some((r) => ["admin", "owner", "staff"].includes(String(r).toLowerCase()));
+  }, [user]);
+
+  const isDoctor = useMemo(() => {
+    const roles = user?.roles || [user?.role];
+    return roles.some((r) => String(r).toLowerCase() === "doctor");
+  }, [user]);
+
+  const isPatient = useMemo(() => {
+    const roles = user?.roles || [user?.role];
+    return roles.some((r) => ["user", "patient"].includes(String(r).toLowerCase()));
+  }, [user]);
 
   const value = useMemo(
     () => ({
       token,
       user,
       isAuthenticated: Boolean(token),
-      isOwner: user?.role === "admin" || user?.role === "owner",
-      isDoctor: user?.role === "doctor",
-      isPatient: user?.role === "user" || user?.role === "patient",
+      isOwner,
+      isDoctor,
+      isPatient,
       login,
       logout,
       register,
     }),
-    [token, user]
+    [token, user, isOwner, isDoctor, isPatient]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

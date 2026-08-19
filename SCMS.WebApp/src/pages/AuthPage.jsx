@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   EyeOpenIcon,
@@ -53,9 +53,25 @@ export default function AuthPage({ mode = "login" }) {
   const isRegister = mode === "register";
   const { t, language, toggleLanguage } = useLanguage();
   const { isDark, toggleTheme } = useTheme();
-  const { login, register } = useAuth();
+  const { isAuthenticated, user, login, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const userRoles = Array.isArray(user.roles)
+        ? user.roles.map((r) => String(r).toLowerCase())
+        : [String(user.role || "").toLowerCase()];
+
+      if (userRoles.includes("doctor")) {
+        navigate("/doctor/dashboard", { replace: true });
+      } else if (userRoles.includes("user") || userRoles.includes("patient")) {
+        navigate("/user/dashboard", { replace: true });
+      } else {
+        navigate("/app/dashboard", { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -119,12 +135,15 @@ export default function AuthPage({ mode = "login" }) {
       const loggedUser = await login({
         emailOrMobile: cleanEmailOrMobile,
         password: cleanPassword,
-        roleHint: selectedRole,
       });
 
-      if (loggedUser?.role === "doctor" || selectedRole === "doctor") {
+      const userRoles = Array.isArray(loggedUser?.roles)
+        ? loggedUser.roles.map((r) => String(r).toLowerCase())
+        : [String(loggedUser?.role || "").toLowerCase()];
+
+      if (userRoles.includes("doctor")) {
         navigate("/doctor/dashboard", { replace: true });
-      } else if (loggedUser?.role === "user" || selectedRole === "user") {
+      } else if (userRoles.includes("user") || userRoles.includes("patient")) {
         navigate("/user/dashboard", { replace: true });
       } else {
         navigate(location.state?.from?.pathname || "/app/dashboard", { replace: true });

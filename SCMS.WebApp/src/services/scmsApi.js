@@ -7,6 +7,7 @@ export const authApi = {
   register: (payload) => api.post("/Auth/register", payload).then(unwrap),
   login: (payload) => api.post("/Auth/login", payload).then(unwrap),
   refresh: (payload) => api.post("/Auth/refresh", payload).then(unwrap),
+  logout: (payload = {}) => api.post("/Auth/logout", payload).then(unwrap),
 };
 
 export const dashboardsApi = {

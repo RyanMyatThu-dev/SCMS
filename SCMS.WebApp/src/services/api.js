@@ -29,6 +29,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("scms_token");
       localStorage.removeItem("token");
+      localStorage.removeItem("scms_refresh_token");
       localStorage.removeItem("scms_user");
       localStorage.removeItem("userRole");
     }

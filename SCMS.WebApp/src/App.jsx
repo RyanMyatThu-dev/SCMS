@@ -35,7 +35,7 @@ export default function App() {
       <Route
         path="/app"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["owner", "admin", "staff"]}>
             <AppShell />
           </ProtectedRoute>
         }
@@ -59,7 +59,7 @@ export default function App() {
       <Route
         path="/doctor"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["doctor", "owner", "admin"]}>
             <DoctorShell />
           </ProtectedRoute>
         }
@@ -76,7 +76,7 @@ export default function App() {
       <Route
         path="/user"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["user", "patient", "owner", "admin"]}>
             <UserLayout />
           </ProtectedRoute>
         }
