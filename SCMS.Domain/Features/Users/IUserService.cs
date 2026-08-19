@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using SCMS.Shared;
@@ -8,10 +7,11 @@ namespace SCMS.Domain.Features.Users
 {
     public interface IUserService
     {
-        Task<Result<List<StaffUserResponse>>> GetUsersAsync(string? roleFilter = null, string? search = null, CancellationToken cancellationToken = default);
-        Task<Result<StaffUserResponse>> GetUserByIdAsync(int userId, CancellationToken cancellationToken = default);
-        Task<Result<StaffUserResponse>> CreateStaffUserAsync(CreateStaffUserRequest request, CancellationToken cancellationToken = default);
-        Task<Result<StaffUserResponse>> UpdateUserRolesAsync(int userId, UpdateUserRolesRequest request, CancellationToken cancellationToken = default);
+        Task<PagedResult<GetUsersResponse>> GetUsersAsync(GetUsersRequest request, CancellationToken cancellationToken = default);
+        Task<PagedResult<SearchUsersResponse>> SearchUsersAsync(SearchUsersRequest request, CancellationToken cancellationToken = default);
+        Task<Result<GetUserByIdResponse>> GetUserByIdAsync(int userId, CancellationToken cancellationToken = default);
+        Task<Result<CreateStaffUserResponse>> CreateStaffUserAsync(CreateStaffUserRequest request, CancellationToken cancellationToken = default);
+        Task<Result<UpdateUserRolesResponse>> UpdateUserRolesAsync(int userId, UpdateUserRolesRequest request, CancellationToken cancellationToken = default);
         Task<Result> DeleteUserAsync(int userId, CancellationToken cancellationToken = default);
     }
 }

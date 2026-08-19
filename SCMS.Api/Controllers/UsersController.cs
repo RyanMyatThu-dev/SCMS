@@ -24,24 +24,43 @@ namespace SCMS.Api.Controllers
             _userService = userService;
         }
 
-        /// <summary>List staff and admin users with role and text search filtering.</summary>
+        /// <summary>List staff and admin users with pagination and optional role filtering.</summary>
         [HttpGet]
         [HasPermission("Users.View")]
-        [ProducesResponseType(typeof(Result<List<StaffUserResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetUsersResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUsers(
-            [FromQuery] string? role,
-            [FromQuery] string? search,
+            [FromQuery] GetUsersRequest request,
             CancellationToken cancellationToken)
         {
-            var result = await _userService.GetUsersAsync(role, search, cancellationToken);
+            request ??= new GetUsersRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var result = await _userService.GetUsersAsync(request, cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>Search staff and admin users with keyword query and pagination.</summary>
+        [HttpGet("search")]
+        [HasPermission("Users.View")]
+        [ProducesResponseType(typeof(PagedResult<SearchUsersResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> SearchUsers(
+            [FromQuery] SearchUsersRequest request,
+            CancellationToken cancellationToken)
+        {
+            request ??= new SearchUsersRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var result = await _userService.SearchUsersAsync(request, cancellationToken);
             return Ok(result);
         }
 
         /// <summary>Get user details by user ID.</summary>
         [HttpGet("{id:int}")]
         [HasPermission("Users.View")]
-        [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(Result<GetUserByIdResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<GetUserByIdResponse>), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUserById(int id, CancellationToken cancellationToken)
         {
             var result = await _userService.GetUserByIdAsync(id, cancellationToken);
@@ -52,8 +71,8 @@ namespace SCMS.Api.Controllers
         /// <summary>Create a new staff user account with assigned roles.</summary>
         [HttpPost]
         [HasPermission("Users.Create")]
-        [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Result<CreateStaffUserResponse>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(Result<CreateStaffUserResponse>), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateStaffUser(
             [FromBody] CreateStaffUserRequest request,
             CancellationToken cancellationToken)
@@ -66,8 +85,8 @@ namespace SCMS.Api.Controllers
         /// <summary>Update assigned security roles for a user.</summary>
         [HttpPut("{id:int}/roles")]
         [HasPermission("Users.Update")]
-        [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(Result<StaffUserResponse>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Result<UpdateUserRolesResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<UpdateUserRolesResponse>), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateUserRoles(
             int id,
             [FromBody] UpdateUserRolesRequest request,

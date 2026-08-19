@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Database.Models;
 using SCMS.Domain.Common;
@@ -23,48 +28,96 @@ namespace SCMS.Domain.Features.Users
             _permissionService = permissionService;
         }
 
-        public async Task<Result<List<StaffUserResponse>>> GetUsersAsync(
-            string? roleFilter = null,
-            string? search = null,
+        public async Task<PagedResult<GetUsersResponse>> GetUsersAsync(
+            GetUsersRequest request,
             CancellationToken cancellationToken = default)
         {
+            request ??= new GetUsersRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
             var query = _context.TblUsers
                 .AsNoTracking()
                 .Include(u => u.TblUserRoles)
                 .Where(u => u.DeleteFlag != true);
 
-            if (!string.IsNullOrWhiteSpace(roleFilter))
+            if (!string.IsNullOrWhiteSpace(request.Role))
             {
-                var normRole = roleFilter.Trim().ToLowerInvariant();
+                var normRole = request.Role.Trim().ToLowerInvariant();
                 query = query.Where(u => u.TblUserRoles.Any(r => r.Role.ToLower() == normRole));
             }
 
-            if (!string.IsNullOrWhiteSpace(search))
+            var totalCount = await query.CountAsync(cancellationToken);
+            var usersList = await query
+                .OrderBy(u => u.UserId)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var users = usersList.Select(u => new GetUsersResponse
             {
-                var term = search.Trim().ToLower();
+                UserId = u.UserId,
+                Name = u.Name,
+                Email = u.Email,
+                MobileNo = u.MobileNo,
+                Roles = u.TblUserRoles.Select(r => r.Role).Distinct().ToList(),
+                CreatedAt = u.CreatedAt
+            }).ToList();
+
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<GetUsersResponse>.Success(users, pagination);
+        }
+
+        public async Task<PagedResult<SearchUsersResponse>> SearchUsersAsync(
+            SearchUsersRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            request ??= new SearchUsersRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var query = _context.TblUsers
+                .AsNoTracking()
+                .Include(u => u.TblUserRoles)
+                .Where(u => u.DeleteFlag != true);
+
+            if (!string.IsNullOrWhiteSpace(request.Role))
+            {
+                var normRole = request.Role.Trim().ToLowerInvariant();
+                query = query.Where(u => u.TblUserRoles.Any(r => r.Role.ToLower() == normRole));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Query))
+            {
+                var term = request.Query.Trim().ToLower();
                 query = query.Where(u =>
                     u.Name.ToLower().Contains(term) ||
                     (u.Email != null && u.Email.ToLower().Contains(term)) ||
                     (u.MobileNo != null && u.MobileNo.Contains(term)));
             }
 
-            var users = await query
-                .OrderByDescending(u => u.CreatedAt)
-                .Select(u => new StaffUserResponse
-                {
-                    UserId = u.UserId,
-                    Name = u.Name,
-                    Email = u.Email,
-                    MobileNo = u.MobileNo,
-                    Roles = u.TblUserRoles.Select(r => r.Role).Distinct().ToList(),
-                    CreatedAt = u.CreatedAt
-                })
+            var totalCount = await query.CountAsync(cancellationToken);
+            var usersList = await query
+                .OrderBy(u => u.UserId)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync(cancellationToken);
 
-            return Result<List<StaffUserResponse>>.Success(users);
+            var users = usersList.Select(u => new SearchUsersResponse
+            {
+                UserId = u.UserId,
+                Name = u.Name,
+                Email = u.Email,
+                MobileNo = u.MobileNo,
+                Roles = u.TblUserRoles.Select(r => r.Role).Distinct().ToList(),
+                CreatedAt = u.CreatedAt
+            }).ToList();
+
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<SearchUsersResponse>.Success(users, pagination);
         }
 
-        public async Task<Result<StaffUserResponse>> GetUserByIdAsync(int userId, CancellationToken cancellationToken = default)
+        public async Task<Result<GetUserByIdResponse>> GetUserByIdAsync(int userId, CancellationToken cancellationToken = default)
         {
             var user = await _context.TblUsers
                 .AsNoTracking()
@@ -73,10 +126,10 @@ namespace SCMS.Domain.Features.Users
 
             if (user == null)
             {
-                return Result<StaffUserResponse>.Failure("User not found.");
+                return Result<GetUserByIdResponse>.Failure("User not found.");
             }
 
-            var response = new StaffUserResponse
+            var response = new GetUserByIdResponse
             {
                 UserId = user.UserId,
                 Name = user.Name,
@@ -86,16 +139,16 @@ namespace SCMS.Domain.Features.Users
                 CreatedAt = user.CreatedAt
             };
 
-            return Result<StaffUserResponse>.Success(response);
+            return Result<GetUserByIdResponse>.Success(response);
         }
 
-        public async Task<Result<StaffUserResponse>> CreateStaffUserAsync(
+        public async Task<Result<CreateStaffUserResponse>> CreateStaffUserAsync(
             CreateStaffUserRequest request,
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Result<StaffUserResponse>.Failure("Name is required.");
+                return Result<CreateStaffUserResponse>.Failure("Name is required.");
             }
 
             string? email = null;
@@ -103,7 +156,7 @@ namespace SCMS.Domain.Features.Users
             {
                 if (!ValidationHelper.IsValidEmail(request.Email, out var normEmail))
                 {
-                    return Result<StaffUserResponse>.Failure("A valid email address is required.");
+                    return Result<CreateStaffUserResponse>.Failure("A valid email address is required.");
                 }
                 email = normEmail;
             }
@@ -113,19 +166,19 @@ namespace SCMS.Domain.Features.Users
             {
                 if (!ValidationHelper.IsValidMyanmarMobile(request.MobileNo, out var normMobile))
                 {
-                    return Result<StaffUserResponse>.Failure("Invalid mobile number. Please provide a valid Myanmar mobile number (e.g. 09xxxxxxxxx or +959xxxxxxxxx).");
+                    return Result<CreateStaffUserResponse>.Failure("Invalid mobile number. Please provide a valid Myanmar mobile number (e.g. 09xxxxxxxxx or +959xxxxxxxxx).");
                 }
                 mobile = normMobile;
             }
 
             if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(mobile))
             {
-                return Result<StaffUserResponse>.Failure("Either an email address or mobile number is required.");
+                return Result<CreateStaffUserResponse>.Failure("Either an email address or mobile number is required.");
             }
 
             if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
             {
-                return Result<StaffUserResponse>.Failure("Password must be at least 8 characters.");
+                return Result<CreateStaffUserResponse>.Failure("Password must be at least 8 characters.");
             }
 
             var cleanRoles = request.Roles
@@ -136,7 +189,7 @@ namespace SCMS.Domain.Features.Users
 
             if (cleanRoles.Count == 0)
             {
-                return Result<StaffUserResponse>.Failure("At least one valid role must be assigned.");
+                return Result<CreateStaffUserResponse>.Failure("At least one valid role must be assigned.");
             }
 
             var exists = await _context.TblUsers.AnyAsync(u =>
@@ -146,7 +199,7 @@ namespace SCMS.Domain.Features.Users
 
             if (exists)
             {
-                return Result<StaffUserResponse>.Failure("An account with that email or mobile number already exists.");
+                return Result<CreateStaffUserResponse>.Failure("An account with that email or mobile number already exists.");
             }
 
             var now = DateTime.UtcNow;
@@ -190,7 +243,7 @@ namespace SCMS.Domain.Features.Users
             _context.TblUsers.Add(user);
             await _context.SaveChangesAsync(cancellationToken);
 
-            var response = new StaffUserResponse
+            var response = new CreateStaffUserResponse
             {
                 UserId = user.UserId,
                 Name = user.Name,
@@ -201,10 +254,10 @@ namespace SCMS.Domain.Features.Users
             };
 
             _permissionService.InvalidateUserPermissions(user.UserId);
-            return Result<StaffUserResponse>.Success(response, "User created successfully.");
+            return Result<CreateStaffUserResponse>.Success(response, "User created successfully.");
         }
 
-        public async Task<Result<StaffUserResponse>> UpdateUserRolesAsync(
+        public async Task<Result<UpdateUserRolesResponse>> UpdateUserRolesAsync(
             int userId,
             UpdateUserRolesRequest request,
             CancellationToken cancellationToken = default)
@@ -216,7 +269,7 @@ namespace SCMS.Domain.Features.Users
 
             if (user == null)
             {
-                return Result<StaffUserResponse>.Failure("User not found.");
+                return Result<UpdateUserRolesResponse>.Failure("User not found.");
             }
 
             var cleanRoles = request.Roles
@@ -227,7 +280,7 @@ namespace SCMS.Domain.Features.Users
 
             if (cleanRoles.Count == 0)
             {
-                return Result<StaffUserResponse>.Failure("At least one valid role must be specified.");
+                return Result<UpdateUserRolesResponse>.Failure("At least one valid role must be specified.");
             }
 
             // Remove old roles and their permissions
@@ -265,7 +318,7 @@ namespace SCMS.Domain.Features.Users
 
             _permissionService.InvalidateUserPermissions(user.UserId);
 
-            var response = new StaffUserResponse
+            var response = new UpdateUserRolesResponse
             {
                 UserId = user.UserId,
                 Name = user.Name,
@@ -275,7 +328,7 @@ namespace SCMS.Domain.Features.Users
                 CreatedAt = user.CreatedAt
             };
 
-            return Result<StaffUserResponse>.Success(response, "User roles updated successfully.");
+            return Result<UpdateUserRolesResponse>.Success(response, "User roles updated successfully.");
         }
 
         public async Task<Result> DeleteUserAsync(int userId, CancellationToken cancellationToken = default)
