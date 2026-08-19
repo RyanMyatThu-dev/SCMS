@@ -8,10 +8,12 @@ import {
   TrashIcon,
   Cross2Icon,
   BookmarkIcon,
+  MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import SegmentedControl from "../components/SegmentedControl";
+import { Input } from "../components/ui/input";
 import { diseasesApi, prescriptionsApi } from "../services/scmsApi";
 import { showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -39,7 +41,7 @@ export default function DiseasesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Disease Modal State
+  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDisease, setEditingDisease] = useState(null);
   const [form, setForm] = useState({
@@ -47,126 +49,117 @@ export default function DiseasesPage() {
     icdCode: "",
     category: "General",
     description: "",
+    treatmentGuidelines: "",
   });
 
-  // Template Manager Modal State
-  const [selectedDiseaseForTemplate, setSelectedDiseaseForTemplate] = useState(null);
-  const [templateList, setTemplateList] = useState([]);
+  // Protocol Templates Management Modal State
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [selectedDiseaseForTemplate, setSelectedDiseaseForTemplate] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [templateLoading, setTemplateLoading] = useState(false);
 
-  const loadDiseases = async (pageNum = page) => {
+  const loadDiseases = async () => {
     try {
       setLoading(true);
       const res = await diseasesApi.list({
-        pageNumber: pageNum,
-        pageSize,
+        pageNumber: page,
+        pageSize: pageSize,
         name: query || undefined,
       });
-      if (res) {
-        setDiseases(toArray(res));
-        if (res.pagination) {
-          setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || 0);
-        }
+      setDiseases(toArray(res));
+      if (res?.pagination) {
+        setTotalPages(res.pagination.totalPages || 1);
+        setTotalCount(res.pagination.totalCount || 0);
       }
-    } catch (error) {
-      console.error("Diseases loading error:", error);
+    } catch (err) {
+      console.error(err);
+      showError("Failed to load disease diagnoses.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadDiseases(page);
+    loadDiseases();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const handleSearch = (e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
     setPage(1);
-    loadDiseases(1);
+    loadDiseases();
   };
 
   const openCreateModal = () => {
     setEditingDisease(null);
-    setForm({ name: "", icdCode: "", category: "Infectious", description: "" });
+    setForm({
+      name: "",
+      icdCode: "",
+      category: "General",
+      description: "",
+      treatmentGuidelines: "",
+    });
     setModalOpen(true);
   };
 
   const openEditModal = (disease) => {
     setEditingDisease(disease);
     setForm({
-      name: disease.name || disease.diseaseName || "",
+      name: disease.name || "",
       icdCode: disease.icdCode || "",
       category: disease.category || "General",
       description: disease.description || "",
+      treatmentGuidelines: disease.treatmentGuidelines || "",
     });
     setModalOpen(true);
   };
 
-  const handleSaveDisease = async (e) => {
-    e.preventDefault();
-    if (!form.name.trim()) {
-      showError("Disease name is required.");
-      return;
+  const handleDelete = async (disease) => {
+    const ok = await showConfirm(`Are you sure you want to delete "${disease.name}"?`);
+    if (!ok) return;
+    try {
+      await diseasesApi.delete(disease.diseaseId || disease.id);
+      showSuccess("Disease diagnosis deleted.");
+      loadDiseases();
+    } catch (err) {
+      console.error(err);
+      showError(err?.response?.data?.message || "Failed to delete disease.");
     }
+  };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
       setSaving(true);
-      const payload = {
-        name: form.name.trim(),
-        icdCode: form.icdCode.trim() || undefined,
-        category: form.category.trim() || undefined,
-        description: form.description.trim() || undefined,
-      };
-
       if (editingDisease) {
-        const id = editingDisease.id || editingDisease.diseaseId;
-        await diseasesApi.update({ ...payload, id });
-        showSuccess("Disease record updated.");
+        await diseasesApi.update(editingDisease.diseaseId || editingDisease.id, form);
+        showSuccess("Disease updated successfully.");
       } else {
-        await diseasesApi.create(payload);
-        showSuccess("Disease cataloged successfully.");
+        await diseasesApi.create(form);
+        showSuccess("Disease created successfully.");
       }
-
       setModalOpen(false);
-      loadDiseases(page);
+      loadDiseases();
     } catch (err) {
+      console.error(err);
       showError(err?.response?.data?.message || "Failed to save disease.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (e, disease) => {
-    e.stopPropagation();
-    const confirmed = await showConfirm(
-      `Are you sure you want to delete disease "${disease.name || "this record"}"?`,
-      "Delete Disease"
-    );
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-      const id = disease.id || disease.diseaseId;
-      await diseasesApi.remove(id);
-      showSuccess("Disease removed from catalog.");
-      loadDiseases(page);
-    } catch (err) {
-      showError(err?.response?.data?.message || "Failed to delete disease.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openTemplateManager = async (disease) => {
+  const openTemplatesModal = async (disease) => {
     setSelectedDiseaseForTemplate(disease);
     setTemplateModalOpen(true);
     try {
-      const res = await prescriptionsApi.templates();
-      setTemplateList(toArray(res));
-    } catch {
-      setTemplateList([]);
+      setTemplateLoading(true);
+      const res = await prescriptionsApi.templates({ diseaseId: disease.diseaseId || disease.id });
+      setTemplates(toArray(res));
+    } catch (err) {
+      console.error(err);
+      showError("Failed to load prescription protocol templates.");
+    } finally {
+      setTemplateLoading(false);
     }
   };
 
@@ -174,24 +167,24 @@ export default function DiseasesPage() {
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title={t.diseases}
-        subtitle="Standard clinical diagnosis catalog, ICD codes, disease categories, and treatment protocols."
+        subtitle="Manage diagnostic catalog, ICD-10 codification, and standard clinical treatment protocol templates."
         actions={
           <button
             onClick={openCreateModal}
-            className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target"
+            className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs"
           >
-            <PlusIcon className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4 shrink-0" />
             <span>Add Disease</span>
           </button>
         }
       />
 
       {/* Search & Layout Toggles */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
-        <form onSubmit={handleSearch} className="relative flex-1 w-full">
-          <input
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
+        <form onSubmit={handleSearch} className="flex-1 w-full">
+          <Input
             type="text"
-            className="scms-input w-full pl-4 text-xs"
+            startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search diagnoses by name, category, or ICD code..."

@@ -60,7 +60,7 @@ export default function AppShell() {
       {/* Mobile overlay backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
@@ -68,14 +68,14 @@ export default function AppShell() {
 
       {/* Glass Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-4 transition-all duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border/80 bg-card/85 dark:bg-card/75 backdrop-blur-xl p-4 transition-all duration-300 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-[80px]" : "lg:w-[260px]"}`}
       >
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between pb-4 border-b border-border/80">
           <BrandLogo subtitle={t.ownerPortal} collapsed={collapsed} />
           <button
-            className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden btn-target"
+            className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary lg:hidden btn-target"
             onClick={() => setOpen(false)}
             aria-label={t.close}
           >
@@ -96,12 +96,12 @@ export default function AppShell() {
                 to={item.to}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all btn-target ${
+                  `flex items-center rounded-2xl px-3.5 py-2.5 text-sm font-medium transition-all btn-target ${
                     collapsed ? "justify-center gap-0" : "gap-3"
                   } ${
                     isActive
-                      ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold shadow-sm"
-                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100"
+                      ? "bg-secondary text-foreground font-bold shadow-xs ring-1 ring-border"
+                      : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                   }`
                 }
                 title={collapsed ? t[item.key] : undefined}
@@ -114,10 +114,10 @@ export default function AppShell() {
         </nav>
 
         {/* Bottom controls */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+        <div className="pt-3 border-t border-border/80 space-y-2">
           <button
             onClick={handleLogout}
-            className={`flex items-center rounded-xl text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 w-full py-2.5 px-3 transition-colors btn-target ${
+            className={`flex items-center rounded-2xl text-sm font-semibold text-destructive hover:bg-destructive/10 w-full py-2.5 px-3 transition-colors btn-target ${
               collapsed ? "justify-center" : "gap-3"
             }`}
             title={collapsed ? t.logout : undefined}
@@ -135,24 +135,24 @@ export default function AppShell() {
         }`}
       >
         {/* Top Glass Navigation Bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl px-4 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/80 bg-background/80 backdrop-blur-xl px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button
-              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 lg:hidden btn-target"
+              className="grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card/80 text-foreground lg:hidden btn-target shadow-xs"
               onClick={() => setOpen(true)}
               aria-label="Toggle menu"
             >
               <HamburgerMenuIcon className="w-4 h-4" />
             </button>
             <button
-              className="hidden lg:grid h-9 w-9 place-items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition btn-target"
+              className="hidden lg:grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card/80 text-foreground hover:bg-secondary transition btn-target shadow-xs"
               onClick={() => setCollapsed(!collapsed)}
               aria-label="Collapse sidebar"
             >
               <HamburgerMenuIcon className="w-4 h-4" />
             </button>
 
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-900/40">
+            <span className="text-xs font-bold uppercase tracking-wider text-foreground bg-secondary px-3 py-1 rounded-full border border-border/80">
               {t.ownerPortal}
             </span>
           </div>
@@ -162,36 +162,36 @@ export default function AppShell() {
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition btn-target"
+              className="grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card/80 text-foreground hover:bg-secondary transition btn-target shadow-xs"
               title={isDark ? t.lightMode : t.darkMode}
               aria-label="Toggle dark mode"
             >
               {isDark ? (
                 <SunIcon className="w-4 h-4 text-amber-400" />
               ) : (
-                <MoonIcon className="w-4 h-4 text-slate-600" />
+                <MoonIcon className="w-4 h-4 text-foreground" />
               )}
             </button>
 
             {/* Language Toggle */}
             <button
               onClick={toggleLanguage}
-              className="scms-btn-outline px-3 h-9 min-h-9 text-xs font-bold btn-target"
+              className="scms-btn-outline px-3 h-9 min-h-9 text-xs font-bold btn-target shadow-xs"
               title="Switch language"
             >
               {language === "en" ? "မြန်မာ" : "English"}
             </button>
 
             {/* User Profile Badge */}
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200 dark:border-slate-700">
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-indigo-600 text-white font-bold text-xs">
+            <div className="flex items-center gap-2.5 pl-2 border-l border-border/80">
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground font-bold text-xs">
                 {user?.name?.[0] || "A"}
               </div>
               <div className="hidden sm:block text-left">
-                <div className="text-xs font-bold text-slate-900 dark:text-white leading-none">
+                <div className="text-xs font-bold text-foreground leading-none">
                   {user?.name || "Dr. Thandar"}
                 </div>
-                <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-none mt-0.5">
+                <div className="text-[10px] font-medium text-muted-foreground leading-none mt-0.5">
                   {user?.role || "Admin"}
                 </div>
               </div>

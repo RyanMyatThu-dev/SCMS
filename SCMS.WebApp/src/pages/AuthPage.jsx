@@ -13,8 +13,13 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
-import BrandLogo, { BrandLogoIcon } from "../components/BrandLogo";
+import { BrandLogoIcon } from "../components/BrandLogo";
 import { showError } from "../services/dialogs";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { cn } from "../lib/utils";
 
 const demoAccounts = [
   {
@@ -113,35 +118,57 @@ export default function AuthPage({ mode = "login" }) {
   };
 
   return (
-    <main className="grid min-h-screen bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 lg:grid-cols-[1.1fr_0.9fr] transition-colors">
-      {/* Left Apple Glass Brand Hero Banner */}
-      <section className="hidden items-center justify-center p-12 lg:flex bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white relative overflow-hidden">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+    <main className="min-h-screen bg-background text-foreground relative overflow-hidden flex items-center justify-center p-4 sm:p-6 lg:p-12 transition-colors">
+      {/* Warm Ambient Glow Lighting */}
+      <div className="absolute -top-28 -left-28 w-[30rem] h-[30rem] bg-apricot-200/40 dark:bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute -bottom-28 -right-28 w-[30rem] h-[30rem] bg-indigo-200/30 dark:bg-indigo-900/15 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[36rem] h-[36rem] bg-apricot-100/25 dark:bg-amber-600/5 rounded-full blur-[120px] pointer-events-none" />
 
-        <div className="relative z-10 w-full max-w-xl rounded-3xl border border-white/15 bg-white/10 backdrop-blur-2xl p-10 shadow-2xl space-y-8">
-          <div className="flex items-center gap-3.5">
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white text-indigo-600 shadow-lg shrink-0">
-              <BrandLogoIcon size={32} />
+      {/* Top Floating Controls */}
+      <div className="absolute top-6 right-6 flex items-center gap-2 z-20">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleTheme}
+          title={isDark ? t.lightMode : t.darkMode}
+          aria-label="Toggle dark mode"
+          className="rounded-2xl h-10 w-10 bg-card/80 backdrop-blur-md shadow-sm border-border/80"
+        >
+          {isDark ? <SunIcon className="w-4 h-4 text-amber-400 shrink-0" /> : <MoonIcon className="w-4 h-4 shrink-0" />}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={toggleLanguage}
+          className="h-10 px-3.5 text-xs font-bold rounded-2xl bg-card/80 backdrop-blur-md shadow-sm border-border/80"
+        >
+          {language === "en" ? "မြန်မာ" : "English"}
+        </Button>
+      </div>
+
+      {/* Main Container Grid */}
+      <div className="relative z-10 w-full max-w-5xl grid lg:grid-cols-[1.05fr_0.95fr] gap-8 items-center">
+        {/* Left Frosted Brand Hero Banner */}
+        <section className="hidden lg:flex flex-col rounded-3xl border border-border/80 bg-card/75 dark:bg-card/60 backdrop-blur-2xl p-10 shadow-scms space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm shrink-0">
+              <BrandLogoIcon size={30} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-white">ကုမယ်</h1>
-              <p className="text-xs font-medium text-white/80 tracking-wide">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">ကုမယ်</h1>
+              <p className="text-xs font-medium text-muted-foreground tracking-wide mt-0.5">
                 Smart Clinic Management Platform
               </p>
             </div>
           </div>
 
-          <p className="text-sm leading-relaxed text-white/90">
-            A unified clinical operating system tailored for Practice Owners, Consulting Doctors, and Patient Families. Designed according to Apple Human Interface Guidelines and WCAG 2.2 AA accessibility.
-          </p>
-
           {/* Quick Demo Switcher */}
-          <div className="space-y-3 pt-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/70 block">
+          <div className="space-y-3.5 pt-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
               {t.demoRoles}
             </span>
-            <div className="grid gap-2.5">
+            <div className="grid gap-3">
               {demoAccounts.map((acc) => {
                 const isSelected = selectedRole === acc.role && form.email === acc.email;
                 return (
@@ -149,165 +176,138 @@ export default function AuthPage({ mode = "login" }) {
                     key={acc.role}
                     type="button"
                     onClick={() => applyDemoAccount(acc)}
-                    className={`flex items-center justify-between rounded-2xl border p-3.5 text-left transition-all btn-target ${
+                    className={cn(
+                      "flex items-center justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer select-none",
                       isSelected
-                        ? "bg-white/20 border-white text-white shadow-md font-bold"
-                        : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10"
-                    }`}
+                        ? "bg-background border-foreground/30 text-foreground shadow-sm font-semibold ring-1 ring-ring/10"
+                        : "bg-background/40 border-border/60 text-muted-foreground hover:bg-background/80 hover:text-foreground hover:border-border"
+                    )}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3.5 min-w-0">
                       <CheckCircledIcon
-                        className={`w-5 h-5 ${
-                          isSelected ? "text-emerald-400" : "text-white/40"
-                        }`}
+                        className={cn(
+                          "w-5 h-5 shrink-0 transition-colors",
+                          isSelected ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/30"
+                        )}
                       />
-                      <div>
-                        <div className="text-sm font-semibold">{t[acc.roleKey] || acc.roleKey}</div>
-                        <div className="text-xs text-white/60 font-mono">{acc.email}</div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium leading-relaxed truncate">{t[acc.roleKey] || acc.roleKey}</div>
+                        <div className="text-xs text-muted-foreground font-mono truncate">{acc.email}</div>
                       </div>
                     </div>
-                    <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                    <Badge variant={isSelected ? "default" : "secondary"} className="shrink-0 ml-2">
                       {acc.badge}
-                    </span>
+                    </Badge>
                   </button>
                 );
               })}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Right Form Card */}
-      <section className="flex flex-col items-center justify-center px-4 py-12 sm:px-6 lg:px-12 relative">
-        {/* Top Floating Controls */}
-        <div className="absolute top-6 right-6 flex items-center gap-2">
-          <button
-            onClick={toggleTheme}
-            className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition btn-target"
-            title={isDark ? t.lightMode : t.darkMode}
-            aria-label="Toggle dark mode"
-          >
-            {isDark ? <SunIcon className="w-4 h-4 text-amber-400" /> : <MoonIcon className="w-4 h-4" />}
-          </button>
+        {/* Right Form Card */}
+        <section className="flex flex-col items-center justify-center w-full">
+          <div className="w-full max-w-md space-y-6">
+            <Card className="border-border/80 bg-card/90 dark:bg-card/80 shadow-scms-raised">
+              <CardHeader className="space-y-1.5 pb-6">
+                <CardTitle className="text-2xl font-bold tracking-tight">
+                  {isRegister ? t.register : t.welcome}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground leading-relaxed">
+                  {isRegister ? t.registerHint : t.loginHint}
+                </CardDescription>
+              </CardHeader>
 
-          <button
-            type="button"
-            className="scms-btn-outline px-3 h-9 min-h-9 text-xs font-bold btn-target"
-            onClick={toggleLanguage}
-          >
-            {language === "en" ? "မြန်မာ" : "English"}
-          </button>
-        </div>
+              <CardContent>
+                <form onSubmit={submit} className="space-y-4">
+                  {isRegister && (
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-semibold text-foreground">
+                        {t.fullName} <span className="text-destructive">*</span>
+                      </span>
+                      <Input
+                        startIcon={<PersonIcon className="w-4 h-4 shrink-0" />}
+                        value={form.name}
+                        onChange={(e) => update("name", e.target.value)}
+                        placeholder="e.g., Dr. Thandar Aung"
+                        required
+                      />
+                    </label>
+                  )}
 
-        <div className="w-full max-w-md space-y-6">
-          <div className="lg:hidden flex items-center gap-3 mb-2">
-            <BrandLogo />
-          </div>
-
-          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-8 shadow-xl">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {isRegister ? t.register : t.welcome}
-              </h2>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {isRegister ? t.registerHint : t.loginHint}
-              </p>
-            </div>
-
-            <form onSubmit={submit} className="space-y-4">
-              {isRegister && (
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {t.fullName} <span className="text-rose-500">*</span>
-                  </span>
-                  <div className="relative">
-                    <PersonIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      className="scms-input w-full pl-10"
-                      value={form.name}
-                      onChange={(e) => update("name", e.target.value)}
-                      placeholder="e.g., Dr. Thandar Aung"
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-semibold text-foreground">
+                      {t.email} <span className="text-destructive">*</span>
+                    </span>
+                    <Input
+                      type="email"
+                      startIcon={<EnvelopeClosedIcon className="w-4 h-4 shrink-0" />}
+                      value={form.email}
+                      onChange={(e) => update("email", e.target.value)}
+                      placeholder="name@clinic.com"
                       required
                     />
-                  </div>
-                </label>
-              )}
+                  </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {t.email} <span className="text-rose-500">*</span>
-                </span>
-                <div className="relative">
-                  <EnvelopeClosedIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    className="scms-input w-full pl-10"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => update("email", e.target.value)}
-                    placeholder="name@clinic.com"
-                    required
-                  />
-                </div>
-              </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-semibold text-foreground">
+                      {t.password} <span className="text-destructive">*</span>
+                    </span>
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      startIcon={<LockClosedIcon className="w-4 h-4 shrink-0" />}
+                      endIcon={
+                        <button
+                          type="button"
+                          className="p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? (
+                            <EyeClosedIcon className="w-4 h-4 shrink-0" />
+                          ) : (
+                            <EyeOpenIcon className="w-4 h-4 shrink-0" />
+                          )}
+                        </button>
+                      }
+                      value={form.password}
+                      onChange={(e) => update("password", e.target.value)}
+                      required
+                    />
+                  </label>
 
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {t.password} <span className="text-rose-500">*</span>
-                </span>
-                <div className="relative">
-                  <LockClosedIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    className="scms-input w-full pl-10 pr-10"
-                    type={showPassword ? "text" : "password"}
-                    value={form.password}
-                    onChange={(e) => update("password", e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 btn-target"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  <Button
+                    type="submit"
+                    className="w-full mt-2"
+                    loading={loading}
                   >
-                    {showPassword ? (
-                      <EyeClosedIcon className="w-4 h-4" />
-                    ) : (
-                      <EyeOpenIcon className="w-4 h-4" />
-                    )}
-                  </button>
+                    <span>{isRegister ? t.register : t.login}</span>
+                  </Button>
+                </form>
+
+                <div className="mt-6 pt-4 border-t border-border/80 text-center text-xs text-muted-foreground">
+                  {isRegister ? (
+                    <span>
+                      Already have an account?{" "}
+                      <Link to="/login" className="font-semibold text-foreground hover:underline">
+                        {t.login}
+                      </Link>
+                    </span>
+                  ) : (
+                    <span>
+                      Need an account?{" "}
+                      <Link to="/register" className="font-semibold text-foreground hover:underline">
+                        {t.register}
+                      </Link>
+                    </span>
+                  )}
                 </div>
-              </label>
-
-              <button
-                type="submit"
-                className="scms-btn-primary w-full mt-2 flex items-center justify-center gap-2 btn-target"
-                disabled={loading}
-              >
-                {loading && <span className="loading loading-spinner loading-xs" />}
-                <span>{isRegister ? t.register : t.login}</span>
-              </button>
-            </form>
-
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
-              {isRegister ? (
-                <span>
-                  Already have an account?{" "}
-                  <Link to="/login" className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                    {t.login}
-                  </Link>
-                </span>
-              ) : (
-                <span>
-                  Need an account?{" "}
-                  <Link to="/register" className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                    {t.register}
-                  </Link>
-                </span>
-              )}
-            </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }
+

@@ -8,10 +8,12 @@ import {
   TrashIcon,
   DownloadIcon,
   Cross2Icon,
+  MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import SegmentedControl from "../components/SegmentedControl";
+import { Input } from "../components/ui/input";
 import { patientsApi, downloadBlob } from "../services/scmsApi";
 import { showError, showSuccess, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -38,165 +40,165 @@ export default function PatientsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Create Modal State
+  // Form State
   const [modalOpen, setModalOpen] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [editingPatient, setEditingPatient] = useState(null);
   const [form, setForm] = useState({
     name: "",
-    email: "",
-    phone: "",
     gender: "Male",
-    age: "",
-    bloodType: "O+",
-    allergies: "",
-    chronicConditions: "",
+    dateOfBirth: "",
+    bloodType: "A+",
+    mobileNo: "",
     actualAddress: "",
+    emergencyContact: "",
+    emergencyPhone: "",
+    medicalAlertNotes: "",
+    nrcOrIdNumber: "",
   });
 
-  // Detail Modal State
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [errors, setErrors] = useState({});
 
-  const loadPatients = async (pageNum = page) => {
+  const loadPatients = async () => {
     try {
       setLoading(true);
       const res = await patientsApi.list({
-        pageNumber: pageNum,
-        pageSize,
+        pageNumber: page,
+        pageSize: pageSize,
         name: query || undefined,
       });
-      if (res) {
-        setPatients(toArray(res));
-        if (res.pagination) {
-          setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || 0);
-        }
+      setPatients(toArray(res));
+      if (res?.pagination) {
+        setTotalPages(res.pagination.totalPages || 1);
+        setTotalCount(res.pagination.totalCount || 0);
       }
-    } catch (error) {
-      console.error("Patients load error:", error);
+    } catch (err) {
+      console.error(err);
+      showError("Failed to load patients.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPatients(page);
+    loadPatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const handleSearchSubmit = (e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
     setPage(1);
-    loadPatients(1);
+    loadPatients();
   };
 
-  const handleCreateSubmit = async (e) => {
-    e.preventDefault();
-    const newErrors = {};
+  const openCreateModal = () => {
+    setEditingPatient(null);
+    setForm({
+      name: "",
+      gender: "Male",
+      dateOfBirth: "",
+      bloodType: "A+",
+      mobileNo: "",
+      actualAddress: "",
+      emergencyContact: "",
+      emergencyPhone: "",
+      medicalAlertNotes: "",
+      nrcOrIdNumber: "",
+    });
+    setModalOpen(true);
+  };
 
-    if (!form.name.trim()) newErrors.name = "Patient full name is required";
-    if (!form.gender) newErrors.gender = "Gender is required";
+  const openEditModal = (patient) => {
+    setEditingPatient(patient);
+    setForm({
+      name: patient.name || patient.fullName || "",
+      gender: patient.gender || "Male",
+      dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split("T")[0] : "",
+      bloodType: patient.bloodType || "A+",
+      mobileNo: patient.mobileNo || patient.phone || "",
+      actualAddress: patient.actualAddress || patient.address || "",
+      emergencyContact: patient.emergencyContact || "",
+      emergencyPhone: patient.emergencyPhone || "",
+      medicalAlertNotes: patient.medicalAlertNotes || "",
+      nrcOrIdNumber: patient.nrcOrIdNumber || "",
+    });
+    setModalOpen(true);
+  };
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
+  const handleDelete = async (patient) => {
+    const ok = await showConfirm(`Are you sure you want to archive patient record for ${patient.name || patient.fullName}?`);
+    if (!ok) return;
+    try {
+      await patientsApi.remove(patient.patientId || patient.id);
+      showSuccess("Patient record archived.");
+      loadPatients();
+    } catch (err) {
+      console.error(err);
+      showError(err?.response?.data?.message || "Failed to delete patient.");
     }
+  };
 
+  const handleDownloadSummary = async (patient) => {
+    try {
+      const pId = patient.patientId || patient.id;
+      const blob = await patientsApi.summaryPdf(pId);
+      downloadBlob(blob, `medical-summary-${pId}.pdf`);
+      showSuccess("Clinical Summary PDF downloaded.");
+    } catch (err) {
+      console.error(err);
+      showError("Failed to export patient summary PDF.");
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
       setSaving(true);
       const payload = {
-        name: form.name.trim(),
-        email: form.email.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-        mobileNo: form.phone.trim() || undefined,
-        gender: form.gender,
-        bloodType: form.bloodType,
-        allergies: form.allergies.trim() || undefined,
-        chronicConditions: form.chronicConditions.trim() || undefined,
-        actualAddress: form.actualAddress.trim() || undefined,
-        dateOfBirth: form.age ? new Date(new Date().getFullYear() - Number(form.age), 0, 1).toISOString() : null,
+        ...form,
+        dateOfBirth: form.dateOfBirth ? new Date(form.dateOfBirth).toISOString() : null,
       };
 
-      await patientsApi.create(payload);
-      showSuccess("Patient record created successfully.");
+      if (editingPatient) {
+        await patientsApi.update(editingPatient.patientId || editingPatient.id, payload);
+        showSuccess("Patient updated successfully.");
+      } else {
+        await patientsApi.create(payload);
+        showSuccess("Patient created successfully.");
+      }
       setModalOpen(false);
-      setForm({
-        name: "",
-        email: "",
-        phone: "",
-        gender: "Male",
-        age: "",
-        bloodType: "O+",
-        allergies: "",
-        chronicConditions: "",
-        actualAddress: "",
-      });
-      setErrors({});
-      loadPatients(1);
-    } catch (error) {
-      showError(error?.response?.data?.message || "Failed to register patient.");
+      loadPatients();
+    } catch (err) {
+      console.error(err);
+      showError(err?.response?.data?.message || "Failed to save patient.");
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleDelete = async (e, patient) => {
-    e.stopPropagation();
-    const confirmed = await showConfirm(
-      `Are you sure you want to delete ${patient.name || "this patient"}? This action cannot be undone.`,
-      "Delete Patient Record"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-      await patientsApi.delete(patient.patientId || patient.id);
-      showSuccess("Patient record deleted successfully.");
-      loadPatients(page);
-    } catch (error) {
-      showError(error?.response?.data?.message || "Failed to delete patient profile.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const downloadSummary = async (e, patient) => {
-    e.stopPropagation();
-    try {
-      const response = await patientsApi.summaryPdf(patient.patientId || patient.id);
-      downloadBlob(response, `medical-summary-${patient.name || "patient"}.pdf`);
-      showSuccess("Medical summary downloaded successfully.");
-    } catch {
-      showError("Failed to download PDF summary.");
-    }
-  };
-
-  const openDetail = (patient) => {
-    setSelectedPatient(patient);
-    setDetailOpen(true);
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title={t.patients}
-        subtitle="Patient directory, blood type registry, allergy registers, and clinical EMR history."
+        subtitle="Manage clinic electronic health records (EHR), demographics, and clinical summaries."
         actions={
           <div className="flex items-center gap-2">
             <button
-              className="scms-btn-outline px-3 btn-target"
-              onClick={() => loadPatients(page)}
+              className="scms-btn-outline flex items-center gap-1.5 btn-target shadow-xs"
+              onClick={() => {
+                setQuery("");
+                setPage(1);
+                loadPatients();
+              }}
               title={t.refresh}
               aria-label={t.refresh}
             >
-              <ReloadIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <ReloadIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
             </button>
             <button
-              className="scms-btn-primary flex items-center gap-1.5 btn-target"
-              onClick={() => setModalOpen(true)}
+              className="scms-btn-primary flex items-center gap-1.5 btn-target shadow-xs"
+              onClick={() => openCreateModal()}
             >
-              <PlusIcon className="w-4 h-4" />
+              <PlusIcon className="w-4 h-4 shrink-0" />
               <span>{t.create}</span>
             </button>
           </div>
@@ -204,11 +206,11 @@ export default function PatientsPage() {
       />
 
       {/* Search & Layout Toggles */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
-          <input
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
+        <form onSubmit={handleSearchSubmit} className="flex-1 w-full">
+          <Input
             type="text"
-            className="scms-input w-full pl-4 text-xs"
+            startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search patients by name or phone..."

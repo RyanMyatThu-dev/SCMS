@@ -179,16 +179,16 @@ export default function BatchesPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate("/app/medicines")}
-              className="scms-btn-outline flex items-center gap-1.5 text-xs font-bold btn-target"
+              className="scms-btn-outline flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs"
             >
-              <ChevronLeftIcon className="w-4 h-4" />
+              <ChevronLeftIcon className="w-4 h-4 shrink-0" />
               <span>Back to Medicines</span>
             </button>
             <button
               onClick={openCreateModal}
-              className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target"
+              className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs"
             >
-              <PlusIcon className="w-4 h-4" />
+              <PlusIcon className="w-4 h-4 shrink-0" />
               <span>Add Batch</span>
             </button>
           </div>
@@ -196,7 +196,7 @@ export default function BatchesPage() {
       />
 
       {/* Filter & Layout Switcher */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
         <div className="flex-1 w-full max-w-xs">
           <select
             className="scms-select w-full text-xs"

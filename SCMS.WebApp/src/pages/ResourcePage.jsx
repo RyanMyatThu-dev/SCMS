@@ -10,6 +10,7 @@ import DataTable from "../components/DataTable";
 import PageHeader from "../components/PageHeader";
 import RecordModal from "../components/RecordModal";
 import SearchForm from "../components/SearchForm";
+import PaginationControls from "../components/PaginationControls";
 import { useLanguage } from "../context/LanguageContext";
 import { downloadBlob } from "../services/scmsApi";
 import { showAlert, showConfirm, showError, showSuccess } from "../services/dialogs";
@@ -30,8 +31,10 @@ const includesQuery = (row, query) =>
 
 export default function ResourcePage({ config }) {
   const { t } = useLanguage();
+  const pageSize = 10;
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,6 +64,16 @@ export default function ResourcePage({ config }) {
     () => (query ? rows.filter((row) => includesQuery(row, query)) : rows),
     [rows, query]
   );
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
+  const paginatedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return visibleRows.slice(start, start + pageSize);
+  }, [visibleRows, page, pageSize]);
 
   const openCreate = () => {
     setEditing(null);
@@ -140,7 +153,7 @@ export default function ResourcePage({ config }) {
             {config.extraHeaderActions?.map((action) => (
               <button
                 key={action.label}
-                className={`flex items-center gap-1.5 text-xs font-bold btn-target ${
+                className={`flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs ${
                   action.primary ? "scms-btn-primary" : "scms-btn-outline"
                 }`}
                 onClick={() => runAction(action)}
@@ -149,13 +162,13 @@ export default function ResourcePage({ config }) {
                 <span>{action.label}</span>
               </button>
             ))}
-            <button className="scms-btn-outline flex items-center gap-1.5 text-xs btn-target" onClick={load}>
-              <ReloadIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <button className="scms-btn-outline flex items-center gap-1.5 text-xs btn-target shadow-xs" onClick={load}>
+              <ReloadIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
               <span>{t.refresh}</span>
             </button>
             {config.create && (
-              <button className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target" onClick={openCreate}>
-                <PlusIcon className="w-4 h-4" />
+              <button className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs" onClick={openCreate}>
+                <PlusIcon className="w-4 h-4 shrink-0" />
                 <span>{t.create}</span>
               </button>
             )}
@@ -163,53 +176,59 @@ export default function ResourcePage({ config }) {
         }
       />
 
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
-        <SearchForm
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t.search}
-          showButton={false}
-          className="w-full max-w-2xl text-xs"
-        />
-      </div>
+      <SearchForm
+        query={query}
+        onChange={setQuery}
+        placeholder={t.search}
+      />
 
       <DataTable
-        rows={visibleRows}
+        rows={paginatedRows}
         columns={config.columns}
         showIndex
+        indexOffset={(page - 1) * pageSize}
         loading={loading}
         actions={(row) => (
           <div className="flex justify-end gap-1.5">
             {config.rowActions?.map((action) => (
               <button
                 key={action.label}
-                className="scms-btn-outline px-2.5 h-8 min-h-8 text-xs font-semibold flex items-center gap-1 btn-target"
+                className="scms-btn-outline px-2.5 h-8 min-h-8 text-xs font-semibold flex items-center gap-1 btn-target shadow-xs"
                 onClick={() => (action.download ? download(action, row) : runAction(action, row))}
               >
-                {action.download ? <DownloadIcon className="w-3.5 h-3.5" /> : action.icon}
+                {action.download ? <DownloadIcon className="w-3.5 h-3.5 shrink-0" /> : action.icon}
                 <span>{action.label}</span>
               </button>
             ))}
             {config.update && (
               <button
-                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target"
+                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 btn-target shadow-xs"
                 onClick={() => openEdit(row)}
                 title={t.edit}
               >
-                <Pencil1Icon className="w-4 h-4" />
+                <Pencil1Icon className="w-4 h-4 shrink-0" />
               </button>
             )}
             {config.remove && (
               <button
-                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 btn-target"
+                className="scms-btn-outline p-1.5 h-8 min-h-8 w-8 text-destructive hover:bg-destructive/10 btn-target shadow-xs"
                 onClick={() => remove(row)}
                 title="Delete"
               >
-                <TrashIcon className="w-4 h-4" />
+                <TrashIcon className="w-4 h-4 shrink-0" />
               </button>
             )}
           </div>
         )}
+      />
+
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        totalCount={visibleRows.length}
+        label="records"
+        loading={loading}
+        onPageChange={setPage}
       />
 
       {modalOpen && (
@@ -226,3 +245,4 @@ export default function ResourcePage({ config }) {
     </div>
   );
 }
+

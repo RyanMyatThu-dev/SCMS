@@ -128,15 +128,15 @@ export default function UserLayout() {
   }, [data, activeProfileId]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-100 antialiased">
+    <div className="flex h-screen w-screen overflow-hidden bg-background font-sans text-foreground antialiased transition-colors">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shrink-0">
-        <div className="pb-5 border-b border-slate-100 dark:border-slate-800">
-          <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+      <aside className="hidden lg:flex w-64 flex-col border-r border-border/80 bg-card/85 dark:bg-card/75 backdrop-blur-xl p-5 shrink-0">
+        <div className="pb-5 border-b border-border/80">
+          <div className="text-xl font-bold text-foreground flex items-center gap-2">
             <BrandLogoIcon size={28} />
             <span>{t.appName || "ကုမယ်"}</span>
           </div>
-          <div className="mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <div className="mt-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
             Patient Portal
           </div>
         </div>
@@ -145,38 +145,38 @@ export default function UserLayout() {
           <NavLink
             to="/user/dashboard"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                 isActive
-                  ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/60"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+                  ? "text-foreground bg-secondary font-bold shadow-xs ring-1 ring-border"
+                  : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
               }`
             }
           >
-            <DashboardIcon className="w-4 h-4" />
+            <DashboardIcon className="w-4 h-4 shrink-0" />
             <span>{t.dashboard || "Dashboard"}</span>
           </NavLink>
         </nav>
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1.5">
+        <div className="pt-4 border-t border-border/80 flex flex-col gap-1.5">
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 w-full transition-colors btn-target"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground w-full transition-colors btn-target"
           >
-            {theme === "dark" ? <SunIcon className="w-4 h-4 text-amber-400" /> : <MoonIcon className="w-4 h-4" />}
+            {theme === "dark" ? <SunIcon className="w-4 h-4 text-amber-400 shrink-0" /> : <MoonIcon className="w-4 h-4 shrink-0" />}
             <span>{theme === "dark" ? "Light Appearance" : "Dark Appearance"}</span>
           </button>
           <button
             onClick={toggleLanguage}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 w-full transition-colors btn-target"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground w-full transition-colors btn-target"
           >
-            <GlobeIcon className="w-4 h-4" />
+            <GlobeIcon className="w-4 h-4 shrink-0" />
             <span>{language === "en" ? "မြန်မာ" : "English"}</span>
           </button>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 w-full transition-colors btn-target"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-destructive hover:bg-destructive/10 w-full transition-colors btn-target"
           >
-            <ExitIcon className="w-4 h-4" />
+            <ExitIcon className="w-4 h-4 shrink-0" />
             <span>{t.logout || "Logout"}</span>
           </button>
         </div>
@@ -185,30 +185,30 @@ export default function UserLayout() {
       {/* Mobile Drawer Overlay */}
       {drawerOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 z-40 bg-foreground/20 lg:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       {/* Mobile Drawer */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col bg-white dark:bg-slate-900 p-5 border-r border-slate-200 dark:border-slate-800 lg:hidden transform transition-transform duration-300 ease-out ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col bg-card/95 backdrop-blur-2xl p-5 border-r border-border/80 lg:hidden transform transition-transform duration-300 ease-out ${
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between pb-5 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between pb-5 border-b border-border/80">
           <div>
-            <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <div className="text-xl font-bold text-foreground flex items-center gap-2">
               <BrandLogoIcon size={26} />
               <span>{t.appName || "ကုမယ်"}</span>
             </div>
-            <div className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="mt-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               Patient Portal
             </div>
           </div>
           <button
             onClick={() => setDrawerOpen(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="p-1.5 rounded-xl text-muted-foreground hover:bg-secondary"
           >
             <Cross2Icon className="w-4 h-4" />
           </button>
@@ -219,27 +219,27 @@ export default function UserLayout() {
             to="/user/dashboard"
             onClick={() => setDrawerOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                 isActive
-                  ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/60"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  ? "text-foreground bg-secondary font-bold shadow-xs"
+                  : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
               }`
             }
           >
-            <DashboardIcon className="w-4 h-4" />
+            <DashboardIcon className="w-4 h-4 shrink-0" />
             <span>{t.dashboard || "Dashboard"}</span>
           </NavLink>
         </nav>
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1.5">
+        <div className="pt-4 border-t border-border/80 flex flex-col gap-1.5">
           <button
             onClick={() => {
               toggleTheme();
               setDrawerOpen(false);
             }}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 w-full btn-target"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground w-full btn-target"
           >
-            {theme === "dark" ? <SunIcon className="w-4 h-4 text-amber-400" /> : <MoonIcon className="w-4 h-4" />}
+            {theme === "dark" ? <SunIcon className="w-4 h-4 text-amber-400 shrink-0" /> : <MoonIcon className="w-4 h-4 shrink-0" />}
             <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
           </button>
           <button
@@ -247,16 +247,16 @@ export default function UserLayout() {
               toggleLanguage();
               setDrawerOpen(false);
             }}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 w-full btn-target"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground w-full btn-target"
           >
-            <GlobeIcon className="w-4 h-4" />
+            <GlobeIcon className="w-4 h-4 shrink-0" />
             <span>{language === "en" ? "မြန်မာ" : "English"}</span>
           </button>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 w-full btn-target"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-destructive hover:bg-destructive/10 w-full btn-target"
           >
-            <ExitIcon className="w-4 h-4" />
+            <ExitIcon className="w-4 h-4 shrink-0" />
             <span>{t.logout || "Logout"}</span>
           </button>
         </div>
@@ -265,15 +265,15 @@ export default function UserLayout() {
       {/* Main Viewport */}
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         {/* Top Header */}
-        <header className="flex h-16 w-full items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-4 md:px-8 shrink-0">
+        <header className="flex h-16 w-full items-center justify-between border-b border-border/80 bg-background/80 backdrop-blur-xl px-4 md:px-8 shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="lg:hidden p-2 rounded-2xl text-foreground hover:bg-secondary border border-border/80 shadow-xs"
             >
               <HamburgerMenuIcon className="w-5 h-5" />
             </button>
-            <h1 className="text-base font-bold text-slate-900 dark:text-white hidden sm:block">
+            <h1 className="text-base font-bold text-foreground hidden sm:block">
               {activeProfile ? activeProfile.name : "Patient Portal"}
             </h1>
           </div>
@@ -283,11 +283,11 @@ export default function UserLayout() {
             <div className="flex items-center gap-2">
               {data?.patientProfiles && data.patientProfiles.length > 0 ? (
                 <>
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider hidden md:inline">
                     Active Patient:
                   </span>
                   <select
-                    className="scms-select h-9 text-xs font-bold text-indigo-600 dark:text-indigo-400 pr-8"
+                    className="scms-select h-9 text-xs font-semibold text-foreground pr-8 bg-card/80 border-border/80"
                     value={activeProfileId || ""}
                     onChange={(e) => switchActiveProfile(Number(e.target.value))}
                   >

@@ -8,6 +8,7 @@ import {
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import PaginationControls from "../../components/PaginationControls";
+import { Input } from "../../components/ui/input";
 import { patientsApi, downloadBlob } from "../../services/scmsApi";
 import { showAlert, showError } from "../../services/dialogs";
 
@@ -98,19 +99,18 @@ export default function DoctorPatients() {
       {/* Search Bar */}
       <form
         onSubmit={handleSearch}
-        className="flex items-center gap-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm"
+        className="flex items-center gap-3 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms"
       >
-        <div className="relative flex-1">
-          <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
+        <div className="flex-1">
+          <Input
             type="text"
-            className="scms-input w-full pl-10 text-xs"
+            startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search patients by name, phone, or MRN..."
           />
         </div>
-        <button type="submit" className="scms-btn-primary text-xs font-bold btn-target">
+        <button type="submit" className="scms-btn-primary text-xs font-bold btn-target shadow-xs">
           Search
         </button>
         <button
@@ -119,9 +119,9 @@ export default function DoctorPatients() {
             setQuery("");
             loadPatients(1);
           }}
-          className="scms-btn-outline px-3 btn-target"
+          className="scms-btn-outline px-3 btn-target shadow-xs"
         >
-          <ReloadIcon className="w-4 h-4" />
+          <ReloadIcon className="w-4 h-4 shrink-0" />
         </button>
       </form>
 

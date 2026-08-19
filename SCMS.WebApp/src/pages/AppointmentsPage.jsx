@@ -483,44 +483,43 @@ export default function AppointmentsPage() {
       />
 
       {/* Advanced Filters */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white border border-scms-border rounded-2xl p-4 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card/90 backdrop-blur-md border border-border/80 rounded-3xl p-4 shadow-scms">
         <SearchForm
           value={patientSearch}
-          onChange={(e) => setPatientSearch(e.target.value)}
+          onChange={(val) => setPatientSearch(val)}
           onSubmit={handleSearchSubmit}
           placeholder="Search by patient name..."
-          submitLabel={t.search}
-          className="w-full max-w-2xl flex-1"
+          className="w-full max-w-2xl flex-1 border-0 bg-transparent p-0 shadow-none"
         />
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Date Filter Buttons */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+          <div className="flex items-center gap-1 bg-secondary/80 p-1 rounded-2xl w-full sm:w-auto border border-border/60">
             {["all", "today", "week", "month"].map(f => (
               <button
                 key={f}
                 onClick={() => { setDateFilter(f); setPage(1); }}
-                className={`flex-1 sm:flex-initial text-xs font-black px-3 py-1.5 rounded-lg transition capitalize ${dateFilter === f ? "bg-white text-scms-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 sm:flex-initial text-xs font-semibold px-3 py-1.5 rounded-xl transition-all capitalize ${dateFilter === f ? "bg-card text-foreground font-bold shadow-xs ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {f}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl ml-auto md:ml-0 shrink-0">
+          <div className="flex items-center gap-1 bg-secondary/80 p-1 rounded-2xl ml-auto md:ml-0 shrink-0 border border-border/60">
             <button
               onClick={() => setViewMode("table")}
-              className={`p-2 rounded-lg transition btn-target ${viewMode === "table" ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              className={`p-2 rounded-xl transition btn-target ${viewMode === "table" ? "bg-card text-foreground font-bold shadow-xs ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}
               title="Table view"
             >
-              <ListBulletIcon className="w-4 h-4" />
+              <ListBulletIcon className="w-4 h-4 shrink-0" />
             </button>
             <button
               onClick={() => setViewMode("card")}
-              className={`p-2 rounded-lg transition btn-target ${viewMode === "card" ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              className={`p-2 rounded-xl transition btn-target ${viewMode === "card" ? "bg-card text-foreground font-bold shadow-xs ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}
               title="Slot Cards view"
             >
-              <GridIcon className="w-4 h-4" />
+              <GridIcon className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </div>

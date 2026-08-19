@@ -10,10 +10,12 @@ import {
   TrashIcon,
   LayersIcon,
   Cross2Icon,
+  MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import SegmentedControl from "../components/SegmentedControl";
+import { Input } from "../components/ui/input";
 import { medicinesApi } from "../services/scmsApi";
 import { showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -192,26 +194,26 @@ export default function MedicinesPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleQuarantineExpired}
-              className="scms-btn-outline text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 flex items-center gap-1.5 text-xs font-bold btn-target"
+              className="scms-btn-outline text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs"
               title="Quarantine Expired Stock"
             >
-              <ExclamationTriangleIcon className="w-4 h-4" />
+              <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
               <span>{t.quarantineExpired}</span>
             </button>
 
             <button
               onClick={() => navigate("/app/medicines/batches")}
-              className="scms-btn-outline flex items-center gap-1.5 text-xs font-bold btn-target"
+              className="scms-btn-outline flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs"
             >
-              <LayersIcon className="w-4 h-4" />
+              <LayersIcon className="w-4 h-4 shrink-0" />
               <span>{t.batches}</span>
             </button>
 
             <button
               onClick={openCreateModal}
-              className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target"
+              className="scms-btn-primary flex items-center gap-1.5 text-xs font-bold btn-target shadow-xs"
             >
-              <PlusIcon className="w-4 h-4" />
+              <PlusIcon className="w-4 h-4 shrink-0" />
               <span>{t.create}</span>
             </button>
           </div>
@@ -219,11 +221,11 @@ export default function MedicinesPage() {
       />
 
       {/* Search & Layout Toggles */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
-        <form onSubmit={handleSearch} className="relative flex-1 w-full">
-          <input
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
+        <form onSubmit={handleSearch} className="flex-1 w-full">
+          <Input
             type="text"
-            className="scms-input w-full pl-4 text-xs"
+            startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search medicines by trade or generic name..."

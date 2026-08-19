@@ -115,7 +115,7 @@ export default function PaymentsPage() {
       />
 
       {/* Filter and View Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
         <div className="flex flex-1 flex-wrap items-center gap-3 w-full">
           <select
             className="scms-select min-w-[160px] text-xs font-semibold"
@@ -132,7 +132,7 @@ export default function PaymentsPage() {
           </select>
 
           <DateInput
-            className="scms-input min-w-[150px] text-xs font-mono"
+            className="min-w-[150px] text-xs font-mono"
             value={dateFilter}
             onChange={(e) => {
               setDateFilter(e.target.value);
@@ -146,10 +146,10 @@ export default function PaymentsPage() {
               setDateFilter("");
               setPage(1);
             }}
-            className="scms-btn-outline px-3 btn-target"
+            className="scms-btn-outline px-3 btn-target shadow-xs"
             title={t.refresh}
           >
-            <ReloadIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <ReloadIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
 
