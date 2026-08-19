@@ -28,7 +28,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Create a clinical prescription and dispense inventory stock.</summary>
         [HttpPost]
         [HasPermission("Prescriptions.Create")]
-        [ProducesResponseType(typeof(Result<PrescriptionResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<CreatePrescriptionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreatePrescription([FromBody] CreatePrescriptionRequest request)
         {
@@ -39,7 +39,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Get detailed prescription by prescription ID.</summary>
         [HttpGet("prescriptions/{id:int}")]
         [HasPermission("Prescriptions.View")]
-        [ProducesResponseType(typeof(Result<PrescriptionResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<GetPrescriptionDetailsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetPrescriptionDetails(int id)
         {
@@ -50,22 +50,22 @@ namespace SCMS.Api.Controllers
         /// <summary>Query prescriptions for a patient with pagination.</summary>
         [HttpGet]
         [HasPermission("Prescriptions.View")]
-        [ProducesResponseType(typeof(PagedResult<PrescriptionResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetPrescriptionsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetPrescriptions([FromQuery] int? patientId, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetPrescriptions([FromQuery] GetPrescriptionsRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            request ??= new GetPrescriptionsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
-            var result = await _prescriptionService.GetPrescriptionsAsync(patientId, paginationRequest);
+            var result = await _prescriptionService.GetPrescriptionsAsync(request);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
         /// <summary>Create or update a reusable medication prescription template.</summary>
         [HttpPost("templates")]
         [HasPermission("Prescriptions.Create")]
-        [ProducesResponseType(typeof(Result<PrescriptionTemplateResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<SaveTemplateResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SaveTemplate([FromBody] SaveTemplateRequest request)
         {
@@ -76,15 +76,15 @@ namespace SCMS.Api.Controllers
         /// <summary>List prescription templates filtered optionally by disease.</summary>
         [HttpGet("templates")]
         [HasPermission("Prescriptions.View")]
-        [ProducesResponseType(typeof(PagedResult<PrescriptionTemplateResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetTemplatesResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetTemplates([FromQuery] int? diseaseId, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetTemplates([FromQuery] GetTemplatesRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            request ??= new GetTemplatesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
-            var result = await _prescriptionService.GetTemplatesAsync(diseaseId, paginationRequest);
+            var result = await _prescriptionService.GetTemplatesAsync(request);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
@@ -111,7 +111,31 @@ namespace SCMS.Api.Controllers
                 return BadRequest(result);
             }
 
-            var bytes = _pdfDocumentService.CreatePrescriptionPdf(result.Data);
+            var legacyResponse = new PrescriptionResponse
+            {
+                Id = result.Data.Id,
+                AppointmentId = result.Data.AppointmentId,
+                AppointmentCode = result.Data.AppointmentCode,
+                PatientId = result.Data.PatientId,
+                PatientName = result.Data.PatientName,
+                DiseaseId = result.Data.DiseaseId,
+                DiseaseName = result.Data.DiseaseName,
+                WeightKg = result.Data.WeightKg,
+                BloodPressureSystolic = result.Data.BloodPressureSystolic,
+                BloodPressureDiastolic = result.Data.BloodPressureDiastolic,
+                Notes = result.Data.Notes,
+                TemperatureC = result.Data.TemperatureC,
+                PulseBpm = result.Data.PulseBpm,
+                Spo2Percent = result.Data.Spo2Percent,
+                HeightCm = result.Data.HeightCm,
+                Bmi = result.Data.Bmi,
+                LabTestRequests = result.Data.LabTestRequests,
+                Items = result.Data.Items,
+                Warnings = result.Data.Warnings,
+                CreatedAt = result.Data.CreatedAt
+            };
+
+            var bytes = _pdfDocumentService.CreatePrescriptionPdf(legacyResponse);
             return File(bytes, "application/pdf", $"prescription-{id}.pdf");
         }
     }

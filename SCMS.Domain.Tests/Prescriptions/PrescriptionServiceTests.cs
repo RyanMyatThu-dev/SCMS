@@ -1,8 +1,13 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Prescriptions;
 using SCMS.Domain.Features.Prescriptions.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
+using Xunit;
 
 namespace SCMS.Domain.Tests.Prescriptions;
 
@@ -122,6 +127,26 @@ public class PrescriptionServiceTests
     }
 
     [Fact]
+    public async Task GetPrescriptionsAsync_ReturnsAscendingOrderedPrescriptions()
+    {
+        using var db = new TestDatabase();
+        var user = TestData.AddUser(db);
+        var patient = TestData.AddPatient(db, user);
+        var appt1 = TestData.AddAppointment(db, patient);
+        var appt2 = TestData.AddAppointment(db, patient);
+        var disease = TestData.AddDisease(db);
+        var p1 = TestData.AddPrescription(db, patient, appt1, disease);
+        var p2 = TestData.AddPrescription(db, patient, appt2, disease);
+        var service = new PrescriptionService(db.Context);
+
+        var result = await service.GetPrescriptionsAsync(new GetPrescriptionsRequest { PatientId = patient.PatientId });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Data.Count);
+        Assert.True(result.Data[0].Id < result.Data[1].Id);
+    }
+
+    [Fact]
     public async Task SaveTemplateAsync_AndGetTemplatesAsync_PersistTemplateInDatabase()
     {
         DeleteTemplateFile();
@@ -147,7 +172,7 @@ public class PrescriptionServiceTests
                     }
                 }
             });
-            var listResult = await service.GetTemplatesAsync(disease.Id, new PaginationRequest());
+            var listResult = await service.GetTemplatesAsync(new GetTemplatesRequest { DiseaseId = disease.Id });
 
             Assert.True(saveResult.IsSuccess);
             Assert.True(listResult.IsSuccess);

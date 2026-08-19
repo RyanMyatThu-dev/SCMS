@@ -24,55 +24,54 @@ namespace SCMS.Domain.Features.Prescriptions
             _notificationService = notificationService;
         }
 
-        public async Task<Result<PrescriptionResponse>> CreatePrescriptionAsync(CreatePrescriptionRequest request)
+        public async Task<Result<CreatePrescriptionResponse>> CreatePrescriptionAsync(CreatePrescriptionRequest request)
         {
             if (request.PatientId <= 0)
             {
-                return Result<PrescriptionResponse>.Failure("Patient id is required.");
+                return Result<CreatePrescriptionResponse>.Failure("Patient id is required.");
             }
             if (request.AppointmentId <= 0)
             {
-                return Result<PrescriptionResponse>.Failure("Appointment id is required.");
+                return Result<CreatePrescriptionResponse>.Failure("Appointment id is required.");
             }
             var items = request.Items ?? new List<PrescriptionItemDto>();
             foreach (var item in items)
             {
                 if (item.MedicineId <= 0)
                 {
-                    return Result<PrescriptionResponse>.Failure("Medicine id is required for every prescription item.");
+                    return Result<CreatePrescriptionResponse>.Failure("Medicine id is required for every prescription item.");
                 }
                 if (item.Quantity <= 0)
                 {
-                    return Result<PrescriptionResponse>.Failure("Prescription item quantity must be greater than zero.");
+                    return Result<CreatePrescriptionResponse>.Failure("Prescription item quantity must be greater than zero.");
                 }
                 if (item.Days <= 0)
                 {
-                    return Result<PrescriptionResponse>.Failure("Prescription item days must be greater than zero.");
+                    return Result<CreatePrescriptionResponse>.Failure("Prescription item days must be greater than zero.");
                 }
                 if (item.DoseQuantity <= 0)
                 {
-                    return Result<PrescriptionResponse>.Failure("Dose quantity must be greater than zero.");
+                    return Result<CreatePrescriptionResponse>.Failure("Dose quantity must be greater than zero.");
                 }
             }
 
-            // Verify patient exists
             var patient = await _context.TblPatients
                 .FirstOrDefaultAsync(p => p.PatientId == request.PatientId && p.DeleteFlag != true);
             if (patient == null)
             {
-                return Result<PrescriptionResponse>.Failure("Patient not found.");
+                return Result<CreatePrescriptionResponse>.Failure("Patient not found.");
             }
 
-            // Verify appointment exists
             var appointment = await _context.TblAppointments
                 .FirstOrDefaultAsync(a => a.Id == request.AppointmentId);
             if (appointment == null)
             {
-                return Result<PrescriptionResponse>.Failure("Appointment not found.");
+                return Result<CreatePrescriptionResponse>.Failure("Appointment not found.");
             }
+
             if (appointment.PatientId != request.PatientId)
             {
-                return Result<PrescriptionResponse>.Failure("Appointment does not belong to the selected patient.");
+                return Result<CreatePrescriptionResponse>.Failure("Appointment does not belong to the selected patient.");
             }
 
             if (request.DiseaseId.HasValue)
@@ -81,12 +80,12 @@ namespace SCMS.Domain.Features.Prescriptions
                     .AnyAsync(d => d.Id == request.DiseaseId.Value && d.DeleteFlag != true);
                 if (!diseaseExists)
                 {
-                    return Result<PrescriptionResponse>.Failure("Disease not found.");
+                    return Result<CreatePrescriptionResponse>.Failure("Disease not found.");
                 }
             }
 
             // Batch pre-fetch all medicines referenced in this prescription
-            var medicineIds = request.Items.Select(i => i.MedicineId).Distinct().ToList();
+            var medicineIds = items.Select(i => i.MedicineId).Distinct().ToList();
             var prescribedMeds = await _context.TblMedicines
                 .Where(m => medicineIds.Contains(m.MedicineId) && m.DeleteFlag != true)
                 .ToListAsync();
@@ -108,45 +107,41 @@ namespace SCMS.Domain.Features.Prescriptions
                         var medNameLower = med.Name.ToLower();
                         foreach (var allergy in allergyList)
                         {
-                            if (medNameLower.Contains(allergy))
+                            if (medNameLower.Contains(allergy) || allergy.Contains(medNameLower))
                             {
-                                warnings.Add($"[ALLERGY WARNING] Patient is allergic to '{allergy}', but you prescribed '{med.Name}'.");
+                                warnings.Add($"Allergy warning: Patient is allergic to '{allergy}', which matches prescribed medicine '{med.Name}'.");
                             }
                         }
                     }
                 }
             }
 
-            // 2. Check Drug Interactions in-memory
-            for (int i = 0; i < prescribedMeds.Count; i++)
-            {
-                for (int j = i + 1; j < prescribedMeds.Count; j++)
-                {
-                    var m1 = prescribedMeds[i].Name.ToLower();
-                    var m2 = prescribedMeds[j].Name.ToLower();
+            // 2. Check Duplicate Active Prescriptions
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var activePrescriptions = await _context.TblPrescriptionItems
+                .Include(pi => pi.Prescription)
+                .Include(pi => pi.Medicine)
+                .Where(pi => pi.Prescription.PatientId == request.PatientId
+                             && pi.DeleteFlag != true
+                             && pi.Prescription.Appointment.Status != "cancelled"
+                             && pi.Prescription.Appointment.Status != "completed")
+                .ToListAsync();
 
-                    if ((m1.Contains("aspirin") && m2.Contains("warfarin")) || (m2.Contains("aspirin") && m1.Contains("warfarin")))
-                    {
-                        warnings.Add($"[DRUG INTERACTION] Aspirin and Warfarin interact (increased risk of bleeding).");
-                    }
-                    if ((m1.Contains("ibuprofen") && m2.Contains("aspirin")) || (m2.Contains("ibuprofen") && m1.Contains("aspirin")))
-                    {
-                        warnings.Add($"[DRUG INTERACTION] Ibuprofen may decrease the cardioprotective effect of Aspirin.");
-                    }
+            foreach (var item in request.Items)
+            {
+                var activeItem = activePrescriptions.FirstOrDefault(pi => pi.MedicineId == item.MedicineId);
+                if (activeItem != null)
+                {
+                    warnings.Add($"Duplicate medication warning: Patient is currently already prescribed '{activeItem.Medicine.Name}' in active appointment {activeItem.Prescription.AppointmentId}.");
                 }
             }
 
-            // 3. Smart Inventory Deduction (FIFO) & Expiry Warnings
-            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var lowStockAlertsToSend = new List<(int MedicineId, string MedName, int TotalAvailable)>();
-
             // Calculate BMI
-            double? bmi = null;
+            double? calculatedBmi = null;
             if (request.WeightKg.HasValue && request.HeightCm.HasValue && request.HeightCm.Value > 0)
             {
-                var heightMeters = request.HeightCm.Value / 100.0;
-                bmi = Math.Round(request.WeightKg.Value / (heightMeters * heightMeters), 2);
+                var heightM = request.HeightCm.Value / 100.0;
+                calculatedBmi = Math.Round(request.WeightKg.Value / (heightM * heightM), 2);
             }
 
             var prescription = new TblPrescription
@@ -162,110 +157,105 @@ namespace SCMS.Domain.Features.Prescriptions
                 PulseBpm = request.PulseBpm,
                 Spo2Percent = request.Spo2Percent,
                 HeightCm = request.HeightCm,
-                Bmi = bmi,
+                Bmi = calculatedBmi,
                 LabTestRequests = request.LabTestRequests,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
                 DeleteFlag = false
             };
 
-            foreach (var item in request.Items)
-            {
-                if (!medMap.TryGetValue(item.MedicineId, out var med))
-                {
-                    return Result<PrescriptionResponse>.Failure($"Medicine ID {item.MedicineId} not found.");
-                }
+            var lowStockAlertsToSend = new List<(string MedName, int TotalAvailable)>();
 
-                // Get active non-expired batches ordered by expiry date (FIFO)
-                var batches = await _context.TblMedicineBatches
-                    .Where(b => b.MedId == item.MedicineId && b.Status == "active" && b.ExpiryDate > today && b.Quantity > 0 && b.DeleteFlag != true)
-                    .OrderBy(b => b.ExpiryDate)
-                    .ToListAsync();
-
-                var totalAvailable = batches.Sum(b => b.Quantity);
-                if (totalAvailable < item.Quantity)
-                {
-                    return Result<PrescriptionResponse>.Failure($"Insufficient stock for {med.Name}. Requested: {item.Quantity}, Available: {totalAvailable}.");
-                }
-
-                // Warn if total stock is low
-                if (totalAvailable < LowStockThreshold)
-                {
-                    warnings.Add($"[LOW STOCK WARNING] '{med.Name}' is low in stock ({totalAvailable} left).");
-                    lowStockAlertsToSend.Add((med.MedicineId, med.Name, totalAvailable));
-                }
-
-                // Deduct stock FIFO
-                var remainingToDeduct = item.Quantity;
-                foreach (var batch in batches)
-                {
-                    if (remainingToDeduct <= 0) break;
-
-                    // Warn if batch is nearing expiry (within 30 days)
-                    if (batch.ExpiryDate <= today.AddDays(30))
-                    {
-                        warnings.Add($"[EXPIRY WARNING] Batch '{batch.BatchNo}' of '{med.Name}' is nearing expiry ({batch.ExpiryDate.ToString(Common.FormatHelper.DateFormat)}).");
-                    }
-
-                    var pItem = new TblPrescriptionItem
-                    {
-                        MedicineId = item.MedicineId,
-                        MedicineBatchId = batch.Id,
-                        Dosage = item.Dosage,
-                        Days = item.Days,
-                        Quantity = Math.Min(batch.Quantity, remainingToDeduct),
-                        Instruction = item.Instruction,
-                        CreatedAt = DateTime.UtcNow,
-                        DeleteFlag = false
-                    };
-
-                    if (batch.Quantity >= remainingToDeduct)
-                    {
-                        batch.Quantity -= remainingToDeduct;
-                        remainingToDeduct = 0;
-                    }
-                    else
-                    {
-                        remainingToDeduct -= batch.Quantity;
-                        batch.Quantity = 0;
-                    }
-
-                    batch.UpdatedAt = DateTime.UtcNow;
-
-                    // Add schedule to item in memory
-                    var schedule = new TblPrescriptionItemSchedule
-                    {
-                        StartDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                        EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(item.Days)),
-                        DoseTime = item.DoseTime,
-                        DoseQuantity = item.DoseQuantity,
-                        DoseUnit = item.DoseUnit,
-                        MealTiming = item.MealTiming,
-                        Route = item.Route,
-                        IntervalHours = item.IntervalHours,
-                        IntervalDays = item.IntervalDays,
-                        DayOfWeek = item.DayOfWeek,
-                        IsAsNeeded = item.IsAsNeeded,
-                        BodySite = item.BodySite,
-                        Note = item.ScheduleNote,
-                        CreatedAt = DateTime.UtcNow,
-                        DeleteFlag = false
-                    };
-
-                    pItem.TblPrescriptionItemSchedules.Add(schedule);
-                    prescription.TblPrescriptionItems.Add(pItem);
-                }
-            }
-
+            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead);
             try
             {
-                _context.TblPrescriptions.Add(prescription);
+                // Lock and validate inventory batches
+                foreach (var item in request.Items)
+                {
+                    if (item.Quantity <= 0)
+                    {
+                        await transaction.RollbackAsync();
+                        return Result<CreatePrescriptionResponse>.Failure($"Quantity for medicine {item.MedicineId} must be greater than zero.");
+                    }
 
-                // Set appointment status to Completed
+                    if (!medMap.TryGetValue(item.MedicineId, out var medicine))
+                    {
+                        await transaction.RollbackAsync();
+                        return Result<CreatePrescriptionResponse>.Failure($"Medicine ID {item.MedicineId} does not exist.");
+                    }
+
+                    var availableBatches = await _context.TblMedicineBatches
+                        .Where(b => b.MedId == item.MedicineId
+                                    && b.DeleteFlag != true
+                                    && b.Status == "active"
+                                    && b.ExpiryDate > today
+                                    && b.Quantity > 0)
+                        .OrderBy(b => b.ExpiryDate)
+                        .ToListAsync();
+
+                    var totalAvailable = availableBatches.Sum(b => b.Quantity);
+                    if (totalAvailable < item.Quantity)
+                    {
+                        await transaction.RollbackAsync();
+                        return Result<CreatePrescriptionResponse>.Failure(
+                            $"Insufficient stock for medicine '{medicine.Name}'. Requested: {item.Quantity}, Available: {totalAvailable} across non-expired active batches.");
+                    }
+
+                    int remainingToDeduct = item.Quantity;
+                    foreach (var batch in availableBatches)
+                    {
+                        if (remainingToDeduct <= 0) break;
+
+                        int deductFromBatch = Math.Min(batch.Quantity, remainingToDeduct);
+                        batch.Quantity -= deductFromBatch;
+                        batch.UpdatedAt = DateTime.UtcNow;
+                        remainingToDeduct -= deductFromBatch;
+
+                        var prescriptionItem = new TblPrescriptionItem
+                        {
+                            MedicineId = item.MedicineId,
+                            MedicineBatchId = batch.Id,
+                            Dosage = item.Dosage,
+                            Days = item.Days,
+                            Quantity = deductFromBatch,
+                            Instruction = item.Instruction,
+                            CreatedAt = DateTime.UtcNow,
+                            DeleteFlag = false
+                        };
+
+                        if (!string.IsNullOrWhiteSpace(item.DoseTime) || !string.IsNullOrWhiteSpace(item.MealTiming) || !string.IsNullOrWhiteSpace(item.Route))
+                        {
+                            prescriptionItem.TblPrescriptionItemSchedules.Add(new TblPrescriptionItemSchedule
+                            {
+                                DoseTime = item.DoseTime,
+                                DoseQuantity = item.DoseQuantity,
+                                DoseUnit = item.DoseUnit,
+                                MealTiming = item.MealTiming,
+                                Route = item.Route,
+                                IntervalHours = item.IntervalHours,
+                                IntervalDays = item.IntervalDays,
+                                DayOfWeek = item.DayOfWeek,
+                                IsAsNeeded = item.IsAsNeeded,
+                                BodySite = item.BodySite,
+                                Note = item.ScheduleNote,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+
+                        prescription.TblPrescriptionItems.Add(prescriptionItem);
+                    }
+
+                    var remainingTotalStock = totalAvailable - item.Quantity;
+                    if (remainingTotalStock < LowStockThreshold)
+                    {
+                        warnings.Add($"Low stock alert: Medicine '{medicine.Name}' is running low ({remainingTotalStock} units remaining).");
+                        lowStockAlertsToSend.Add((medicine.Name, remainingTotalStock));
+                    }
+                }
+
                 appointment.Status = "completed";
                 appointment.UpdatedAt = DateTime.UtcNow;
 
-                // Single atomic database save committing the entire graph!
+                _context.TblPrescriptions.Add(prescription);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -298,21 +288,44 @@ namespace SCMS.Domain.Features.Prescriptions
             }
             catch (DbUpdateException)
             {
-                return Result<PrescriptionResponse>.Failure("Prescription could not be saved safely. Please retry.");
+                return Result<CreatePrescriptionResponse>.Failure("Prescription could not be saved safely. Please retry.");
             }
 
             // Format response
-            var response = await GetPrescriptionDetailsAsync(prescription.Id);
-            if (response.IsSuccess && response.Data != null)
+            var detailsResponse = await GetPrescriptionDetailsAsync(prescription.Id);
+            if (detailsResponse.IsSuccess && detailsResponse.Data != null)
             {
-                response.Data.Warnings.AddRange(warnings);
-                return Result<PrescriptionResponse>.Success(response.Data, "Prescription created and stock deducted.");
+                var response = new CreatePrescriptionResponse
+                {
+                    Id = detailsResponse.Data.Id,
+                    AppointmentId = detailsResponse.Data.AppointmentId,
+                    AppointmentCode = detailsResponse.Data.AppointmentCode,
+                    PatientId = detailsResponse.Data.PatientId,
+                    PatientName = detailsResponse.Data.PatientName,
+                    DiseaseId = detailsResponse.Data.DiseaseId,
+                    DiseaseName = detailsResponse.Data.DiseaseName,
+                    WeightKg = detailsResponse.Data.WeightKg,
+                    BloodPressureSystolic = detailsResponse.Data.BloodPressureSystolic,
+                    BloodPressureDiastolic = detailsResponse.Data.BloodPressureDiastolic,
+                    Notes = detailsResponse.Data.Notes,
+                    TemperatureC = detailsResponse.Data.TemperatureC,
+                    PulseBpm = detailsResponse.Data.PulseBpm,
+                    Spo2Percent = detailsResponse.Data.Spo2Percent,
+                    HeightCm = detailsResponse.Data.HeightCm,
+                    Bmi = detailsResponse.Data.Bmi,
+                    LabTestRequests = detailsResponse.Data.LabTestRequests,
+                    Items = detailsResponse.Data.Items,
+                    Warnings = warnings,
+                    CreatedAt = detailsResponse.Data.CreatedAt
+                };
+
+                return Result<CreatePrescriptionResponse>.Success(response, "Prescription created and stock deducted.");
             }
 
-            return Result<PrescriptionResponse>.Failure("Prescription created but failed to load response details.");
+            return Result<CreatePrescriptionResponse>.Failure("Prescription created but failed to load response details.");
         }
 
-        public async Task<Result<PrescriptionResponse>> GetPrescriptionDetailsAsync(int id)
+        public async Task<Result<GetPrescriptionDetailsResponse>> GetPrescriptionDetailsAsync(int id)
         {
             var p = await _context.TblPrescriptions
                 .AsNoTracking()
@@ -329,14 +342,18 @@ namespace SCMS.Domain.Features.Prescriptions
 
             if (p == null)
             {
-                return Result<PrescriptionResponse>.Failure("Prescription not found.");
+                return Result<GetPrescriptionDetailsResponse>.Failure("Prescription not found.");
             }
 
-            return Result<PrescriptionResponse>.Success(MapPrescriptionToResponse(p));
+            return Result<GetPrescriptionDetailsResponse>.Success(MapToGetPrescriptionDetailsResponse(p));
         }
 
-        public async Task<PagedResult<PrescriptionResponse>> GetPrescriptionsAsync(int? patientId, PaginationRequest paginationRequest)
+        public async Task<PagedResult<GetPrescriptionsResponse>> GetPrescriptionsAsync(GetPrescriptionsRequest request)
         {
+            request ??= new GetPrescriptionsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
             var query = _context.TblPrescriptions
                 .AsNoTracking()
                 .Include(p => p.Patient)
@@ -350,55 +367,55 @@ namespace SCMS.Domain.Features.Prescriptions
                     .ThenInclude(i => i.TblPrescriptionItemSchedules)
                 .Where(p => p.DeleteFlag != true);
 
-            if (patientId.HasValue)
+            if (request.PatientId.HasValue)
             {
-                query = query.Where(p => p.PatientId == patientId.Value);
+                query = query.Where(p => p.PatientId == request.PatientId.Value);
             }
 
             var totalCount = await query.CountAsync();
             var prescriptions = await query
-                .OrderByDescending(p => p.Id)
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .OrderBy(p => p.Id)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .AsSplitQuery()
                 .ToListAsync();
 
-            var list = prescriptions.Select(MapPrescriptionToResponse).ToList();
+            var list = prescriptions.Select(MapToGetPrescriptionsResponse).ToList();
 
-            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
-            return PagedResult<PrescriptionResponse>.Success(list, pagination);
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<GetPrescriptionsResponse>.Success(list, pagination);
         }
 
-        public async Task<Result<PrescriptionTemplateResponse>> SaveTemplateAsync(SaveTemplateRequest request)
+        public async Task<Result<SaveTemplateResponse>> SaveTemplateAsync(SaveTemplateRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Result<PrescriptionTemplateResponse>.Failure("Template name is required.");
+                return Result<SaveTemplateResponse>.Failure("Template name is required.");
             }
             if (request.Items == null || request.Items.Count == 0)
             {
-                return Result<PrescriptionTemplateResponse>.Failure("At least one template item is required.");
+                return Result<SaveTemplateResponse>.Failure("At least one template item is required.");
             }
 
             var medIdsToCheck = request.Items.Select(i => i.MedicineId).ToList();
             if (medIdsToCheck.Count != medIdsToCheck.Distinct().Count())
             {
-                return Result<PrescriptionTemplateResponse>.Failure("A prescription template cannot contain duplicate medicines.");
+                return Result<SaveTemplateResponse>.Failure("A prescription template cannot contain duplicate medicines.");
             }
 
             foreach (var item in request.Items)
             {
                 if (item.MedicineId <= 0)
                 {
-                    return Result<PrescriptionTemplateResponse>.Failure("Medicine id is required for every template item.");
+                    return Result<SaveTemplateResponse>.Failure("Medicine id is required for every template item.");
                 }
                 if (item.Quantity <= 0)
                 {
-                    return Result<PrescriptionTemplateResponse>.Failure("Template item quantity must be greater than zero.");
+                    return Result<SaveTemplateResponse>.Failure("Template item quantity must be greater than zero.");
                 }
                 if (item.Days <= 0)
                 {
-                    return Result<PrescriptionTemplateResponse>.Failure("Template item days must be greater than zero.");
+                    return Result<SaveTemplateResponse>.Failure("Template item days must be greater than zero.");
                 }
             }
 
@@ -406,7 +423,7 @@ namespace SCMS.Domain.Features.Prescriptions
                 .FirstOrDefaultAsync(d => d.Id == request.DiseaseId && d.DeleteFlag != true);
             if (disease == null)
             {
-                return Result<PrescriptionTemplateResponse>.Failure("Disease not found.");
+                return Result<SaveTemplateResponse>.Failure("Disease not found.");
             }
 
             var medicineIds = request.Items.Select(i => i.MedicineId).Distinct().ToList();
@@ -417,7 +434,7 @@ namespace SCMS.Domain.Features.Prescriptions
             var missingMedicineId = medicineIds.FirstOrDefault(id => !existingMedicineIds.Contains(id));
             if (missingMedicineId > 0)
             {
-                return Result<PrescriptionTemplateResponse>.Failure($"Medicine ID {missingMedicineId} not found.");
+                return Result<SaveTemplateResponse>.Failure($"Medicine ID {missingMedicineId} not found.");
             }
 
             // Check if we are updating an existing template
@@ -463,7 +480,7 @@ namespace SCMS.Domain.Features.Prescriptions
                 }
 
                 await _context.SaveChangesAsync();
-                return Result<PrescriptionTemplateResponse>.Success(await MapToTemplateResponseAsync(existingTemplate.Id), "Prescription template updated.");
+                return Result<SaveTemplateResponse>.Success(await MapToSaveTemplateResponseAsync(existingTemplate.Id), "Prescription template updated.");
             }
 
             var newTemplate = new TblPrescriptionTemplate
@@ -492,7 +509,7 @@ namespace SCMS.Domain.Features.Prescriptions
             _context.TblPrescriptionTemplates.Add(newTemplate);
             await _context.SaveChangesAsync();
 
-            return Result<PrescriptionTemplateResponse>.Success(await MapToTemplateResponseAsync(newTemplate.Id), "Prescription template saved.");
+            return Result<SaveTemplateResponse>.Success(await MapToSaveTemplateResponseAsync(newTemplate.Id), "Prescription template saved.");
         }
 
         public async Task<Result<bool>> DeleteTemplateAsync(int id)
@@ -518,8 +535,12 @@ namespace SCMS.Domain.Features.Prescriptions
             return Result<bool>.Success(true, "Prescription template removed successfully.");
         }
 
-        public async Task<PagedResult<PrescriptionTemplateResponse>> GetTemplatesAsync(int? diseaseId, PaginationRequest paginationRequest)
+        public async Task<PagedResult<GetTemplatesResponse>> GetTemplatesAsync(GetTemplatesRequest request)
         {
+            request ??= new GetTemplatesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
             var query = _context.TblPrescriptionTemplates
                 .AsNoTracking()
                 .Include(t => t.Disease)
@@ -527,24 +548,136 @@ namespace SCMS.Domain.Features.Prescriptions
                     .ThenInclude(i => i.Medicine)
                 .Where(t => t.DeleteFlag != true);
 
-            if (diseaseId.HasValue)
+            if (request.DiseaseId.HasValue)
             {
-                query = query.Where(t => t.DiseaseId == diseaseId.Value);
+                query = query.Where(t => t.DiseaseId == request.DiseaseId.Value);
             }
 
             var totalCount = await query.CountAsync();
             var templates = await query
-                .OrderBy(t => t.Name)
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .OrderBy(t => t.Id)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync();
 
-            var list = templates.Select(MapToTemplateResponse).ToList();
-            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
-            return PagedResult<PrescriptionTemplateResponse>.Success(list, pagination);
+            var list = templates.Select(MapToGetTemplatesResponse).ToList();
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<GetTemplatesResponse>.Success(list, pagination);
         }
 
-        private static PrescriptionResponse MapPrescriptionToResponse(TblPrescription p)
+        private static GetPrescriptionsResponse MapToGetPrescriptionsResponse(TblPrescription p)
+        {
+            var itemResponseDtos = new List<PrescriptionItemResponseDto>();
+            foreach (var item in p.TblPrescriptionItems)
+            {
+                var sched = item.TblPrescriptionItemSchedules.FirstOrDefault();
+
+                itemResponseDtos.Add(new PrescriptionItemResponseDto
+                {
+                    Id = item.Id,
+                    MedicineId = item.MedicineId,
+                    MedicineName = item.Medicine?.Name ?? "Unknown Medicine",
+                    MedicineBatchId = item.MedicineBatchId,
+                    BatchNo = item.MedicineBatch?.BatchNo,
+                    Dosage = item.Dosage,
+                    Days = item.Days,
+                    Quantity = item.Quantity,
+                    Instruction = item.Instruction,
+                    DoseTime = sched?.DoseTime,
+                    DoseQuantity = sched?.DoseQuantity ?? 1.0m,
+                    DoseUnit = sched?.DoseUnit,
+                    MealTiming = sched?.MealTiming,
+                    Route = sched?.Route,
+                    IntervalHours = sched?.IntervalHours,
+                    IntervalDays = sched?.IntervalDays,
+                    DayOfWeek = sched?.DayOfWeek,
+                    IsAsNeeded = sched?.IsAsNeeded ?? false,
+                    BodySite = sched?.BodySite,
+                    ScheduleNote = sched?.Note
+                });
+            }
+
+            return new GetPrescriptionsResponse
+            {
+                Id = p.Id,
+                AppointmentId = p.AppointmentId,
+                AppointmentCode = p.Appointment?.AppointmentCode ?? "-",
+                PatientId = p.PatientId,
+                PatientName = p.Patient?.Name ?? "Unknown",
+                DiseaseId = p.DiseaseId,
+                DiseaseName = p.Disease?.Name,
+                WeightKg = p.WeightKg,
+                BloodPressureSystolic = p.BloodPressureSystolic,
+                BloodPressureDiastolic = p.BloodPressureDiastolic,
+                Notes = p.Notes,
+                TemperatureC = p.TemperatureC,
+                PulseBpm = p.PulseBpm,
+                Spo2Percent = p.Spo2Percent,
+                HeightCm = p.HeightCm,
+                Bmi = p.Bmi,
+                LabTestRequests = p.LabTestRequests,
+                Items = itemResponseDtos,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private static GetPrescriptionDetailsResponse MapToGetPrescriptionDetailsResponse(TblPrescription p)
+        {
+            var itemResponseDtos = new List<PrescriptionItemResponseDto>();
+            foreach (var item in p.TblPrescriptionItems)
+            {
+                var sched = item.TblPrescriptionItemSchedules.FirstOrDefault();
+
+                itemResponseDtos.Add(new PrescriptionItemResponseDto
+                {
+                    Id = item.Id,
+                    MedicineId = item.MedicineId,
+                    MedicineName = item.Medicine?.Name ?? "Unknown Medicine",
+                    MedicineBatchId = item.MedicineBatchId,
+                    BatchNo = item.MedicineBatch?.BatchNo,
+                    Dosage = item.Dosage,
+                    Days = item.Days,
+                    Quantity = item.Quantity,
+                    Instruction = item.Instruction,
+                    DoseTime = sched?.DoseTime,
+                    DoseQuantity = sched?.DoseQuantity ?? 1.0m,
+                    DoseUnit = sched?.DoseUnit,
+                    MealTiming = sched?.MealTiming,
+                    Route = sched?.Route,
+                    IntervalHours = sched?.IntervalHours,
+                    IntervalDays = sched?.IntervalDays,
+                    DayOfWeek = sched?.DayOfWeek,
+                    IsAsNeeded = sched?.IsAsNeeded ?? false,
+                    BodySite = sched?.BodySite,
+                    ScheduleNote = sched?.Note
+                });
+            }
+
+            return new GetPrescriptionDetailsResponse
+            {
+                Id = p.Id,
+                AppointmentId = p.AppointmentId,
+                AppointmentCode = p.Appointment?.AppointmentCode ?? "-",
+                PatientId = p.PatientId,
+                PatientName = p.Patient?.Name ?? "Unknown",
+                DiseaseId = p.DiseaseId,
+                DiseaseName = p.Disease?.Name,
+                WeightKg = p.WeightKg,
+                BloodPressureSystolic = p.BloodPressureSystolic,
+                BloodPressureDiastolic = p.BloodPressureDiastolic,
+                Notes = p.Notes,
+                TemperatureC = p.TemperatureC,
+                PulseBpm = p.PulseBpm,
+                Spo2Percent = p.Spo2Percent,
+                HeightCm = p.HeightCm,
+                Bmi = p.Bmi,
+                LabTestRequests = p.LabTestRequests,
+                Items = itemResponseDtos,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        public static PrescriptionResponse MapPrescriptionToResponse(TblPrescription p)
         {
             var itemResponseDtos = new List<PrescriptionItemResponseDto>();
             foreach (var item in p.TblPrescriptionItems)
@@ -600,7 +733,7 @@ namespace SCMS.Domain.Features.Prescriptions
             };
         }
 
-        private async Task<PrescriptionTemplateResponse> MapToTemplateResponseAsync(int id)
+        private async Task<SaveTemplateResponse> MapToSaveTemplateResponseAsync(int id)
         {
             var template = await _context.TblPrescriptionTemplates
                 .AsNoTracking()
@@ -609,12 +742,30 @@ namespace SCMS.Domain.Features.Prescriptions
                     .ThenInclude(i => i.Medicine)
                 .FirstAsync(t => t.Id == id);
 
-            return MapToTemplateResponse(template);
+            return new SaveTemplateResponse
+            {
+                Id = template.Id.ToString(),
+                Name = template.Name,
+                DiseaseId = template.DiseaseId,
+                DiseaseName = template.Disease?.Name ?? "Unknown Disease",
+                Items = template.TblPrescriptionTemplateItems
+                    .Where(i => i.DeleteFlag != true)
+                    .Select(item => new TemplateItemResponseDto
+                    {
+                        MedicineId = item.MedicineId,
+                        MedicineName = item.Medicine?.Name ?? "Unknown Medicine",
+                        Dosage = item.Dosage,
+                        Days = item.Days,
+                        Quantity = item.Quantity,
+                        Instruction = item.Instruction
+                    })
+                    .ToList()
+            };
         }
 
-        private static PrescriptionTemplateResponse MapToTemplateResponse(TblPrescriptionTemplate template)
+        private static GetTemplatesResponse MapToGetTemplatesResponse(TblPrescriptionTemplate template)
         {
-            return new PrescriptionTemplateResponse
+            return new GetTemplatesResponse
             {
                 Id = template.Id.ToString(),
                 Name = template.Name,
