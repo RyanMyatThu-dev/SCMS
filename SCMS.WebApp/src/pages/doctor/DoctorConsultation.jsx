@@ -334,7 +334,7 @@ export default function DoctorConsultation() {
                   {patient?.name || appointment?.patientName || "Patient"}
                 </h1>
                 <span className="font-mono text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-900">
-                  Token #{appointment?.tokenNumber || appointment?.appointmentCode || "1"}
+                  Token {appointment?.tokenNumber || appointment?.appointmentCode || "1"}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">

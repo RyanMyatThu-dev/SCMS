@@ -67,7 +67,7 @@ export default function DoctorDashboard() {
       setCallingNext(true);
       const res = await appointmentsApi.callNext();
       const nextToken = res?.tokenNumber || res?.data?.tokenNumber || "Next Patient";
-      await showAlert(`Calling Token #${nextToken} to the Consultation Room.`, "Patient Called");
+      await showAlert(`Calling Token ${nextToken} to the Consultation Room.`, "Patient Called");
       loadTodayQueue();
     } catch (err) {
       showError(err?.response?.data?.message || "No more waiting patients in queue.");
@@ -152,7 +152,7 @@ export default function DoctorDashboard() {
           tone="primary"
           subtitle={
             inConsult
-              ? `Token #${inConsult.tokenNumber || inConsult.appointmentCode} (${
+              ? `Token ${inConsult.tokenNumber || inConsult.appointmentCode} (${
                   inConsult.patientName || inConsult.patient?.name || "Patient"
                 })`
               : "No active consultation"
@@ -177,7 +177,7 @@ export default function DoctorDashboard() {
                   Current Patient
                 </span>
                 <span className="font-mono text-xs font-bold text-orange-700 dark:text-orange-300">
-                  Token #{inConsult.tokenNumber || inConsult.appointmentCode}
+                  Token {inConsult.tokenNumber || inConsult.appointmentCode}
                 </span>
               </div>
               <h2 className="text-xl font-bold text-foreground">
@@ -203,7 +203,7 @@ export default function DoctorDashboard() {
         <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms flex items-center justify-between gap-4">
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-foreground">
-              Next Patient in Line: Token #{waitingList[0].tokenNumber || waitingList[0].appointmentCode}
+              Next Patient in Line: Token {waitingList[0].tokenNumber || waitingList[0].appointmentCode}
             </h3>
             <p className="text-xs text-muted-foreground">
               {waitingList[0].patientName || waitingList[0].patient?.name} is ready for consultation.

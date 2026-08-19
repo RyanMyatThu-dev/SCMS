@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   DashboardIcon,
@@ -22,12 +22,14 @@ import {
   BellIcon,
   ChevronDownIcon,
   ArrowRightIcon,
+  CheckIcon,
 } from "@radix-ui/react-icons";
 import BrandLogo from "./BrandLogo";
 import SkipLink from "./SkipLink";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
+import { notificationsApi } from "../services/scmsApi";
 
 const navItems = [
   { to: "/app/dashboard", key: "dashboard", icon: DashboardIcon },
@@ -44,6 +46,33 @@ const navItems = [
   { to: "/app/settings", key: "settings", icon: GearIcon },
 ];
 
+const defaultClinicNotifications = [
+  {
+    id: "notif-1",
+    title: "New Appointment Booked",
+    description: "Token 4: Ma Aye Aye scheduled for consultation today at 2:00 PM.",
+    actionRoute: "/app/appointments",
+    timeAgo: "12m ago",
+    unread: true,
+  },
+  {
+    id: "notif-2",
+    title: "Patient in Waiting Queue",
+    description: "3 patients are currently waiting in today's consultation queue.",
+    actionRoute: "/app/appointments",
+    timeAgo: "45m ago",
+    unread: true,
+  },
+  {
+    id: "notif-3",
+    title: "Follow-up Appointment Due",
+    description: "Patient U Ba has a follow-up review scheduled for this afternoon.",
+    actionRoute: "/app/appointments",
+    timeAgo: "2h ago",
+    unread: true,
+  },
+];
+
 export default function AppShell() {
   const { t, toggleLanguage, language } = useLanguage();
   const { isDark, toggleTheme } = useTheme();
@@ -51,22 +80,78 @@ export default function AppShell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [globalSearch, setGlobalSearch] = useState("");
+
+  // Notification Dropdown State
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState(defaultClinicNotifications);
+  const notifRef = useRef(null);
+
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await notificationsApi.list({ includeAll: true });
+        const items = res?.items || res?.data?.items || (Array.isArray(res) ? res : []);
+        if (items.length > 0) {
+          const mapped = items.map((item, idx) => ({
+            id: item.id || `api-notif-${idx}`,
+            title: item.title || "Clinic Notification",
+            description: (item.description || "Updated clinic record.").replace(/Token\s*#(\d+)/gi, "Token $1"),
+            actionRoute: item.actionRoute || "/app/appointments",
+            timeAgo: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recent",
+            unread: true,
+          }));
+          setNotifications(mapped);
+        }
+      } catch (err) {
+        // Fallback to default clinical notifications
+        console.debug("Using fallback notifications for clinic dashboard");
+      }
+    };
+    fetchNotifications();
+  }, []);
+
+  // Close dropdown on click outside or escape key
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && notifOpen) {
+        setNotifOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notifOpen]);
 
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
   };
 
-  const handleGlobalSearch = (e) => {
-    e.preventDefault();
-    if (globalSearch.trim()) {
-      navigate(`/app/patients?q=${encodeURIComponent(globalSearch.trim())}`);
-    }
+  const handleNotificationClick = (item) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
+    );
+    setNotifOpen(false);
+    navigate(item.actionRoute || "/app/appointments");
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans transition-colors">
+    <div className="min-h-screen bg-background text-foreground font-sans transition-colors overflow-x-hidden">
       <SkipLink targetId="main-content" />
 
       {/* Mobile overlay backdrop */}
@@ -80,7 +165,7 @@ export default function AppShell() {
 
       {/* Modern Apricot Glass Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border/80 bg-card/95 backdrop-blur-2xl p-4 transition-all duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border/80 bg-card/95 backdrop-blur-2xl p-4 transition-all duration-300 overflow-x-hidden lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-[84px]" : "lg:w-[260px]"}`}
       >
@@ -97,7 +182,7 @@ export default function AppShell() {
 
         {/* Navigation Menu */}
         <nav
-          className="flex-1 space-y-1.5 overflow-y-auto pt-4 pr-1 scrollbar-thin"
+          className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden pt-4 pr-1 scrollbar-thin"
           aria-label="Practice Navigation"
         >
           {navItems.map((item) => {
@@ -163,14 +248,14 @@ export default function AppShell() {
 
       {/* Main Content Area */}
       <div
-        className={`transition-all duration-300 ${
+        className={`transition-all duration-300 overflow-x-hidden ${
           collapsed ? "lg:pl-[84px]" : "lg:pl-[260px]"
         }`}
       >
         {/* Top Apricot Header Navigation Bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/80 bg-background/85 backdrop-blur-2xl px-4 sm:px-6 gap-4">
-          {/* Left Controls & Search */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Left Controls */}
+          <div className="flex items-center gap-3">
             <button
               className="grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground lg:hidden btn-target shadow-2xs"
               onClick={() => setOpen(true)}
@@ -185,18 +270,6 @@ export default function AppShell() {
             >
               <HamburgerMenuIcon className="w-4 h-4" />
             </button>
-
-            {/* Universal Search Bar */}
-            <form onSubmit={handleGlobalSearch} className="relative w-full max-w-md hidden sm:block">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Search anything..."
-                className="w-full h-10 rounded-2xl border border-border/80 bg-card/90 pl-10 pr-4 text-xs font-medium text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
-              />
-            </form>
           </div>
 
           {/* Right Utility Controls & User Profile Pill */}
@@ -215,18 +288,137 @@ export default function AppShell() {
               )}
             </button>
 
-            {/* Notification Bell with Badge */}
-            <button
-              className="relative grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground hover:bg-secondary transition btn-target shadow-2xs"
-              title="Notifications"
-              aria-label="3 new notifications"
-              onClick={() => navigate("/app/appointments")}
-            >
-              <BellIcon className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-orange-500 text-[9px] font-bold text-white shadow-xs">
-                3
-              </span>
-            </button>
+            {/* Notification Bell Dropdown Container */}
+            <div className="relative" ref={notifRef}>
+              <button
+                className={`relative grid h-9 w-9 place-items-center rounded-2xl border border-border/80 bg-card text-foreground hover:bg-secondary transition btn-target shadow-2xs ${
+                  notifOpen ? "ring-2 ring-orange-500/50 bg-secondary" : ""
+                }`}
+                title={t.notifications || "Notifications"}
+                aria-label={
+                  unreadCount > 0
+                    ? `${unreadCount} new notifications`
+                    : "No unread notifications"
+                }
+                aria-haspopup="true"
+                aria-expanded={notifOpen}
+                aria-controls="notification-dropdown-panel"
+                onClick={() => setNotifOpen((prev) => !prev)}
+              >
+                <BellIcon className="w-4 h-4" aria-hidden="true" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 grid h-4 min-w-4 px-1 place-items-center rounded-full bg-orange-500 text-[9px] font-bold text-white shadow-xs animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Popover Dropdown */}
+              {notifOpen && (
+                <div
+                  id="notification-dropdown-panel"
+                  role="region"
+                  aria-label={t.notifications || "Notifications"}
+                  className="absolute right-0 top-full mt-2.5 w-80 sm:w-96 rounded-3xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-scms-modal z-50 animate-fadeIn p-4 space-y-3"
+                >
+                  {/* Dropdown Header */}
+                  <div className="flex items-center justify-between pb-2.5 border-b border-border/70">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-foreground">
+                        {t.notifications || "Notifications"}
+                      </h4>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 px-2 py-0.5 text-[10px] font-extrabold font-mono">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="text-[11px] font-semibold text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1"
+                        aria-label="Mark all notifications as read"
+                      >
+                        <CheckIcon className="w-3 h-3" aria-hidden="true" />
+                        <span>{t.markRead || "Mark all read"}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Notification List */}
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin">
+                    {notifications.length > 0 ? (
+                      notifications.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleNotificationClick(item)}
+                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-start gap-3 btn-target ${
+                            item.unread
+                              ? "bg-orange-50/50 dark:bg-orange-950/30 border-orange-200/70 dark:border-orange-900/50 hover:bg-orange-50 dark:hover:bg-orange-950/50"
+                              : "bg-secondary/30 border-border/70 hover:bg-secondary/60"
+                          }`}
+                        >
+                          <div
+                            className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl text-xs font-bold ${
+                              item.unread
+                                ? "bg-orange-500 text-white shadow-2xs"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            <CalendarIcon className="w-4 h-4" aria-hidden="true" />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span
+                                className={`text-xs font-bold truncate ${
+                                  item.unread
+                                    ? "text-foreground"
+                                    : "text-muted-foreground font-semibold"
+                                }`}
+                              >
+                                {item.title}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                                {item.timeAgo}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 leading-snug">
+                              {item.description}
+                            </p>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="py-6 px-4 text-center space-y-1 rounded-2xl border border-dashed border-border/80">
+                        <p className="text-xs font-bold text-foreground">
+                          {t.noNotifications || "No new notifications"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {t.noNotificationsSubtitle ||
+                            "You're all caught up with clinic updates."}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dropdown Footer CTA */}
+                  <div className="pt-2 border-t border-border/70">
+                    <button
+                      onClick={() => {
+                        setNotifOpen(false);
+                        navigate("/app/appointments");
+                      }}
+                      className="w-full py-2 px-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 btn-target"
+                    >
+                      <span>{t.viewAllAppointments || "View all appointments"}</span>
+                      <ArrowRightIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Language Switcher */}
             <button

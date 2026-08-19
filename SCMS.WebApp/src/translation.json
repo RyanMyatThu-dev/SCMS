@@ -10,7 +10,7 @@
     "ownerPortal": "Practice Owner Portal",
     "doctorPortal": "Doctor Workspace",
     "patientPortal": "Patient Care Portal",
-    
+
     "login": "Sign In",
     "register": "Create Account",
     "logout": "Sign Out",
@@ -157,20 +157,23 @@
     "apiBaseUrl": "API Base URL",
     "complete": "Mark Complete",
     "markRead": "Mark as Read",
-    "downloadPdf": "Download PDF"
+    "downloadPdf": "Download PDF",
+    "totalIncome": "Total Income",
+    "dailyIncomeSubtitle": "Daily settled billing & income",
+    "incomeOverview": "Income Overview",
+    "viewAllAppointments": "View all appointments",
+    "noNotifications": "No new notifications",
+    "noNotificationsSubtitle": "You're all caught up with clinic updates."
   },
   "mm": {
     "appName": "ကုမယ်",
-    "appSubtitle": "စမတ်ဆေးခန်းစီမံခန့်ခွဲမှုစနစ်",
+    "appSubtitle": "ဆေးခန်းစီမံခန့်ခွဲမှုစနစ်",
     "language": "English",
     "theme": "အပြင်အဆင်",
     "lightMode": "အလင်း",
     "darkMode": "အမှောင်",
     "systemMode": "စနစ်အတိုင်း",
-    "ownerPortal": "ဆေးခန်းပိုင်ရှင် ပေါ်တယ်",
-    "doctorPortal": "ဆရာဝန် လုပ်ငန်းခွင်",
-    "patientPortal": "လူနာနှင့် မိသားစု ပေါ်တယ်",
-    
+
     "login": "အကောင့်ဝင်မည်",
     "register": "အကောင့်သစ်ဖွင့်မည်",
     "logout": "အကောင့်ထွက်မည်",
@@ -185,18 +188,18 @@
     "roleDoctor": "အထူးကုဆရာဝန်",
     "rolePatient": "လူနာ (ကိုအောင်မင်း)",
 
-    "dashboard": "ဒက်ရှ်ဘုတ်",
+    "dashboard": "Dashboard",
     "patients": "လူနာများ",
     "appointments": "ချိန်းဆိုမှုများ",
     "medicines": "ဆေးဝါးနှင့် လက်ကျန်",
-    "batches": "ဆေးဝါးအသုတ်များ",
-    "diseases": "ရောဂါစာရင်း",
+    "batches": "ဆေးဝါးများ",
+    "diseases": "ရောဂါများ",
     "prescriptions": "ဆေးညွှန်းများ",
     "payments": "ငွေပေးချေမှုများ",
     "followUps": "ပြန်လည်စစ်ဆေးမှုများ",
     "notifications": "အသိပေးချက်များ",
     "reports": "စာရင်းနှင့် အစီရင်ခံစာများ",
-    "settings": "ဆက်တင်များ",
+    "settings": "Settings",
     "aiAssistant": "AI ဆေးခန်းအကူ",
     "doctorQueue": "လူနာတန်းစီဇယား",
     "doctorConsult": "ဆေးကုသခန်း",
@@ -318,6 +321,12 @@
     "apiBaseUrl": "API လိပ်စာ",
     "complete": "ပြီးစီးကြောင်း သတ်မှတ်မည်",
     "markRead": "ဖတ်ပြီးကြောင်း မှတ်သားမည်",
-    "downloadPdf": "PDF ဒေါင်းလုဒ်ယူမည်"
+    "downloadPdf": "PDF ဒေါင်းလုဒ်ယူမည်",
+    "totalIncome": "စုစုပေါင်း ဝင်ငွေ",
+    "dailyIncomeSubtitle": "ယနေ့ လက်ခံရရှိသော ငွေပေးချေမှုများ",
+    "incomeOverview": "ဝင်ငွေ အခြေအနေ ဇယား",
+    "viewAllAppointments": "ချိန်းဆိုမှုများ အားလုံးကြည့်မည်",
+    "noNotifications": "အသိပေးချက် အသစ်မရှိပါ",
+    "noNotificationsSubtitle": "ဆေးခန်းဆိုင်ရာ အသိပေးချက်အားလုံးကို စစ်ဆေးပြီးပါပြီ။"
   }
 }

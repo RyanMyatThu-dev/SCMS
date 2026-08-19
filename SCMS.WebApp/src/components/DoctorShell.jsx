@@ -48,8 +48,8 @@ export default function DoctorShell() {
       setCallingNext(true);
       const res = await appointmentsApi.callNext();
       const nextToken = res?.tokenNumber || res?.data?.tokenNumber || "Next Patient";
-      setAnnouncement(`Patient with Token #${nextToken} is called to consultation.`);
-      await showAlert(`Calling Token #${nextToken} into the Consultation Room.`, "Patient Called");
+      setAnnouncement(`Patient with Token ${nextToken} is called to consultation.`);
+      await showAlert(`Calling Token ${nextToken} into the Consultation Room.`, "Patient Called");
       window.dispatchEvent(new CustomEvent("scms:refresh-queue"));
     } catch (err) {
       showError(err?.response?.data?.message || "No more waiting patients in today's queue.");

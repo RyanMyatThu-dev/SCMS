@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 
 export default function RevenueAreaChart({
-  title = "Revenue Overview",
+  title = "Income Overview",
   data = [
     { label: "May 12", value: 8200 },
     { label: "May 13", value: 18500 },
@@ -13,18 +13,18 @@ export default function RevenueAreaChart({
     { label: "May 18", value: 28450 },
   ],
   currency = "MMK",
-  periodOptions = ["This Week", "This Month", "Last 30 Days"],
+  periodOptions = ["This Month", "This Week", "Today"],
   onPeriodChange,
 }) {
   const [selectedPeriod, setSelectedPeriod] = useState(periodOptions[0]);
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
-  const width = 560;
-  const height = 220;
-  const paddingLeft = 50;
-  const paddingRight = 25;
+  const width = 620;
+  const height = 230;
+  const paddingLeft = 55;
+  const paddingRight = 30;
   const paddingTop = 25;
-  const paddingBottom = 40;
+  const paddingBottom = 42;
 
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
@@ -77,8 +77,15 @@ export default function RevenueAreaChart({
     return `${Math.round(val)}`;
   };
 
+  // Determine tick label display interval to strictly avoid overlapping text
+  const tickStep = points.length > 12 ? Math.ceil(points.length / 6) : 1;
+
   return (
-    <div className="rounded-3xl border border-border/80 bg-card/95 p-6 sm:p-7 shadow-scms backdrop-blur-sm flex flex-col justify-between space-y-4">
+    <div 
+      className="rounded-3xl border border-border/80 bg-card/95 p-6 sm:p-7 shadow-scms backdrop-blur-sm flex flex-col justify-between space-y-4"
+      role="region"
+      aria-label={title}
+    >
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
@@ -93,7 +100,7 @@ export default function RevenueAreaChart({
               onPeriodChange && onPeriodChange(e.target.value);
             }}
             className="appearance-none rounded-xl border border-border/80 bg-secondary/60 dark:bg-secondary/40 py-1.5 pl-3 pr-8 text-xs font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
-            aria-label="Select chart time period"
+            aria-label="Select income time period"
           >
             {periodOptions.map((period) => (
               <option key={period} value={period}>
@@ -101,7 +108,7 @@ export default function RevenueAreaChart({
               </option>
             ))}
           </select>
-          <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
         </div>
       </div>
 
@@ -111,7 +118,7 @@ export default function RevenueAreaChart({
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-auto overflow-visible"
           role="img"
-          aria-label={`${title} chart showing values over time`}
+          aria-label={`${title} chart showing ${currency} income over time`}
         >
           <defs>
             {/* Smooth Warm Apricot Gradient Fill */}
@@ -165,6 +172,11 @@ export default function RevenueAreaChart({
           {/* Data Points with Hover Focus */}
           {points.map((pt, idx) => {
             const isHovered = hoveredPoint?.index === idx;
+            // Only render label if within step intervals or first/last item to guarantee no text collisions
+            const showLabel = points.length <= 12 
+              ? true 
+              : (idx === 0 || idx === points.length - 1 || idx % tickStep === 0);
+
             return (
               <g
                 key={idx}
@@ -177,33 +189,35 @@ export default function RevenueAreaChart({
                 onBlur={() => setHoveredPoint(null)}
                 className="cursor-pointer focus-visible:outline-none"
               >
-                {/* Invisible larger hit target */}
+                {/* Larger accessible hit target */}
                 <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" />
 
                 {/* Point dot */}
                 <circle
                   cx={pt.x}
                   cy={pt.y}
-                  r={isHovered ? 6 : 4}
+                  r={isHovered ? 6 : (points.length > 20 ? 3 : 4)}
                   fill="#FFFFFF"
                   stroke="#F97316"
-                  strokeWidth={isHovered ? 3 : 2.5}
+                  strokeWidth={isHovered ? 3 : 2}
                   className="transition-all duration-150"
                 />
 
-                {/* X-axis date labels */}
-                <text
-                  x={pt.x}
-                  y={height - 12}
-                  textAnchor="middle"
-                  className={`text-[11px] font-sans transition-colors ${
-                    isHovered
-                      ? "fill-orange-600 dark:fill-orange-400 font-bold"
-                      : "fill-muted-foreground font-medium"
-                  }`}
-                >
-                  {pt.label}
-                </text>
+                {/* X-axis non-overlapping date labels */}
+                {showLabel && (
+                  <text
+                    x={pt.x}
+                    y={height - 12}
+                    textAnchor="middle"
+                    className={`text-[11px] font-sans transition-colors ${
+                      isHovered
+                        ? "fill-orange-600 dark:fill-orange-400 font-bold"
+                        : "fill-muted-foreground font-medium"
+                    }`}
+                  >
+                    {pt.label}
+                  </text>
+                )}
               </g>
             );
           })}
@@ -212,10 +226,10 @@ export default function RevenueAreaChart({
         {/* Floating Tooltip */}
         {hoveredPoint && (
           <div
-            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-2xl bg-foreground text-background dark:bg-card dark:text-card-foreground border border-border px-3 py-1.5 text-xs font-bold shadow-xl animate-fadeIn whitespace-nowrap transition-all"
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-2xl bg-foreground text-background dark:bg-card dark:text-card-foreground border border-border px-3.5 py-2 text-xs font-bold shadow-xl animate-fadeIn whitespace-nowrap transition-all"
             style={{
               left: `${(hoveredPoint.x / width) * 100}%`,
-              top: `${(hoveredPoint.y / height) * 100 - 8}%`,
+              top: `${(hoveredPoint.y / height) * 100 - 10}%`,
             }}
           >
             <div className="text-[10px] text-muted-foreground font-medium">
@@ -230,3 +244,4 @@ export default function RevenueAreaChart({
     </div>
   );
 }
+

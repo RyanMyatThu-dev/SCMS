@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PersonIcon,
@@ -9,6 +9,7 @@ import {
   ExclamationTriangleIcon,
   ActivityLogIcon,
   ChevronDownIcon,
+  CheckIcon,
 } from "@radix-ui/react-icons";
 import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
@@ -33,6 +34,13 @@ const getLocalDateStr = (d) => {
   return `${y}-${m}-${day}`;
 };
 
+const dateRangeOptions = [
+  "August 2026 (This Month)",
+  "Today",
+  "This Week",
+  "All Time",
+];
+
 export default function Dashboard() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
@@ -43,12 +51,36 @@ export default function Dashboard() {
     todayPatients: 0,
     todayAppointments: 0,
     totalMedicines: 0,
-    totalRevenue: 0,
+    totalIncome: 0,
   });
   const [appointments, setAppointments] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [revenueChartData, setRevenueChartData] = useState([]);
-  const [dateRange, setDateRange] = useState("This Month");
+  const [dateRange, setDateRange] = useState("August 2026 (This Month)");
+
+  // Dedicated Date Range Filter Popover State
+  const [dateFilterOpen, setDateFilterOpen] = useState(false);
+  const dateFilterRef = useRef(null);
+
+  // Close filter dropdown on click outside or escape key
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dateFilterRef.current && !dateFilterRef.current.contains(e.target)) {
+        setDateFilterOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && dateFilterOpen) {
+        setDateFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [dateFilterOpen]);
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -137,11 +169,12 @@ export default function Dashboard() {
         setAlerts(
           medicineAlerts.status === "fulfilled" ? toArray(medicineAlerts.value).slice(0, 6) : []
         );
+        const dailyIncomeVal = dashboardData?.data?.dailyRevenue ?? dashboardData?.dailyRevenue ?? dashboardData?.data?.totalIncome ?? 4850000;
         setStats({
           todayPatients: dashboardData?.data?.todayPatientsCount ?? dashboardData?.todayPatientsCount ?? 18,
           todayAppointments: dashboardData?.data?.todayAppointmentsCount ?? dashboardData?.todayAppointmentsCount ?? 24,
           totalMedicines: dashboardData?.data?.totalMedicinesCount ?? dashboardData?.totalMedicinesCount ?? 45,
-          totalRevenue: dashboardData?.data?.totalRevenue ?? dashboardData?.totalRevenue ?? dashboardData?.data?.totalIncome ?? 4850000,
+          totalIncome: dailyIncomeVal,
         });
       } catch (err) {
         console.error("Telemetry loading failed", err);
@@ -171,40 +204,84 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Date Range Selector Pill */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="relative inline-flex items-center rounded-2xl border border-border/80 bg-card/90 px-3.5 py-2 text-xs font-semibold text-foreground shadow-2xs">
-            <CalendarIcon className="w-4 h-4 text-muted-foreground mr-2 shrink-0" />
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="bg-transparent pr-6 text-xs font-semibold text-foreground focus-visible:outline-none cursor-pointer appearance-none"
-              aria-label="Filter dashboard date range"
+        {/* Dedicated Date Range Filter Dropdown */}
+        <div className="relative inline-block self-start sm:self-auto" ref={dateFilterRef}>
+          <button
+            type="button"
+            onClick={() => setDateFilterOpen((prev) => !prev)}
+            aria-haspopup="listbox"
+            aria-expanded={dateFilterOpen}
+            aria-label="Filter dashboard date range"
+            className={`inline-flex items-center justify-between gap-2.5 rounded-2xl border border-border/80 bg-card/90 px-3.5 py-2 text-xs font-semibold text-foreground shadow-2xs hover:bg-secondary/70 transition-all btn-target ${
+              dateFilterOpen ? "ring-2 ring-orange-500/50 bg-secondary" : ""
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-orange-500 shrink-0" aria-hidden="true" />
+              <span className="font-bold">{dateRange}</span>
+            </div>
+            <ChevronDownIcon
+              className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
+                dateFilterOpen ? "rotate-180 text-foreground" : ""
+              }`}
+              aria-hidden="true"
+            />
+          </button>
+
+          {/* Dedicated Popover Dropdown Menu */}
+          {dateFilterOpen && (
+            <div
+              role="listbox"
+              aria-label="Date range options"
+              className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-scms-modal z-40 p-1.5 space-y-1 animate-fadeIn"
             >
-              <option value="This Month">August 2026 (This Month)</option>
-              <option value="Today">Today</option>
-              <option value="This Week">This Week</option>
-              <option value="All Time">All Time</option>
-            </select>
-            <ChevronDownIcon className="pointer-events-none absolute right-3 w-3.5 h-3.5 text-muted-foreground" />
-          </div>
+              {dateRangeOptions.map((opt) => {
+                const isSelected = dateRange === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      setDateRange(opt);
+                      setDateFilterOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between cursor-pointer btn-target ${
+                      isSelected
+                        ? "bg-orange-500 text-white font-bold shadow-xs"
+                        : "text-foreground hover:bg-orange-50 dark:hover:bg-orange-950/60 hover:text-orange-600 dark:hover:text-orange-400 font-medium"
+                    }`}
+                  >
+                    <span>{opt}</span>
+                    {isSelected && (
+                      <CheckIcon className="w-4 h-4 shrink-0 text-white" aria-hidden="true" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Row of 4 KPI Metric Stat Cards (Matching Clinical Domain & Reference Style) */}
-      <section className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Row of 3 KPI Metric Stat Cards (Total Income, Appointments, Patients) */}
+      <section 
+        className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        aria-label="Key Performance Indicators"
+      >
         <StatCard
-          label="Total Revenue"
-          value={`${Number(stats.totalRevenue || 0).toLocaleString()} MMK`}
+          label={t.totalIncome || "Total Income"}
+          value={`${Number(stats.totalIncome || 0).toLocaleString()} MMK`}
           icon={CardStackIcon}
           tone="apricot"
           trend="12.5%"
           trendDirection="up"
           onClick={() => navigate("/app/payments")}
-          subtitle="Settled billing & invoices"
+          subtitle={t.dailyIncomeSubtitle || "Daily settled billing & income"}
         />
         <StatCard
-          label="Appointments"
+          label={t.appointments || "Appointments"}
           value={Number(stats.todayAppointments || 0).toLocaleString()}
           icon={CalendarIcon}
           tone="apricot"
@@ -214,7 +291,7 @@ export default function Dashboard() {
           subtitle="Scheduled appointments"
         />
         <StatCard
-          label="Patients"
+          label={t.patients || "Patients"}
           value={Number(stats.todayPatients || 0).toLocaleString()}
           icon={PersonIcon}
           tone="apricot"
@@ -223,22 +300,12 @@ export default function Dashboard() {
           onClick={() => navigate("/app/patients")}
           subtitle="Registered clinic patients"
         />
-        <StatCard
-          label="Consultation Rate"
-          value="98.5%"
-          icon={ActivityLogIcon}
-          tone="apricot"
-          trend="5.7%"
-          trendDirection="up"
-          onClick={() => navigate("/app/reports")}
-          subtitle="Completed consultations"
-        />
       </section>
 
-      {/* Chart: Revenue Overview Line/Area Chart for August */}
-      <section className="w-full">
+      {/* Chart: Income Overview Line/Area Chart for August */}
+      <section className="w-full" aria-label="Income Overview Chart">
         <RevenueAreaChart
-          title="Revenue Overview (August 2026)"
+          title={t.incomeOverview ? `${t.incomeOverview} (August 2026)` : "Income Overview (August 2026)"}
           data={revenueChartData.length > 0 ? revenueChartData : undefined}
           currency="MMK"
           periodOptions={["This Month", "This Week", "Today"]}
@@ -276,7 +343,7 @@ export default function Dashboard() {
             columns={[
               {
                 label: "Token",
-                key: (r) => `#${r.tokenNumber || r.appointmentCode || "-"}`,
+                key: (r) => `${r.tokenNumber || r.appointmentCode || "-"}`,
                 cellClassName: "font-mono font-bold text-orange-600 dark:text-orange-400",
               },
               {
@@ -406,7 +473,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between pb-3 border-b border-border/70">
               <div>
                 <span className="font-mono text-xs font-bold text-orange-600 dark:text-orange-400">
-                  Token #{selectedAppt.tokenNumber || selectedAppt.appointmentCode}
+                  Token {selectedAppt.tokenNumber || selectedAppt.appointmentCode}
                 </span>
                 <h3 className="text-base font-bold text-foreground mt-0.5">
                   {selectedAppt.patientName || selectedAppt.patient?.name}
