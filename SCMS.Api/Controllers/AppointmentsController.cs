@@ -44,18 +44,13 @@ namespace SCMS.Api.Controllers
         /// <summary>Query appointments with optional date, status, and patient filtering.</summary>
         [HttpGet]
         [HasPermission("Appointments.View")]
-        [ProducesResponseType(typeof(PagedResult<AppointmentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetAppointmentsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetAppointments(
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
-            [FromQuery] string? status,
-            [FromQuery] int? patientId,
-            [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetAppointments([FromQuery] GetAppointmentsRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            request ??= new GetAppointmentsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
             var userId = User.GetUserId();
             if (!userId.HasValue)
@@ -63,14 +58,14 @@ namespace SCMS.Api.Controllers
                 return Unauthorized(Result.Failure("User id is required."));
             }
 
-            var result = await _appointmentsService.GetAppointmentsAsync(startDate, endDate, status, patientId, paginationRequest, userId.Value, User.IsStaff());
+            var result = await _appointmentsService.GetAppointmentsAsync(request, userId.Value, User.IsStaff());
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
         /// <summary>Update the status of an appointment.</summary>
         [HttpPatch("{id:int}/status")]
         [HasPermission("Appointments.UpdateStatus")]
-        [ProducesResponseType(typeof(Result<AppointmentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<UpdateAppointmentStatusResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateAppointmentStatus(int id, [FromBody] UpdateAppointmentStatusRequest request)
         {
@@ -81,7 +76,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Reschedule an existing appointment.</summary>
         [HttpPost("{id:int}/reschedule")]
         [HasPermission("Appointments.Update")]
-        [ProducesResponseType(typeof(Result<AppointmentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<RescheduleAppointmentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RescheduleAppointment(int id, [FromBody] RescheduleAppointmentRequest request)
         {
@@ -103,7 +98,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Advance the queue and call the next waiting patient.</summary>
         [HttpPost("call-next")]
         [HasPermission("Appointments.UpdateStatus")]
-        [ProducesResponseType(typeof(Result<AppointmentDetailsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<CallNextPatientResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CallNextPatient()
         {

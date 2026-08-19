@@ -1,17 +1,17 @@
 using System;
 using System.Threading.Tasks;
-using SCMS.Shared;
 using SCMS.Domain.Features.Appointments.Models;
+using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Appointments
 {
     public interface IAppointmentsService
     {
         Task<Result<BookAppointmentResponse>> BookAppointmentAsync(BookAppointmentRequest request, int userId);
-        Task<Result<AppointmentDetailsResponse>> UpdateAppointmentStatusAsync(int id, UpdateAppointmentStatusRequest request);
-        Task<Result<AppointmentDetailsResponse>> RescheduleAppointmentAsync(int id, RescheduleAppointmentRequest request);
-        Task<PagedResult<AppointmentDetailsResponse>> GetAppointmentsAsync(DateTime? startDate, DateTime? endDate, string? status, int? patientId, PaginationRequest paginationRequest, int? currentUserId = null, bool isStaff = true);
+        Task<Result<UpdateAppointmentStatusResponse>> UpdateAppointmentStatusAsync(int id, UpdateAppointmentStatusRequest request);
+        Task<Result<RescheduleAppointmentResponse>> RescheduleAppointmentAsync(int id, RescheduleAppointmentRequest request);
+        Task<PagedResult<GetAppointmentsResponse>> GetAppointmentsAsync(GetAppointmentsRequest request, int? currentUserId = null, bool isStaff = true);
         Task<Result<AppointmentQueueStatusResponse>> GetPatientQueueStatusAsync(int id);
-        Task<Result<AppointmentDetailsResponse>> CallNextPatientAsync();
+        Task<Result<CallNextPatientResponse>> CallNextPatientAsync();
     }
 }

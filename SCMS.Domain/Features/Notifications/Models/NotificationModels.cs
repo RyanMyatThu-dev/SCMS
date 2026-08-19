@@ -1,10 +1,17 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Notifications.Models
 {
-    /// <summary>Notification detail response.</summary>
-    public sealed record NotificationResponse
+    /// <summary>Request parameters for listing notifications with pagination.</summary>
+    public class GetNotificationsRequest : PaginationRequest
+    {
+        public bool IncludeAll { get; set; } = false;
+    }
+
+    /// <summary>Response item for listing notifications.</summary>
+    public sealed record GetNotificationsResponse
     {
         public int Id { get; init; }
         public string Title { get; init; } = null!;
@@ -25,5 +32,25 @@ namespace SCMS.Domain.Features.Notifications.Models
         public required string Description { get; init; }
 
         public string? ActionRoute { get; init; }
+    }
+
+    /// <summary>Response returned upon creating a new notification.</summary>
+    public sealed record CreateNotificationResponse
+    {
+        public int Id { get; init; }
+        public string Title { get; init; } = null!;
+        public string? Description { get; init; }
+        public string? ActionRoute { get; init; }
+        public DateTime CreatedAt { get; init; }
+    }
+
+    // Backward-compatibility record
+    public sealed record NotificationResponse
+    {
+        public int Id { get; init; }
+        public string Title { get; init; } = null!;
+        public string? Description { get; init; }
+        public string? ActionRoute { get; init; }
+        public DateTime CreatedAt { get; init; }
     }
 }

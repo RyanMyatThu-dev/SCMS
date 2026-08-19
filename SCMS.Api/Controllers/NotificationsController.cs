@@ -25,24 +25,24 @@ namespace SCMS.Api.Controllers
         /// <summary>Query notifications for the current user or clinic-wide broadcasts.</summary>
         [HttpGet]
         [HasPermission("Notifications.View")]
-        [ProducesResponseType(typeof(PagedResult<NotificationResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetNotificationsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetNotifications([FromQuery] PaginationRequest paginationRequest, [FromQuery] bool includeAll = false)
+        public async Task<IActionResult> GetNotifications([FromQuery] GetNotificationsRequest request)
         {
-            paginationRequest ??= new PaginationRequest();
-            if (paginationRequest.PageNumber <= 0) paginationRequest.PageNumber = 1;
-            if (paginationRequest.PageSize <= 0) paginationRequest.PageSize = 10;
+            request ??= new GetNotificationsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
 
             var currentUserId = User.GetUserId();
-            if (!includeAll && !currentUserId.HasValue)
+            if (!request.IncludeAll && !currentUserId.HasValue)
             {
                 return Unauthorized(Result.Failure("User id is required."));
             }
 
-            int? userId = includeAll && User.IsStaff() ? null : currentUserId;
+            int? userId = request.IncludeAll && User.IsStaff() ? null : currentUserId;
 
-            var result = await _notificationService.GetNotificationsAsync(userId, paginationRequest, User.IsStaff());
+            var result = await _notificationService.GetNotificationsAsync(request, userId, User.IsStaff());
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
@@ -67,11 +67,11 @@ namespace SCMS.Api.Controllers
         /// <summary>Create and send a notification to a specific user or broadcast to clinic staff.</summary>
         [HttpPost]
         [HasPermission("Notifications.Create")]
-        [ProducesResponseType(typeof(Result<NotificationResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<CreateNotificationResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationRequest request)
         {
-            var result = await _notificationService.CreateNotificationAsync(request.UserId, request.Title, request.Description, request.ActionRoute);
+            var result = await _notificationService.CreateNotificationAsync(request);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
     }

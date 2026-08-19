@@ -1,6 +1,10 @@
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Notifications;
+using SCMS.Domain.Features.Notifications.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
+using Xunit;
 
 namespace SCMS.Domain.Tests.Notifications;
 
@@ -18,7 +22,7 @@ public class NotificationServiceTests
         await service.CreateNotificationAsync(null, "Broadcast", "Clinic alert", "/alerts");
         await service.CreateNotificationAsync(otherUser.UserId, "Other", "Other notification", "/other");
 
-        var result = await service.GetNotificationsAsync(staffUser.UserId, new PaginationRequest(), isStaff: true);
+        var result = await service.GetNotificationsAsync(new GetNotificationsRequest(), staffUser.UserId, isStaff: true);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Data.Count);
@@ -39,7 +43,7 @@ public class NotificationServiceTests
         await service.CreateNotificationAsync(null, "Broadcast", "Clinic alert", "/alerts");
         await service.CreateNotificationAsync(otherUser.UserId, "Other", "Other notification", "/other");
 
-        var result = await service.GetNotificationsAsync(patientUser.UserId, new PaginationRequest(), isStaff: false);
+        var result = await service.GetNotificationsAsync(new GetNotificationsRequest(), patientUser.UserId, isStaff: false);
 
         Assert.True(result.IsSuccess);
         Assert.Single(result.Data);
@@ -58,7 +62,7 @@ public class NotificationServiceTests
 
         var strangerResult = await service.MarkAsReadAsync(notificationId, stranger.UserId);
         var ownerResult = await service.MarkAsReadAsync(notificationId, owner.UserId);
-        var listResult = await service.GetNotificationsAsync(owner.UserId, new PaginationRequest());
+        var listResult = await service.GetNotificationsAsync(new GetNotificationsRequest(), owner.UserId);
 
         Assert.True(strangerResult.IsFailure);
         Assert.True(ownerResult.IsSuccess);

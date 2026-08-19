@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SCMS.Database.Models;
 using SCMS.Domain.Features.Notifications.Models;
-using SCMS.Shared;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Logging;
 using SCMS.Domain.Realtime;
+using SCMS.Shared;
 
 namespace SCMS.Domain.Features.Notifications
 {
@@ -28,8 +28,12 @@ namespace SCMS.Domain.Features.Notifications
             _logger = logger;
         }
 
-        public async Task<PagedResult<NotificationResponse>> GetNotificationsAsync(int? userId, PaginationRequest paginationRequest, bool isStaff = false)
+        public async Task<PagedResult<GetNotificationsResponse>> GetNotificationsAsync(GetNotificationsRequest request, int? userId, bool isStaff = false)
         {
+            request ??= new GetNotificationsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
             var query = _context.TblNotifications
                 .AsNoTracking()
                 .Where(n => n.DeleteFlag != true);
@@ -55,12 +59,12 @@ namespace SCMS.Domain.Features.Notifications
 
             var totalCount = await query.CountAsync();
             var notifications = await query
-                .OrderByDescending(n => n.CreatedAt)
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .OrderBy(n => n.Id)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync();
 
-            var list = notifications.Select(n => new NotificationResponse
+            var list = notifications.Select(n => new GetNotificationsResponse
             {
                 Id = n.Id,
                 Title = n.Title,
@@ -69,8 +73,8 @@ namespace SCMS.Domain.Features.Notifications
                 CreatedAt = n.CreatedAt ?? DateTime.UtcNow
             }).ToList();
 
-            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
-            return PagedResult<NotificationResponse>.Success(list, pagination);
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<GetNotificationsResponse>.Success(list, pagination);
         }
 
         public async Task<Result> MarkAsReadAsync(int notificationId, int userId)
@@ -90,6 +94,26 @@ namespace SCMS.Domain.Features.Notifications
             await _context.SaveChangesAsync();
 
             return Result.Success("Notification marked as read.");
+        }
+
+        public async Task<Result<CreateNotificationResponse>> CreateNotificationAsync(CreateNotificationRequest request)
+        {
+            var result = await CreateNotificationAsync(request.UserId, request.Title, request.Description, request.ActionRoute);
+            if (result.IsFailure || result.Data == null)
+            {
+                return Result<CreateNotificationResponse>.Failure(result.Message ?? "Failed to create notification.");
+            }
+
+            var response = new CreateNotificationResponse
+            {
+                Id = result.Data.Id,
+                Title = result.Data.Title,
+                Description = result.Data.Description,
+                ActionRoute = result.Data.ActionRoute,
+                CreatedAt = result.Data.CreatedAt
+            };
+
+            return Result<CreateNotificationResponse>.Success(response, result.Message);
         }
 
         public async Task<Result<NotificationResponse>> CreateNotificationAsync(int? userId, string title, string description, string? actionRoute)

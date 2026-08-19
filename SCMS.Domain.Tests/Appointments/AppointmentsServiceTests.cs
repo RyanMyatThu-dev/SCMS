@@ -1,8 +1,12 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SCMS.Domain.Features.Appointments;
 using SCMS.Domain.Features.Appointments.Models;
 using SCMS.Domain.Tests.TestSupport;
 using SCMS.Shared;
+using Xunit;
 
 namespace SCMS.Domain.Tests.Appointments;
 
@@ -87,7 +91,11 @@ public class AppointmentsServiceTests
         TestData.AddAppointment(db, otherPatient, DateTime.UtcNow.AddHours(4), "confirmed");
         var service = new AppointmentsService(db.Context);
 
-        var result = await service.GetAppointmentsAsync(null, null, "confirmed", patient.PatientId, new PaginationRequest());
+        var result = await service.GetAppointmentsAsync(new GetAppointmentsRequest
+        {
+            Status = "confirmed",
+            PatientId = patient.PatientId
+        });
 
         Assert.True(result.IsSuccess);
         Assert.Single(result.Data);

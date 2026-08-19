@@ -153,12 +153,12 @@ namespace SCMS.Domain.Features.Appointments
             }, "Appointment booked successfully.");
         }
 
-        public async Task<Result<AppointmentDetailsResponse>> UpdateAppointmentStatusAsync(int id, UpdateAppointmentStatusRequest request)
+        public async Task<Result<UpdateAppointmentStatusResponse>> UpdateAppointmentStatusAsync(int id, UpdateAppointmentStatusRequest request)
         {
             var normalizedStatus = request.Status?.ToLower().Trim();
             if (string.IsNullOrWhiteSpace(normalizedStatus) || !AllowedStatuses.Contains(normalizedStatus))
             {
-                return Result<AppointmentDetailsResponse>.Failure("Invalid appointment status. Allowed values are pending, confirmed, cancelled, completed.");
+                return Result<UpdateAppointmentStatusResponse>.Failure("Invalid appointment status. Allowed values are pending, confirmed, cancelled, completed.");
             }
 
             var appointment = await _context.TblAppointments
@@ -167,7 +167,7 @@ namespace SCMS.Domain.Features.Appointments
 
             if (appointment == null)
             {
-                return Result<AppointmentDetailsResponse>.Failure("Appointment not found.");
+                return Result<UpdateAppointmentStatusResponse>.Failure("Appointment not found.");
             }
 
             var oldStatus = appointment.Status;
@@ -204,18 +204,18 @@ namespace SCMS.Domain.Features.Appointments
                 }
             }
 
-            return Result<AppointmentDetailsResponse>.Success(MapToDetailsResponse(appointment, await GetTokenNumberAsync(appointment)), "Appointment status updated.");
+            return Result<UpdateAppointmentStatusResponse>.Success(MapToUpdateStatusResponse(appointment, await GetTokenNumberAsync(appointment)), "Appointment status updated.");
         }
 
-        public async Task<Result<AppointmentDetailsResponse>> RescheduleAppointmentAsync(int id, RescheduleAppointmentRequest request)
+        public async Task<Result<RescheduleAppointmentResponse>> RescheduleAppointmentAsync(int id, RescheduleAppointmentRequest request)
         {
             if (request.NewDatetime == default)
             {
-                return Result<AppointmentDetailsResponse>.Failure("New appointment date and time is required.");
+                return Result<RescheduleAppointmentResponse>.Failure("New appointment date and time is required.");
             }
             if (request.NewDatetime <= DateTime.UtcNow)
             {
-                return Result<AppointmentDetailsResponse>.Failure("New appointment date and time must be in the future.");
+                return Result<RescheduleAppointmentResponse>.Failure("New appointment date and time must be in the future.");
             }
 
             var appointment = await _context.TblAppointments
@@ -224,7 +224,7 @@ namespace SCMS.Domain.Features.Appointments
 
             if (appointment == null)
             {
-                return Result<AppointmentDetailsResponse>.Failure("Appointment not found.");
+                return Result<RescheduleAppointmentResponse>.Failure("Appointment not found.");
             }
 
             appointment.Datetime = request.NewDatetime;
@@ -258,43 +258,43 @@ namespace SCMS.Domain.Features.Appointments
                 await _context.SaveChangesAsync();
             }
 
-            return Result<AppointmentDetailsResponse>.Success(MapToDetailsResponse(appointment, await GetTokenNumberAsync(appointment)), "Appointment rescheduled.");
+            return Result<RescheduleAppointmentResponse>.Success(MapToRescheduleResponse(appointment, await GetTokenNumberAsync(appointment)), "Appointment rescheduled.");
         }
 
-        public async Task<PagedResult<AppointmentDetailsResponse>> GetAppointmentsAsync(
-            DateTime? startDate,
-            DateTime? endDate,
-            string? status,
-            int? patientId,
-            PaginationRequest paginationRequest,
+        public async Task<PagedResult<GetAppointmentsResponse>> GetAppointmentsAsync(
+            GetAppointmentsRequest request,
             int? currentUserId = null,
             bool isStaff = true)
         {
+            request ??= new GetAppointmentsRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
             var query = _context.TblAppointments
                 .AsNoTracking()
                 .Include(a => a.Patient)
                 .AsQueryable();
 
-            if (startDate.HasValue)
+            if (request.StartDate.HasValue)
             {
-                query = query.Where(a => a.Datetime >= startDate.Value);
+                query = query.Where(a => a.Datetime >= request.StartDate.Value);
             }
-            if (endDate.HasValue)
+            if (request.EndDate.HasValue)
             {
-                query = query.Where(a => a.Datetime <= endDate.Value);
+                query = query.Where(a => a.Datetime <= request.EndDate.Value);
             }
-            if (!string.IsNullOrEmpty(status))
+            if (!string.IsNullOrEmpty(request.Status))
             {
-                var s = status.ToLower().Trim();
+                var s = request.Status.ToLower().Trim();
                 if (!AllowedStatuses.Contains(s))
                 {
-                    return PagedResult<AppointmentDetailsResponse>.Failure("Invalid appointment status filter.");
+                    return PagedResult<GetAppointmentsResponse>.Failure("Invalid appointment status filter.");
                 }
                 query = query.Where(a => a.Status == s);
             }
-            if (patientId.HasValue)
+            if (request.PatientId.HasValue)
             {
-                query = query.Where(a => a.PatientId == patientId.Value);
+                query = query.Where(a => a.PatientId == request.PatientId.Value);
             }
             if (!isStaff && currentUserId.HasValue)
             {
@@ -304,8 +304,8 @@ namespace SCMS.Domain.Features.Appointments
             var totalCount = await query.CountAsync();
             var appointments = await query
                 .OrderBy(a => a.Datetime)
-                .Skip((paginationRequest.PageNumber - 1) * paginationRequest.PageSize)
-                .Take(paginationRequest.PageSize)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync();
 
             var tokenMap = new Dictionary<int, int>();
@@ -334,11 +334,11 @@ namespace SCMS.Domain.Features.Appointments
             }
 
             var list = appointments
-                .Select(a => MapToDetailsResponse(a, tokenMap.TryGetValue(a.Id, out var tok) ? tok : 0))
+                .Select(a => MapToGetAppointmentsResponse(a, tokenMap.TryGetValue(a.Id, out var tok) ? tok : 0))
                 .ToList();
 
-            var pagination = new Pagination(paginationRequest.PageNumber, paginationRequest.PageSize, totalCount);
-            return PagedResult<AppointmentDetailsResponse>.Success(list, pagination);
+            var pagination = new Pagination(request.PageNumber, request.PageSize, totalCount);
+            return PagedResult<GetAppointmentsResponse>.Success(list, pagination);
         }
 
         public async Task<Result<AppointmentQueueStatusResponse>> GetPatientQueueStatusAsync(int id)
@@ -355,7 +355,7 @@ namespace SCMS.Domain.Features.Appointments
             return Result<AppointmentQueueStatusResponse>.Success(queueInfo, "Queue status fetched.");
         }
 
-        public async Task<Result<AppointmentDetailsResponse>> CallNextPatientAsync()
+        public async Task<Result<CallNextPatientResponse>> CallNextPatientAsync()
         {
             // Call next confirmed patient for today
             var today = DateTime.UtcNow.Date;
@@ -377,7 +377,7 @@ namespace SCMS.Domain.Features.Appointments
 
                 if (nextAppointment == null)
                 {
-                    return Result<AppointmentDetailsResponse>.Failure("No more patients in queue for today.");
+                    return Result<CallNextPatientResponse>.Failure("No more patients in queue for today.");
                 }
             }
 
@@ -460,7 +460,7 @@ namespace SCMS.Domain.Features.Appointments
             }
 
             var token = await GetTokenNumberAsync(nextAppointment);
-            return Result<AppointmentDetailsResponse>.Success(MapToDetailsResponse(nextAppointment, token), "Next patient called. Audio chime triggered.");
+            return Result<CallNextPatientResponse>.Success(MapToCallNextResponse(nextAppointment, token), "Next patient called. Audio chime triggered.");
         }
 
         // Helper calculations
@@ -546,7 +546,75 @@ namespace SCMS.Domain.Features.Appointments
             };
         }
 
-        private AppointmentDetailsResponse MapToDetailsResponse(TblAppointment a, int token)
+        private static GetAppointmentsResponse MapToGetAppointmentsResponse(TblAppointment a, int token)
+        {
+            return new GetAppointmentsResponse
+            {
+                Id = a.Id,
+                AppointmentCode = a.AppointmentCode,
+                PatientId = a.PatientId,
+                PatientName = a.Patient?.Name ?? "Unknown",
+                Datetime = a.Datetime,
+                Status = a.Status,
+                Notes = a.Notes,
+                TokenNumber = token,
+                ClinicDoctorName = "Clinic Doctor",
+                CreatedAt = a.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private static UpdateAppointmentStatusResponse MapToUpdateStatusResponse(TblAppointment a, int token)
+        {
+            return new UpdateAppointmentStatusResponse
+            {
+                Id = a.Id,
+                AppointmentCode = a.AppointmentCode,
+                PatientId = a.PatientId,
+                PatientName = a.Patient?.Name ?? "Unknown",
+                Datetime = a.Datetime,
+                Status = a.Status,
+                Notes = a.Notes,
+                TokenNumber = token,
+                ClinicDoctorName = "Clinic Doctor",
+                CreatedAt = a.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private static RescheduleAppointmentResponse MapToRescheduleResponse(TblAppointment a, int token)
+        {
+            return new RescheduleAppointmentResponse
+            {
+                Id = a.Id,
+                AppointmentCode = a.AppointmentCode,
+                PatientId = a.PatientId,
+                PatientName = a.Patient?.Name ?? "Unknown",
+                Datetime = a.Datetime,
+                Status = a.Status,
+                Notes = a.Notes,
+                TokenNumber = token,
+                ClinicDoctorName = "Clinic Doctor",
+                CreatedAt = a.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        private static CallNextPatientResponse MapToCallNextResponse(TblAppointment a, int token)
+        {
+            return new CallNextPatientResponse
+            {
+                Id = a.Id,
+                AppointmentCode = a.AppointmentCode,
+                PatientId = a.PatientId,
+                PatientName = a.Patient?.Name ?? "Unknown",
+                Datetime = a.Datetime,
+                Status = a.Status,
+                Notes = a.Notes,
+                TokenNumber = token,
+                ClinicDoctorName = "Clinic Doctor",
+                CreatedAt = a.CreatedAt ?? DateTime.UtcNow
+            };
+        }
+
+        public static AppointmentDetailsResponse MapToDetailsResponse(TblAppointment a, int token)
         {
             return new AppointmentDetailsResponse
             {
