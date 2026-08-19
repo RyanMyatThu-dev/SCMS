@@ -12,6 +12,7 @@
 | `POST` | `/api/Auth/register` | Anonymous (Public) | Registers a new patient/user account |
 | `POST` | `/api/Auth/login` | Anonymous (Public) | Authenticates credentials and returns JWT access & refresh tokens |
 | `POST` | `/api/Auth/refresh` | Anonymous (Public) | Issues a new JWT access token using a valid refresh token |
+| `POST` | `/api/Auth/logout` | Anonymous (Public) | Invalidates and revokes session refresh token (`LogoutRequest` -> `LogoutResponse`) |
 
 ---
 

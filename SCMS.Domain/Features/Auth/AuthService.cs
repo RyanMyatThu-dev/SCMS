@@ -130,22 +130,20 @@ namespace SCMS.Domain.Features.Auth
             return await IssueTokensAsync(token.User, "Token refreshed.");
         }
 
-        public async Task<Result> LogoutAsync(string refreshToken)
+        public async Task<Result<LogoutResponse>> LogoutAsync(LogoutRequest request)
         {
-            if (string.IsNullOrWhiteSpace(refreshToken))
+            if (!string.IsNullOrWhiteSpace(request?.RefreshToken))
             {
-                return Result.Success("Logged out.");
+                var tokenHash = _tokens.HashToken(request.RefreshToken);
+                var token = await _context.TblUserTokens.FirstOrDefaultAsync(t => t.TokenHash == tokenHash && !t.Revoked);
+                if (token != null)
+                {
+                    token.Revoked = true;
+                    await _context.SaveChangesAsync();
+                }
             }
 
-            var tokenHash = _tokens.HashToken(refreshToken);
-            var token = await _context.TblUserTokens.FirstOrDefaultAsync(t => t.TokenHash == tokenHash && !t.Revoked);
-            if (token != null)
-            {
-                token.Revoked = true;
-                await _context.SaveChangesAsync();
-            }
-
-            return Result.Success("Logged out.");
+            return Result<LogoutResponse>.Success(new LogoutResponse(), "Logged out successfully.");
         }
 
         public async Task<Result<CurrentUserResponse>> GetCurrentUserAsync(int userId)

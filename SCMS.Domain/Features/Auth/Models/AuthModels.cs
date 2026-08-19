@@ -46,6 +46,23 @@ namespace SCMS.Domain.Features.Auth.Models
     }
 
     /// <summary>
+    /// Payload for logging out and revoking a refresh token.
+    /// </summary>
+    public sealed record LogoutRequest
+    {
+        public string? RefreshToken { get; init; }
+    }
+
+    /// <summary>
+    /// Response returned upon successful logout.
+    /// </summary>
+    public sealed record LogoutResponse
+    {
+        public bool LoggedOut { get; init; } = true;
+        public string Message { get; init; } = "Logged out successfully.";
+    }
+
+    /// <summary>
     /// Authentication token response returned upon login/registration.
     /// </summary>
     public sealed record AuthResponse

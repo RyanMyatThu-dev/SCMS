@@ -5,6 +5,7 @@
 - `POST   /api/Auth/register`
 - `POST   /api/Auth/login`
 - `POST   /api/Auth/refresh`
+- `POST   /api/Auth/logout`
 
 ## Dashboards
 - `GET    /api/Dashboards/dashboard`               # Staff dashboard (with period filter: ?period=daily|weekly|monthly|all)

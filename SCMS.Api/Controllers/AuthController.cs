@@ -52,5 +52,16 @@ namespace SCMS.Api.Controllers
             var result = await _authService.RefreshAsync(request);
             return result.IsSuccess ? Ok(result) : Unauthorized(result);
         }
+
+        /// <summary>Log out and invalidate session tokens.</summary>
+        [AllowAnonymous]
+        [HttpPost("logout")]
+        [ProducesResponseType(typeof(Result<LogoutResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+        {
+            request ??= new LogoutRequest();
+            var result = await _authService.LogoutAsync(request);
+            return Ok(result);
+        }
     }
 }
