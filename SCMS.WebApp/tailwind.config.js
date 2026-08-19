@@ -1,5 +1,3 @@
-import daisyui from "daisyui";
-
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
@@ -7,39 +5,78 @@ export default {
   theme: {
     extend: {
       colors: {
-        scms: {
-          primary: "#0052CC",
-          primaryDark: "#003D99",
-          primaryLight: "#EBF2FF",
-          success: "#027A48",
-          warning: "#B54708",
-          danger: "#D92D20",
-          bg: "#F8FAFC",
-          card: "#FFFFFF",
-          text: "#0F172A",
-          muted: "#64748B",
-          border: "#E2E8F0",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
-        apple: {
-          indigo: "#4F46E5",
-          indigoLight: "#EEF2FF",
-          blue: "#0A84FF",
-          teal: "#0D9488",
-          tealLight: "#F0FDFA",
-          green: "#059669",
-          greenLight: "#ECFDF5",
-          amber: "#D97706",
-          amberLight: "#FFFBEB",
-          rose: "#E11D48",
-          roseLight: "#FFF1F2",
-          slate: "#0F172A",
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        pearl: {
+          50: "#FCFCFA",
+          100: "#FAF9F5",
+          200: "#F5F4EE",
+          300: "#EBE9DF",
+        },
+        apricot: {
+          50: "#FFF8F0",
+          100: "#FEEDDC",
+          200: "#FDD9B5",
+          300: "#FBBF82",
+          400: "#F99E4A",
+          500: "#F57C1F",
+        },
+        scms: {
+          primary: "#18181B",
+          primaryDark: "#09090B",
+          primaryLight: "#F5F4EE",
+          success: "#059669",
+          warning: "#D97706",
+          danger: "#E11D48",
+          bg: "#FAF9F5",
+          card: "#FFFFFF",
+          text: "#18181B",
+          muted: "#71717A",
+          border: "#E7E5E0",
         },
       },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
       boxShadow: {
-        scms: "0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)",
-        "scms-raised": "0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03)",
-        "scms-modal": "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-        glass: "0 8px 32px 0 rgba(31, 38, 135, 0.07)",
+        scms: "0 1px 3px 0 rgba(24, 24, 27, 0.03), 0 1px 2px -1px rgba(24, 24, 27, 0.03)",
+        "scms-raised": "0 12px 36px -4px rgba(24, 24, 27, 0.06), 0 4px 6px -2px rgba(24, 24, 27, 0.02)",
+        "scms-modal": "0 25px 50px -12px rgba(24, 24, 27, 0.2)",
+        glass: "0 8px 32px 0 rgba(24, 24, 27, 0.04)",
+        ambient: "0 20px 80px -15px rgba(251, 191, 130, 0.25)",
       },
       fontFamily: {
         sans: [
@@ -56,24 +93,6 @@ export default {
       },
     },
   },
-  daisyui: {
-    themes: [
-      {
-        scms: {
-          primary: "#0052CC",
-          secondary: "#EBF2FF",
-          accent: "#027A48",
-          neutral: "#0F172A",
-          "base-100": "#FFFFFF",
-          "base-200": "#F8FAFC",
-          "base-300": "#E2E8F0",
-          info: "#0052CC",
-          success: "#027A48",
-          warning: "#B54708",
-          error: "#D92D20",
-        },
-      },
-    ],
-  },
-  plugins: [daisyui],
+  plugins: [],
 };
+

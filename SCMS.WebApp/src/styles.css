@@ -5,22 +5,73 @@
 @tailwind utilities;
 
 :root {
-  color: #0F172A;
-  background: #F8FAFC;
+  /* Warm Pearl & Frosted Ambient Theme Tokens */
+  --background: 40 20% 98%;         /* #FAF9F6 Warm Pearl / Off-white */
+  --foreground: 240 6% 10%;         /* #18181B Deep Obsidian Graphite */
+  
+  --card: 0 0% 100%;                /* #FFFFFF Crisp Snow White */
+  --card-foreground: 240 6% 10%;    /* #18181B */
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 6% 10%;
+  
+  --primary: 240 6% 10%;            /* #18181B Deep Obsidian Primary */
+  --primary-foreground: 0 0% 98%;   /* #FAFAFA Pure White */
+  
+  --secondary: 40 10% 94%;          /* #F5F4F0 Warm Sand Secondary */
+  --secondary-foreground: 240 6% 10%;
+  
+  --muted: 40 10% 94%;
+  --muted-foreground: 240 4% 46%;   /* #71717A Zinc Muted Text */
+  
+  --accent: 38 92% 50%;             /* Warm Amber/Apricot Accent #F59E0B */
+  --accent-foreground: 240 6% 10%;
+  
+  --destructive: 0 84.2% 60.2%;     /* #E11D48 Rose */
+  --destructive-foreground: 0 0% 98%;
+  
+  --border: 40 10% 90%;             /* #E7E5E0 Warm Neutral Border */
+  --input: 40 10% 90%;
+  --ring: 240 6% 10%;               /* #18181B Focus Ring */
+  --radius: 1rem;                   /* 16px Smooth Corner Radius */
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --font-size-base: 1rem;
 }
 
 .dark {
-  color: #F1F5F9;
-  background: #0B0F19;
+  --background: 240 5% 7%;          /* #121214 Deep Warm Obsidian */
+  --foreground: 0 0% 98%;           /* #FAFAFA Pure White */
+  
+  --card: 240 5% 10%;               /* #18181B Dark Charcoal Card */
+  --card-foreground: 0 0% 98%;
+  
+  --popover: 240 5% 10%;
+  --popover-foreground: 0 0% 98%;
+  
+  --primary: 0 0% 98%;              /* #FAFAFA Crisp White */
+  --primary-foreground: 240 6% 10%; /* #18181B */
+  
+  --secondary: 240 4% 16%;          /* #27272A */
+  --secondary-foreground: 0 0% 98%;
+  
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 5% 65%;   /* #A1A1AA */
+  
+  --accent: 38 92% 50%;
+  --accent-foreground: 0 0% 98%;
+  
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  
+  --border: 240 4% 18%;             /* #2E2E32 */
+  --input: 240 4% 18%;
+  --ring: 0 0% 98%;
 }
 
 html {
-  font-size: var(--font-size-base);
   scroll-behavior: smooth;
 }
 
@@ -28,15 +79,10 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #F8FAFC;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Manrope", system-ui, sans-serif;
-  color: #0F172A;
   transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.dark body {
-  background: #0B0F19;
-  color: #F1F5F9;
 }
 
 button,
@@ -49,14 +95,10 @@ textarea {
 /* Accessible focus ring on all interactive elements */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #4F46E5 !important;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring)) !important;
 }
 
-.dark *:focus-visible {
-  box-shadow: 0 0 0 2px #0B0F19, 0 0 0 4px #6366F1 !important;
-}
-
-/* Myanmar font support */
+/* Myanmar font support with relaxed line-height */
 .lang-mm, 
 .lang-mm body, 
 .lang-mm input, 
@@ -66,85 +108,61 @@ textarea {
 .lang-mm .scms-btn-primary,
 .lang-mm .scms-btn-outline {
   font-family: "SF Pro Text", "Inter", "Padauk", "Noto Sans Myanmar", system-ui, sans-serif !important;
-  line-height: 1.6 !important;
+  line-height: 1.65 !important;
 }
 
 /* Glassmorphism & Translucent Surfaces */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(231, 229, 224, 0.8);
 }
 
 .dark .glass-panel {
-  background: rgba(22, 30, 46, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: rgba(24, 24, 27, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(46, 46, 50, 0.8);
 }
 
 .glass-nav {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  background: rgba(250, 249, 246, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(231, 229, 224, 0.7);
 }
 
 .dark .glass-nav {
-  background: rgba(15, 23, 42, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+  background: rgba(18, 18, 20, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(46, 46, 50, 0.7);
 }
 
-/* Interactive elements standards */
+/* Interactive elements standards (Shadcn compliant) */
 .scms-card {
-  @apply rounded-2xl border border-slate-200/80 bg-white shadow-scms transition-all;
-}
-
-.dark .scms-card {
-  @apply border-slate-800/80 bg-slate-900/90 text-slate-100 shadow-none;
+  @apply rounded-3xl border border-border/80 bg-card/95 text-card-foreground shadow-scms transition-all backdrop-blur-sm;
 }
 
 .scms-input {
-  @apply input input-bordered h-11 min-h-11 rounded-xl border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none transition-colors;
-}
-
-.dark .scms-input {
-  @apply border-slate-700 bg-slate-800/90 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500;
+  @apply flex h-11 min-h-11 w-full rounded-2xl border border-input bg-background/90 px-3.5 py-2 text-sm text-foreground placeholder:text-muted-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
 .scms-select {
-  @apply select select-bordered h-11 min-h-11 rounded-xl border-slate-200 bg-white text-sm text-slate-900 focus:border-indigo-600 focus:outline-none transition-colors;
-}
-
-.dark .scms-select {
-  @apply border-slate-700 bg-slate-800/90 text-slate-100 focus:border-indigo-500;
+  @apply flex h-11 min-h-11 w-full rounded-2xl border border-input bg-background/90 px-3.5 py-2 text-sm text-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
 .scms-textarea {
-  @apply textarea textarea-bordered min-h-24 rounded-xl border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none transition-colors;
-}
-
-.dark .scms-textarea {
-  @apply border-slate-700 bg-slate-800/90 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500;
+  @apply flex min-h-24 w-full rounded-2xl border border-input bg-background/90 p-3.5 text-sm text-foreground placeholder:text-muted-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
 .scms-btn-primary {
-  @apply btn h-11 min-h-11 rounded-xl border-0 bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-[0.98] transition-all;
-}
-
-.dark .scms-btn-primary {
-  @apply bg-indigo-600 hover:bg-indigo-500 text-white;
+  @apply inline-flex h-11 min-h-11 items-center justify-center rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all;
 }
 
 .scms-btn-outline {
-  @apply btn h-11 min-h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all;
-}
-
-.dark .scms-btn-outline {
-  @apply border-slate-700 bg-slate-800/90 text-slate-200 hover:bg-slate-700 hover:border-slate-600;
+  @apply inline-flex h-11 min-h-11 items-center justify-center rounded-2xl border border-input bg-background/80 px-5 text-sm font-semibold text-foreground hover:bg-secondary active:scale-[0.98] transition-all;
 }
 
 /* Standardize 44x44px minimum target sizes for primary buttons */
@@ -177,3 +195,4 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
