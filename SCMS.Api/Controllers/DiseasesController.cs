@@ -22,14 +22,14 @@ namespace SCMS.Api.Controllers
             _diseaseService = diseaseService;
         }
 
-        /// <summary>Query diseases with search and pagination.</summary>
+        /// <summary>List diseases with pagination.</summary>
         [HttpGet]
         [HasPermission("Diseases.View")]
-        [ProducesResponseType(typeof(PagedResult<DiseaseResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PagedResult<GetDiseasesResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetDiseases([FromQuery] DiseaseRequest request)
+        public async Task<IActionResult> GetDiseases([FromQuery] GetDiseasesRequest request)
         {
-            request ??= new DiseaseRequest();
+            request ??= new GetDiseasesRequest();
             if (request.PageNumber <= 0) request.PageNumber = 1;
             if (request.PageSize <= 0) request.PageSize = 10;
 
@@ -37,10 +37,25 @@ namespace SCMS.Api.Controllers
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
+        /// <summary>Search diseases with keyword query and pagination.</summary>
+        [HttpGet("search")]
+        [HasPermission("Diseases.View")]
+        [ProducesResponseType(typeof(PagedResult<SearchDiseasesResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SearchDiseases([FromQuery] SearchDiseasesRequest request)
+        {
+            request ??= new SearchDiseasesRequest();
+            if (request.PageNumber <= 0) request.PageNumber = 1;
+            if (request.PageSize <= 0) request.PageSize = 10;
+
+            var result = await _diseaseService.SearchDiseasesAsync(request);
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+
         /// <summary>Create a new disease diagnosis record.</summary>
         [HttpPost]
         [HasPermission("Diseases.Create")]
-        [ProducesResponseType(typeof(Result<DiseaseResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<CreateDiseaseResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateDisease([FromBody] CreateDiseaseRequest request)
         {
@@ -51,7 +66,7 @@ namespace SCMS.Api.Controllers
         /// <summary>Update an existing disease diagnosis record.</summary>
         [HttpPut]
         [HasPermission("Diseases.Update")]
-        [ProducesResponseType(typeof(Result<DiseaseResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<UpdateDiseaseResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateDisease([FromBody] UpdateDiseaseRequest request)
         {

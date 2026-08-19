@@ -46,8 +46,6 @@ namespace SCMS.Domain.Tests.Diseases
             Assert.Equal("Chronic condition affecting blood sugar levels", result.Data.Description);
         }
 
-
-
         [Fact]
         public async Task UpdateDisease_ShouldReturnSuccess_WhenValidRequest()
         {
@@ -79,8 +77,6 @@ namespace SCMS.Domain.Tests.Diseases
             Assert.Equal("Hypertension Updated", result.Data.Name);
             Assert.Equal("Updated description for high blood pressure", result.Data.Description);
         }
-
-
 
         [Fact]
         public async Task DeactivateDisease_ShouldReturnSuccess_WhenDiseaseNotReferenced()
@@ -177,17 +173,18 @@ namespace SCMS.Domain.Tests.Diseases
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = string.Empty, PageNumber = 1, PageSize = 10 });
+            var result = await _diseaseService.GetDiseasesAsync(new GetDiseasesRequest { PageNumber = 1, PageSize = 10 });
 
             // Assert
             Assert.True(result.IsSuccess);
             Assert.Equal(2, result.Data.Count);
-            Assert.Contains(result.Data, d => d.Name == "Flu");
-            Assert.Contains(result.Data, d => d.Name == "Cold");
+            // Default ascending sort by Name: "Cold" before "Flu"
+            Assert.Equal("Cold", result.Data[0].Name);
+            Assert.Equal("Flu", result.Data[1].Name);
         }
 
         [Fact]
-        public async Task GetDiseasesAsync_ShouldFilterByQuery_WhenProvided()
+        public async Task SearchDiseasesAsync_ShouldFilterByQuery_WhenProvided()
         {
             // Arrange
             var disease1 = new TblDisease
@@ -210,7 +207,7 @@ namespace SCMS.Domain.Tests.Diseases
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = "diabetes", PageNumber = 1, PageSize = 10 });
+            var result = await _diseaseService.SearchDiseasesAsync(new SearchDiseasesRequest { Query = "diabetes", PageNumber = 1, PageSize = 10 });
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -242,7 +239,7 @@ namespace SCMS.Domain.Tests.Diseases
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = string.Empty, PageNumber = 1, PageSize = 10 });
+            var result = await _diseaseService.GetDiseasesAsync(new GetDiseasesRequest { PageNumber = 1, PageSize = 10 });
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -290,7 +287,7 @@ namespace SCMS.Domain.Tests.Diseases
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _diseaseService.GetDiseasesAsync(new DiseaseRequest { Query = string.Empty, PageNumber = 2, PageSize = 5 });
+            var result = await _diseaseService.GetDiseasesAsync(new GetDiseasesRequest { PageNumber = 2, PageSize = 5 });
 
             // Assert
             Assert.True(result.IsSuccess);

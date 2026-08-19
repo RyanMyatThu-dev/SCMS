@@ -14,8 +14,31 @@ namespace SCMS.Domain.Features.Diseases
             _context = context;
         }
 
-        public async Task<PagedResult<DiseaseResponse>> GetDiseasesAsync(DiseaseRequest request)
+        public async Task<PagedResult<GetDiseasesResponse>> GetDiseasesAsync(GetDiseasesRequest request)
         {   
+            var query = _context.TblDiseases
+                .AsNoTracking()
+                .Where(d => d.DeleteFlag != true);
+
+            var totalCount = await query.CountAsync();
+
+            var diseases = await query
+                .OrderBy(d => d.Name)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(d => new GetDiseasesResponse
+                {
+                    Id = d.Id,
+                    Name = d.Name,
+                    Description = d.Description
+                })
+                .ToListAsync();
+
+            return PagedResult<GetDiseasesResponse>.Success(diseases, new Pagination(request.PageNumber, request.PageSize, totalCount));
+        }
+
+        public async Task<PagedResult<SearchDiseasesResponse>> SearchDiseasesAsync(SearchDiseasesRequest request)
+        {
             var query = _context.TblDiseases
                 .AsNoTracking()
                 .Where(d => d.DeleteFlag != true);
@@ -34,7 +57,7 @@ namespace SCMS.Domain.Features.Diseases
                 .OrderBy(d => d.Name)
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(d => new DiseaseResponse
+                .Select(d => new SearchDiseasesResponse
                 {
                     Id = d.Id,
                     Name = d.Name,
@@ -42,14 +65,14 @@ namespace SCMS.Domain.Features.Diseases
                 })
                 .ToListAsync();
 
-            return PagedResult<DiseaseResponse>.Success(diseases, new Pagination(request.PageNumber, request.PageSize, totalCount));
+            return PagedResult<SearchDiseasesResponse>.Success(diseases, new Pagination(request.PageNumber, request.PageSize, totalCount));
         }
 
-        public async Task<Result<DiseaseResponse>> CreateDiseaseAsync(CreateDiseaseRequest request)
+        public async Task<Result<CreateDiseaseResponse>> CreateDiseaseAsync(CreateDiseaseRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Result<DiseaseResponse>.Failure("Disease name is required.");
+                return Result<CreateDiseaseResponse>.Failure("Disease name is required.");
             }
 
             var trimmedName = request.Name.Trim();
@@ -60,7 +83,7 @@ namespace SCMS.Domain.Features.Diseases
                 .AnyAsync(d => d.Name.ToLower() == lowerName && d.DeleteFlag != true);
             if (diseaseExists)
             {
-                return Result<DiseaseResponse>.Failure("A disease with this name already exists.");
+                return Result<CreateDiseaseResponse>.Failure("A disease with this name already exists.");
             }
 
             var disease = new TblDisease
@@ -75,7 +98,7 @@ namespace SCMS.Domain.Features.Diseases
             _context.TblDiseases.Add(disease);
             await _context.SaveChangesAsync();
 
-            return Result<DiseaseResponse>.Success(new DiseaseResponse
+            return Result<CreateDiseaseResponse>.Success(new CreateDiseaseResponse
             {
                 Id = disease.Id,
                 Name = disease.Name,
@@ -83,17 +106,17 @@ namespace SCMS.Domain.Features.Diseases
             }, "Disease created successfully.");
         }
 
-        public async Task<Result<DiseaseResponse>> UpdateDiseaseAsync(UpdateDiseaseRequest request)
+        public async Task<Result<UpdateDiseaseResponse>> UpdateDiseaseAsync(UpdateDiseaseRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Result<DiseaseResponse>.Failure("Disease name is required.");
+                return Result<UpdateDiseaseResponse>.Failure("Disease name is required.");
             }
 
             var disease = await _context.TblDiseases.FirstOrDefaultAsync(d => d.Id == request.Id && d.DeleteFlag != true);
             if (disease == null)
             {
-                return Result<DiseaseResponse>.Failure("Disease to update not found");
+                return Result<UpdateDiseaseResponse>.Failure("Disease to update not found");
             }
 
             var trimmedName = request.Name.Trim();
@@ -103,7 +126,7 @@ namespace SCMS.Domain.Features.Diseases
                 .AnyAsync(d => d.Id != request.Id && d.Name.ToLower() == lowerName && d.DeleteFlag != true);
             if (nameConflict)
             {
-                return Result<DiseaseResponse>.Failure("Another active disease with this name already exists.");
+                return Result<UpdateDiseaseResponse>.Failure("Another active disease with this name already exists.");
             }
 
             disease.Name = trimmedName;
@@ -112,7 +135,7 @@ namespace SCMS.Domain.Features.Diseases
 
             await _context.SaveChangesAsync();
 
-            return Result<DiseaseResponse>.Success(new DiseaseResponse
+            return Result<UpdateDiseaseResponse>.Success(new UpdateDiseaseResponse
             {
                 Id = disease.Id,
                 Name = disease.Name,
