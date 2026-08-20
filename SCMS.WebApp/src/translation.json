@@ -21,9 +21,9 @@
     "loginHint": "Sign in to access your clinic workspace and records.",
     "registerHint": "Create a new patient or staff account for clinic access.",
     "demoRoles": "Demo Accounts",
-    "roleOwner": "Practice Owner (Dr. Thandar)",
+    "roleOwner": "Clinic Administrator (SCMS Admin)",
     "roleDoctor": "Consulting Doctor",
-    "rolePatient": "Patient (Aung Min)",
+    "rolePatient": "Patient (SCMS Patient)",
 
     "dashboard": "Dashboard",
     "patients": "Patients",
@@ -184,9 +184,9 @@
     "loginHint": "ဆေးခန်းလုပ်ငန်းခွင်နှင့် မှတ်တမ်းများ အသုံးပြုရန် အကောင့်ဝင်ပါ။",
     "registerHint": "ဆေးခန်းဝန်ဆောင်မှုများ ရယူရန် အကောင့်သစ်ဖွင့်ပါ။",
     "demoRoles": "နမူနာ အကောင့်များ",
-    "roleOwner": "ဆေးခန်းပိုင်ရှင် (ဒေါက်တာသန္တာ)",
+    "roleOwner": "ဆေးခန်းစီမံခန့်ခွဲသူ (SCMS Admin)",
     "roleDoctor": "အထူးကုဆရာဝန်",
-    "rolePatient": "လူနာ (ကိုအောင်မင်း)",
+    "rolePatient": "လူနာ (SCMS Patient)",
 
     "dashboard": "Dashboard",
     "patients": "လူနာများ",

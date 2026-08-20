@@ -47,16 +47,20 @@ export default function SearchForm({
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={currentValue}
             onChange={handleChange}
+            onClear={() => {
+              handleChange("");
+              if (onReset) onReset();
+              else if (onSearch) onSearch("");
+            }}
             placeholder={placeholder || t.search}
             aria-label={placeholder || t.search}
             className="flex-1"
           />
           <button
             type="submit"
-            className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs"
+            className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center btn-target shadow-xs"
           >
-            <MagnifyingGlassIcon className="w-4 h-4" />
-            <span>Search</span>
+            <span>{t.search || "Search"}</span>
           </button>
         </div>
 

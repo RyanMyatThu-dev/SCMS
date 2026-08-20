@@ -1,7 +1,28 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { authApi } from "../services/scmsApi";
 
 const AuthContext = createContext(null);
+
+export const isTokenExpired = (token) => {
+  if (!token || typeof token !== "string") return true;
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    const decoded = JSON.parse(jsonPayload);
+    if (!decoded || !decoded.exp) return true;
+    return decoded.exp <= Date.now() / 1000;
+  } catch {
+    return true;
+  }
+};
 
 const readJson = (key, fallback = null) => {
   try {
@@ -10,6 +31,22 @@ const readJson = (key, fallback = null) => {
   } catch {
     return fallback;
   }
+};
+
+const getInitialAuth = () => {
+  const storedToken = localStorage.getItem("scms_token") || localStorage.getItem("token") || "";
+  if (!storedToken || isTokenExpired(storedToken)) {
+    localStorage.removeItem("scms_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("scms_refresh_token");
+    localStorage.removeItem("scms_user");
+    localStorage.removeItem("userRole");
+    return { token: "", user: null };
+  }
+  return {
+    token: storedToken,
+    user: readJson("scms_user", null),
+  };
 };
 
 const pickToken = (data) =>
@@ -53,10 +90,19 @@ const pickUser = (data, email) => {
 };
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(
-    localStorage.getItem("scms_token") || localStorage.getItem("token") || ""
-  );
-  const [user, setUser] = useState(readJson("scms_user", null));
+  const initial = useMemo(() => getInitialAuth(), []);
+  const [token, setToken] = useState(initial.token);
+  const [user, setUser] = useState(initial.user);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setToken("");
+      setUser(null);
+    };
+
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("auth:unauthorized", handleUnauthorized);
+  }, []);
 
   const login = async ({ emailOrMobile, email, password, roleHint }) => {
     const loginId = emailOrMobile || email;
@@ -126,19 +172,22 @@ export function AuthProvider({ children }) {
     return roles.some((r) => ["user", "patient"].includes(String(r).toLowerCase()));
   }, [user]);
 
+  const isAuthenticated = useMemo(() => Boolean(token) && !isTokenExpired(token), [token]);
+
   const value = useMemo(
     () => ({
       token,
       user,
-      isAuthenticated: Boolean(token),
+      isAuthenticated,
       isOwner,
       isDoctor,
       isPatient,
+      isTokenExpired,
       login,
       logout,
       register,
     }),
-    [token, user, isOwner, isDoctor, isPatient]
+    [token, user, isAuthenticated, isOwner, isDoctor, isPatient]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -19,6 +19,7 @@ import { showError, showSuccess } from "../../services/dialogs";
 import { appointmentsApi, downloadBlob, paymentsApi, prescriptionsApi, patientsApi } from "../../services/scmsApi";
 import { formatTemperatureF, parsePrescriptionNotes } from "../../utils/clinical";
 import { sanitizeText } from "../../utils/validation";
+import { formatDate, formatDateTime } from "../../utils/format";
 import useScrollLock from "../../hooks/useScrollLock";
 import ModalPortal from "../../components/ModalPortal";
 
@@ -186,15 +187,6 @@ export default function UserDashboard() {
   };
 
   const money = (value) => `${Number(value || 0).toLocaleString()} MMK`;
-  const formatDate = (val) => {
-    if (!val) return "";
-    const date = new Date(val);
-    if (isNaN(date.getTime())) return String(val);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
 
   if (!currentProfile) {
     return (
@@ -460,7 +452,7 @@ export default function UserDashboard() {
                     </span>
                   </div>
                   <div className="mt-2 font-bold text-slate-900 dark:text-white text-xs">
-                    {formatDate(appt.datetime)}
+                    {formatDateTime(appt.datetime)}
                   </div>
                   {appt.tokenNumber > 0 && (
                     <div className="mt-1.5 text-xs text-slate-500 font-medium">

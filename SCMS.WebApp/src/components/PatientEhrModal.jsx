@@ -17,6 +17,7 @@ import useScrollLock from "../hooks/useScrollLock";
 import { patientsApi, downloadBlob } from "../services/scmsApi";
 import { showError, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
+import { formatDate, formatDateTime } from "../utils/format";
 
 export default function PatientEhrModal({
   isOpen,
@@ -188,7 +189,7 @@ export default function PatientEhrModal({
                 </span>
               </div>
               <p id="ehr-modal-description" className="text-xs text-muted-foreground mt-0.5">
-                {p.gender || "Unspecified"} {p.age ? `• ${p.age} years old` : ""} {p.dateOfBirth ? `(DOB: ${String(p.dateOfBirth).split("T")[0]})` : ""} • Contact: {p.phone || p.mobileNo || "None"}
+                {p.gender || "Unspecified"} {p.age ? `• ${p.age} years old` : ""} {p.dateOfBirth ? `(DOB: ${formatDate(p.dateOfBirth)})` : ""} • Contact: {p.phone || p.mobileNo || "None"}
               </p>
             </div>
           </div>
@@ -351,7 +352,7 @@ export default function PatientEhrModal({
                 {/* Latest Vitals Metric Cards */}
                 <div>
                   <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-2.5">
-                    Latest Vital Signs {latestVitals && `(as of ${new Date(latestVitals.date).toLocaleDateString()})`}
+                    Latest Vital Signs {latestVitals && `(as of ${formatDate(latestVitals.date)})`}
                   </h3>
 
                   {latestVitals ? (
@@ -446,7 +447,7 @@ export default function PatientEhrModal({
                           {vitalsList.map((v, i) => (
                             <tr key={i} className="hover:bg-secondary/30">
                               <td className="p-2.5 font-mono text-muted-foreground">
-                                {new Date(v.date).toLocaleDateString()}
+                                {formatDate(v.date)}
                               </td>
                               <td className="p-2.5 font-mono font-bold">
                                 {v.bloodPressureSystolic && v.bloodPressureDiastolic
@@ -502,7 +503,7 @@ export default function PatientEhrModal({
                               {event.title}
                             </span>
                             <span className="text-[11px] font-mono text-muted-foreground">
-                              {new Date(event.date).toLocaleString()}
+                              {formatDateTime(event.date)}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground">
@@ -548,7 +549,7 @@ export default function PatientEhrModal({
                             </h4>
                           </div>
                           <span className="font-mono text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded">
-                            {new Date(rx.date).toLocaleDateString()}
+                            {formatDate(rx.date)}
                           </span>
                         </div>
 
@@ -616,7 +617,7 @@ export default function PatientEhrModal({
                   <div>
                     <span className="text-muted-foreground font-semibold block mb-0.5">Record Created At:</span>
                     <strong className="text-foreground font-mono">
-                      {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "N/A"}
+                      {formatDate(p.createdAt)}
                     </strong>
                   </div>
                 </div>

@@ -32,6 +32,9 @@ api.interceptors.response.use(
       localStorage.removeItem("scms_refresh_token");
       localStorage.removeItem("scms_user");
       localStorage.removeItem("userRole");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth:unauthorized"));
+      }
     }
 
     return Promise.reject(error);

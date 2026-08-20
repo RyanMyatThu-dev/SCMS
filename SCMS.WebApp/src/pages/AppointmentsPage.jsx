@@ -29,6 +29,7 @@ import { showAlert, showError, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
 import { calculateQuantity, commonDosageValues, dosageOptions, fahrenheitToCelsius } from "../utils/clinical";
 import { sanitizeText, validateClinicalVitals, validateNumberRange } from "../utils/validation";
+import { formatDate, formatDateTime } from "../utils/format";
 import useScrollLock from "../hooks/useScrollLock";
 import ModalPortal from "../components/ModalPortal";
 
@@ -205,16 +206,6 @@ export default function AppointmentsPage() {
     e.preventDefault();
     setPage(1);
     loadAppointments(1);
-  };
-
-  const formatDate = (val) => {
-    if (!val) return "-";
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
   };
 
   const getStatusClass = (status) => {
@@ -600,7 +591,7 @@ export default function AppointmentsPage() {
                     <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">{rowNo}</td>
                     <td className="px-4 py-3.5 font-extrabold text-orange-600 dark:text-orange-400 font-mono text-sm">{appt.appointmentCode}</td>
                     <td className="px-4 py-3.5 font-bold text-foreground">{appt.patientName || appt.patient?.name || appt.patientId}</td>
-                    <td className="px-4 py-3.5 font-medium text-muted-foreground">{formatDate(appt.datetime)}</td>
+                    <td className="px-4 py-3.5 font-medium text-muted-foreground">{formatDateTime(appt.datetime)}</td>
                     <td className="px-4 py-3.5 font-bold text-orange-600 dark:text-orange-400 font-mono text-center sm:text-left">{appt.tokenNumber || "-"}</td>
                     <td className="px-4 py-3.5">
                       <span className={`text-[10px] font-bold border px-2.5 py-0.5 rounded-full ${getStatusClass(appt.status)}`}>
@@ -664,7 +655,7 @@ export default function AppointmentsPage() {
                   <h4 className="font-bold text-foreground text-sm">{appt.patientName || appt.patient?.name || appt.patientId}</h4>
                   <div className="mt-2 text-xs flex items-center gap-1 text-muted-foreground font-medium">
                     <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                    {formatDate(appt.datetime)}
+                    {formatDateTime(appt.datetime)}
                   </div>
                   {appt.tokenNumber > 0 && (
                     <div className="mt-2 text-xs font-semibold text-orange-600 dark:text-orange-400">
@@ -734,7 +725,7 @@ export default function AppointmentsPage() {
             <div className="space-y-3 text-xs leading-relaxed">
               <div className="flex justify-between text-slate-500 font-semibold">
                 <span>Appointment Date:</span>
-                <strong className="text-scms-text">{formatDate(selectedAppt.datetime)}</strong>
+                <strong className="text-scms-text">{formatDateTime(selectedAppt.datetime)}</strong>
               </div>
               {selectedAppt.tokenNumber > 0 && (
                 <div className="flex justify-between text-slate-500 font-semibold">

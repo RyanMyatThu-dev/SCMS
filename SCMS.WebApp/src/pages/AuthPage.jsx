@@ -25,9 +25,9 @@ import { sanitizeText, validateMyanmarMobile, validateEmail } from "../utils/val
 const demoAccounts = [
   {
     roleKey: "roleOwner",
-    email: "dr.thandar@scms.demo",
+    email: "admin@scms.demo",
     password: "password",
-    role: "admin",
+    role: "owner",
     route: "/app/dashboard",
     badge: "Owner / Admin",
   },
@@ -40,8 +40,8 @@ const demoAccounts = [
     badge: "Doctor",
   },
   {
-    roleKey: "roleUser",
-    email: "aung.min@example.test",
+    roleKey: "rolePatient",
+    email: "user@scms.demo",
     password: "password",
     role: "user",
     route: "/user/dashboard",
@@ -53,12 +53,12 @@ export default function AuthPage({ mode = "login" }) {
   const isRegister = mode === "register";
   const { t, language, toggleLanguage } = useLanguage();
   const { isDark, toggleTheme } = useTheme();
-  const { isAuthenticated, user, login, register } = useAuth();
+  const { isAuthenticated, user, token, isTokenExpired, login, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && (!token || !isTokenExpired || !isTokenExpired(token))) {
       const userRoles = Array.isArray(user.roles)
         ? user.roles.map((r) => String(r).toLowerCase())
         : [String(user.role || "").toLowerCase()];
@@ -71,14 +71,14 @@ export default function AuthPage({ mode = "login" }) {
         navigate("/app/dashboard", { replace: true });
       }
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, token, isTokenExpired, navigate]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("admin");
+  const [selectedRole, setSelectedRole] = useState("owner");
   const [form, setForm] = useState({
     name: "",
-    email: "dr.thandar@scms.demo",
+    email: "admin@scms.demo",
     password: "password",
   });
 

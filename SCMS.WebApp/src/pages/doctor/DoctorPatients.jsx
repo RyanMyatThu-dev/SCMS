@@ -12,6 +12,7 @@ import { Input } from "../../components/ui/input";
 import { patientsApi, downloadBlob } from "../../services/scmsApi";
 import { showAlert, showError } from "../../services/dialogs";
 import { parsePrescriptionNotes } from "../../utils/clinical";
+import { formatDate } from "../../utils/format";
 import useScrollLock from "../../hooks/useScrollLock";
 import ModalPortal from "../../components/ModalPortal";
 
@@ -118,24 +119,15 @@ export default function DoctorPatients() {
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onClear={() => {
+              setQuery("");
+              loadPatients(1, "");
+            }}
             placeholder="Search patients by name, phone, or MRN..."
           />
         </div>
-        <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
-          <MagnifyingGlassIcon className="w-4 h-4" />
+        <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center btn-target shadow-xs">
           <span>Search</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setQuery("");
-            loadPatients(1, "");
-          }}
-          className="scms-btn-icon"
-          title="Reload"
-          aria-label="Reload"
-        >
-          <ReloadIcon className="w-4 h-4 shrink-0" />
         </button>
       </form>
 
@@ -263,7 +255,7 @@ export default function DoctorPatients() {
                           <div className="flex justify-between font-semibold text-slate-800 dark:text-slate-200">
                             <span>Prescription #{pres.id || i + 1}</span>
                             <span className="text-slate-400 font-mono text-[10px]">
-                              {pres.prescribedAt ? String(pres.prescribedAt).slice(0, 10) : "Recent"}
+                              {formatDate(pres.prescribedAt)}
                             </span>
                           </div>
                           {pres.notes && (

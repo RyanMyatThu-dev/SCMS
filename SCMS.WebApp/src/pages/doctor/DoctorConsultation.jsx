@@ -31,6 +31,7 @@ import {
   validateClinicalVitals,
   validateNumberRange,
 } from "../../utils/validation";
+import DateInput from "../../components/DateInput";
 import useScrollLock from "../../hooks/useScrollLock";
 import ModalPortal from "../../components/ModalPortal";
 
@@ -618,9 +619,7 @@ export default function DoctorConsultation() {
                   ))}
                 </div>
 
-                <input
-                  type="date"
-                  className="scms-input w-full text-xs font-mono"
+                <DateInput
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
                 />

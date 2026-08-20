@@ -18,6 +18,7 @@ import RevenueAreaChart from "../components/widgets/RevenueAreaChart";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { appointmentsApi, dashboardsApi, medicinesApi, reportsApi } from "../services/scmsApi";
+import { formatDate, formatDateTime } from "../utils/format";
 import useScrollLock from "../hooks/useScrollLock";
 import ModalPortal from "../components/ModalPortal";
 
@@ -454,7 +455,7 @@ export default function Dashboard() {
                         <strong className="font-mono text-foreground">
                           {isLowStock
                             ? "Critical Minimum"
-                            : String(alert.expiryDate || "").slice(0, 10)}
+                            : formatDate(alert.expiryDate)}
                         </strong>
                       </div>
                     </div>
@@ -499,7 +500,7 @@ export default function Dashboard() {
               <div className="flex justify-between">
                 <span>Date & Time:</span>
                 <strong className="text-foreground font-mono">
-                  {String(selectedAppt.datetime || "").replace("T", " ")}
+                  {formatDateTime(selectedAppt.datetime)}
                 </strong>
               </div>
               <div className="flex justify-between">

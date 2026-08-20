@@ -16,6 +16,7 @@ import { prescriptionsApi, diseasesApi, downloadBlob } from "../services/scmsApi
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
 import { parsePrescriptionData, parsePrescriptionNotes } from "../utils/clinical";
+import { formatDate } from "../utils/format";
 import useScrollLock from "../hooks/useScrollLock";
 import ModalPortal from "../components/ModalPortal";
 
@@ -218,7 +219,7 @@ export default function PrescriptionsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">
-                      {p.prescribedAt ? String(p.prescribedAt).slice(0, 10) : "-"}
+                      {formatDate(p.prescribedAt)}
                     </td>
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
@@ -258,7 +259,7 @@ export default function PrescriptionsPage() {
                   RX-{String(p.id || p.prescriptionId).padStart(4, "0")}
                 </span>
                 <span className="font-mono text-[10px] text-muted-foreground font-semibold">
-                  {p.prescribedAt ? String(p.prescribedAt).slice(0, 10) : "Recent"}
+                  {formatDate(p.prescribedAt)}
                 </span>
               </div>
 

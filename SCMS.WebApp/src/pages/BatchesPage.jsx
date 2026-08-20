@@ -17,9 +17,10 @@ import DateInput from "../components/DateInput";
 import SegmentedControl from "../components/SegmentedControl";
 import { Input } from "../components/ui/input";
 import { medicinesApi } from "../services/scmsApi";
-import { showError, showConfirm, showSuccess } from "../services/dialogs";
+import { showAlert, showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
 import { sanitizeText, validateNumberRange } from "../utils/validation";
+import { formatDate } from "../utils/format";
 import useScrollLock from "../hooks/useScrollLock";
 import ModalPortal from "../components/ModalPortal";
 
@@ -263,11 +264,14 @@ export default function BatchesPage() {
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onClear={() => {
+              setQuery("");
+              loadBatches(1, "");
+            }}
             placeholder="Search batches by number or supplier..."
             className="flex-1"
           />
-          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
-            <MagnifyingGlassIcon className="w-4 h-4" />
+          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center btn-target shadow-xs">
             <span>Search</span>
           </button>
         </form>
@@ -347,7 +351,7 @@ export default function BatchesPage() {
                       {b.quantity || b.currentQuantity || 0} units
                     </td>
                     <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">
-                      {b.expiryDate ? String(b.expiryDate).slice(0, 10) : "-"}
+                      {formatDate(b.expiryDate)}
                     </td>
                     <td className="px-4 py-3.5 text-xs text-muted-foreground">
                       {b.supplierName || "-"}
@@ -403,7 +407,7 @@ export default function BatchesPage() {
               </div>
 
               <div className="text-xs text-muted-foreground font-mono">
-                Expires: {b.expiryDate ? String(b.expiryDate).slice(0, 10) : "-"}
+                Expires: {formatDate(b.expiryDate)}
               </div>
 
               <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>

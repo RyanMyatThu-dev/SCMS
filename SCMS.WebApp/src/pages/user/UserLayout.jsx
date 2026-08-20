@@ -21,6 +21,7 @@ import {
   sanitizeText,
   validatePatientProfile,
 } from "../../utils/validation";
+import DateInput from "../../components/DateInput";
 import useScrollLock from "../../hooks/useScrollLock";
 import ModalPortal from "../../components/ModalPortal";
 
@@ -508,15 +509,14 @@ export default function UserLayout() {
                 <span className="mb-1 block font-bold text-foreground">
                   Date of Birth <span className="text-rose-500">*</span>
                 </span>
-                <input
-                  type="date"
+                <DateInput
                   max={new Date().toISOString().split("T")[0]}
                   value={newProfile.dateOfBirth}
                   onChange={(e) => {
                     setNewProfile((p) => ({ ...p, dateOfBirth: e.target.value }));
                     if (formErrors.dateOfBirth) setFormErrors((errs) => ({ ...errs, dateOfBirth: null }));
                   }}
-                  className={`scms-input w-full text-xs font-mono ${formErrors.dateOfBirth ? "border-rose-500 ring-1 ring-rose-500" : ""}`}
+                  className={formErrors.dateOfBirth ? "border-rose-500 ring-1 ring-rose-500" : ""}
                 />
                 {formErrors.dateOfBirth && (
                   <span className="text-[11px] text-rose-500 font-semibold mt-1 block">

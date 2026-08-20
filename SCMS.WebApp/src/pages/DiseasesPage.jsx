@@ -213,11 +213,14 @@ export default function DiseasesPage() {
             startIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onClear={() => {
+              setQuery("");
+              loadDiseases(1, "");
+            }}
             placeholder="Search diagnoses by name, category, or ICD code..."
             className="flex-1"
           />
-          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center gap-1.5 btn-target shadow-xs">
-            <MagnifyingGlassIcon className="w-4 h-4" />
+          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center btn-target shadow-xs">
             <span>Search</span>
           </button>
         </form>
