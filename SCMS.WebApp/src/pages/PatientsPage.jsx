@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   PersonIcon,
   PlusIcon,
-  ReloadIcon,
+  EyeOpenIcon,
   GridIcon,
   ListBulletIcon,
   TrashIcon,
@@ -25,6 +25,7 @@ import {
 } from "../utils/validation";
 import useScrollLock from "../hooks/useScrollLock";
 import ModalPortal from "../components/ModalPortal";
+import PatientEhrModal from "../components/PatientEhrModal";
 
 const toArray = (data) => {
   if (Array.isArray(data)) return data;
@@ -249,18 +250,6 @@ export default function PatientsPage() {
         actions={
           <div className="flex items-center gap-2">
             <button
-              className="scms-btn-outline flex items-center gap-1.5 btn-target shadow-xs"
-              onClick={() => {
-                setQuery("");
-                setPage(1);
-                loadPatients();
-              }}
-              title={t.refresh}
-              aria-label={t.refresh}
-            >
-              <ReloadIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
-            </button>
-            <button
               className="scms-btn-primary flex items-center gap-1.5 btn-target shadow-xs"
               onClick={() => openCreateModal()}
             >
@@ -373,6 +362,14 @@ export default function PatientsPage() {
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={() => openDetail(p)}
+                          className="scms-btn-icon"
+                          title="View Patient EHR Profile"
+                          aria-label="View Patient EHR Profile"
+                        >
+                          <EyeOpenIcon className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => openEditModal(p)}
                           className="scms-btn-icon"
                           title="Edit Patient"
@@ -435,9 +432,18 @@ export default function PatientsPage() {
 
               <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
+                  onClick={() => openDetail(p)}
+                  className="scms-btn-icon"
+                  title="View Patient EHR Profile"
+                  aria-label="View Patient EHR Profile"
+                >
+                  <EyeOpenIcon className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => openEditModal(p)}
                   className="scms-btn-icon"
                   title="Edit Patient"
+                  aria-label="Edit Patient"
                 >
                   <Pencil1Icon className="w-4 h-4" />
                 </button>
@@ -445,6 +451,7 @@ export default function PatientsPage() {
                   onClick={(e) => downloadSummary(e, p)}
                   className="scms-btn-icon"
                   title="Download Summary"
+                  aria-label="Download Summary"
                 >
                   <DownloadIcon className="w-4 h-4" />
                 </button>
@@ -452,6 +459,7 @@ export default function PatientsPage() {
                   onClick={(e) => handleDelete(e, p)}
                   className="scms-btn-icon-danger"
                   title="Delete"
+                  aria-label="Delete Patient"
                 >
                   <TrashIcon className="w-4 h-4" />
                 </button>
@@ -588,90 +596,13 @@ export default function PatientsPage() {
           </div>
       </ModalPortal>
 
-      {/* Patient Detail Modal */}
-      <ModalPortal
+      {/* Full Patient EHR Profile Modal */}
+      <PatientEhrModal
         isOpen={detailOpen && Boolean(selectedPatient)}
+        patient={selectedPatient}
         onClose={() => setDetailOpen(false)}
-      >
-        {selectedPatient && (
-          <div className="w-full max-w-lg rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white font-bold">
-                  {selectedPatient.name?.[0] || "P"}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {selectedPatient.name || selectedPatient.fullName}
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    Blood Type: {selectedPatient.bloodType || "O+"} • {selectedPatient.gender}
-                  </span>
-                </div>
-              </div>
-              <button onClick={() => setDetailOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
-                <Cross2Icon className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-2xl">
-                <div>
-                  <span className="text-slate-400 font-semibold block">Phone</span>
-                  <strong>{selectedPatient.phone || selectedPatient.mobileNo || "-"}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-semibold block">Email</span>
-                  <strong>{selectedPatient.email || "-"}</strong>
-                </div>
-                <div className="col-span-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                  <span className="text-slate-400 font-semibold block">Address</span>
-                  <strong>{selectedPatient.actualAddress || selectedPatient.address || "None recorded"}</strong>
-                </div>
-              </div>
-
-              {selectedPatient.allergies && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300">
-                  <strong className="block font-bold">Allergies:</strong>
-                  {selectedPatient.allergies}
-                </div>
-              )}
-
-              {selectedPatient.chronicConditions && (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300">
-                  <strong className="block font-bold">Chronic Conditions:</strong>
-                  {selectedPatient.chronicConditions}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-border/70 flex justify-between items-center gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setDetailOpen(false);
-                    openEditModal(selectedPatient);
-                  }}
-                  className="scms-btn-outline text-xs flex items-center gap-1.5"
-                >
-                  <Pencil1Icon className="w-4 h-4" />
-                  <span>Edit Profile</span>
-                </button>
-                <button
-                  onClick={(e) => downloadSummary(e, selectedPatient)}
-                  className="scms-btn-outline text-xs flex items-center gap-1.5"
-                >
-                  <DownloadIcon className="w-4 h-4" />
-                  <span>Download PDF</span>
-                </button>
-              </div>
-              <button onClick={() => setDetailOpen(false)} className="scms-btn-primary text-xs">
-                {t.close}
-              </button>
-            </div>
-          </div>
-        )}
-      </ModalPortal>
+        onEdit={(pat) => openEditModal(pat)}
+      />
     </div>
   );
 }
