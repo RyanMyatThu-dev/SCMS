@@ -58,7 +58,7 @@ export default function SearchForm({
           />
           <button
             type="submit"
-            className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center btn-target shadow-xs"
+            className="scms-btn-search"
           >
             <span>{t.search || "Search"}</span>
           </button>

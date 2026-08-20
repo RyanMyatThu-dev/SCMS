@@ -152,8 +152,8 @@ export default function PaymentsPage() {
             placeholder="Search by code or patient..."
             className="flex-1"
           />
-          <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center btn-target shadow-xs">
-            <span>Search</span>
+          <button type="submit" className="scms-btn-search">
+            <span>{t.search || "Search"}</span>
           </button>
         </form>
 

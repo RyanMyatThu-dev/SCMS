@@ -126,7 +126,7 @@ export default function DoctorPatients() {
             placeholder="Search patients by name, phone, or MRN..."
           />
         </div>
-        <button type="submit" className="scms-btn-primary h-10 px-4 text-xs font-bold shrink-0 flex items-center btn-target shadow-xs">
+        <button type="submit" className="scms-btn-search">
           <span>Search</span>
         </button>
       </form>
