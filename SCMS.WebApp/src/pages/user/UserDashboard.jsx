@@ -1,6 +1,5 @@
 import {
   CalendarIcon,
-  ClockIcon,
   CardStackIcon,
   DownloadIcon,
   HeartIcon,
@@ -8,22 +7,23 @@ import {
   PersonIcon,
   PlusIcon,
   MagicWandIcon,
-  CheckCircledIcon,
   ExclamationTriangleIcon,
   Cross2Icon,
   SewingPinIcon,
+  ChevronRightIcon,
 } from "@radix-ui/react-icons";
 import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { showError, showSuccess } from "../../services/dialogs";
-import { appointmentsApi, downloadBlob, paymentsApi, prescriptionsApi, patientsApi } from "../../services/scmsApi";
-import { formatTemperatureF, parsePrescriptionNotes } from "../../utils/clinical";
+import { appointmentsApi, downloadBlob, patientsApi } from "../../services/scmsApi";
 import { sanitizeText } from "../../utils/validation";
 import { formatDate, formatDateTime } from "../../utils/format";
+import { Select } from "../../components/ui/select";
 import useScrollLock from "../../hooks/useScrollLock";
 import ModalPortal from "../../components/ModalPortal";
 
 export default function UserDashboard() {
+  const navigate = useNavigate();
   const {
     data,
     activeProfile,
@@ -43,18 +43,14 @@ export default function UserDashboard() {
 
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingStep, setBookingStep] = useState(1);
-  const [bookingForm, setBookingForm] = useState({ reason: "general", datetime: "", notes: "" });
+  const [bookingForm, setBookingForm] = useState({ reason: "General Consultation", datetime: "", notes: "" });
   const [submittingBooking, setSubmittingBooking] = useState(false);
-
-  const [payingInvoice, setPayingInvoice] = useState(null);
-  const [paymentForm, setPaymentForm] = useState({ paymentMethod: "kbzpay", screenshotUrl: "" });
-  const [submittingPayment, setSubmittingPayment] = useState(false);
 
   const [profileDetailOpen, setProfileDetailOpen] = useState(false);
   const [detailedProfile, setDetailedProfile] = useState(null);
   const [downloadingSummary, setDownloadingSummary] = useState(false);
 
-  useScrollLock(bookingOpen || Boolean(payingInvoice) || profileDetailOpen);
+  useScrollLock(bookingOpen || profileDetailOpen);
 
   const openProfileDetail = (profile) => {
     setDetailedProfile(profile || currentProfile);
@@ -71,26 +67,6 @@ export default function UserDashboard() {
       showError("Failed to export patient clinical summary PDF.");
     } finally {
       setDownloadingSummary(false);
-    }
-  };
-
-  const downloadPrescription = async (prescriptionId) => {
-    try {
-      const response = await prescriptionsApi.pdf(prescriptionId);
-      downloadBlob(response, `prescription-${prescriptionId}.pdf`);
-      showSuccess("Prescription downloaded successfully.");
-    } catch {
-      showError("Failed to download prescription PDF.");
-    }
-  };
-
-  const downloadInvoice = async (paymentId) => {
-    try {
-      const response = await paymentsApi.invoicePdf(paymentId);
-      downloadBlob(response, `invoice-${paymentId}.pdf`);
-      showSuccess("Invoice receipt downloaded.");
-    } catch {
-      showError("Failed to download invoice PDF.");
     }
   };
 
@@ -129,8 +105,8 @@ export default function UserDashboard() {
 
       setBookingOpen(false);
       setBookingStep(1);
-      setBookingForm({ reason: "general", datetime: "", notes: "" });
-      showSuccess("Appointment slot booked successfully!");
+      setBookingForm({ reason: "General Consultation", datetime: "", notes: "" });
+      showSuccess("Appointment slot booked successfully! Arrival token generated.");
       await loadDashboard(targetPatientId);
     } catch (error) {
       showError(error);
@@ -139,79 +115,35 @@ export default function UserDashboard() {
     }
   };
 
-  const handlePayment = async (e) => {
-    e.preventDefault();
-    if (!payingInvoice) return;
-
-    const cleanProof = sanitizeText(paymentForm.screenshotUrl);
-    if (!cleanProof) {
-      showError("Please provide a payment transfer screenshot URL or transaction reference number.", "Payment Proof Required");
-      return;
-    }
-
-    try {
-      setSubmittingPayment(true);
-      await paymentsApi.manualProof({
-        appointmentId: Number(payingInvoice.appointmentId),
-        paymentMethod: paymentForm.paymentMethod || "kbzpay",
-        amount: Number(payingInvoice.amount),
-        screenshotUrl: cleanProof,
-      });
-
-      setPayingInvoice(null);
-      setPaymentForm({ paymentMethod: "kbzpay", screenshotUrl: "" });
-      showSuccess("Payment transfer proof submitted for clinic review.");
-      await loadDashboard(currentProfile?.patientId);
-    } catch (error) {
-      showError(error);
-    } finally {
-      setSubmittingPayment(false);
-    }
-  };
-
-  const getStatusClass = (status) => {
-    const s = String(status || "").toLowerCase();
-    if (s === "completed" || s === "paid" || s === "success") {
-      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900";
-    }
-    if (s === "approved" || s === "confirmed" || s === "active") {
-      return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-900";
-    }
-    if (s === "cancelled" || s === "failed" || s === "rejected") {
-      return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900";
-    }
-    if (s === "pending" || s === "requested") {
-      return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900";
-    }
-    return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300";
-  };
-
-  const money = (value) => `${Number(value || 0).toLocaleString()} MMK`;
-
   if (!currentProfile) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <ExclamationTriangleIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4 animate-bounce" />
-        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">No Patient Profiles Associated</h3>
-        <p className="mt-2 text-xs text-slate-500 max-w-sm">
-          Please link your registered family profile records to start booking appointments and managing prescriptions.
+      <div className="flex flex-col items-center justify-center p-12 text-center bg-card rounded-3xl border border-border/80 shadow-scms">
+        <ExclamationTriangleIcon className="w-12 h-12 text-orange-500 mb-4 animate-bounce" />
+        <h3 className="text-lg font-bold text-foreground">No Family Patient Profiles Found</h3>
+        <p className="mt-2 text-xs text-muted-foreground max-w-sm">
+          Please create a profile for yourself or a family member to begin booking clinic visits and tracking medical prescriptions.
         </p>
         <div className="mt-6 w-full max-w-xs">
           <button
             onClick={() => setManageOpen(true)}
             className="scms-btn-primary w-full text-xs font-bold btn-target"
           >
-            Create Patient Profile
+            Create Family Member Profile
           </button>
         </div>
       </div>
     );
   }
 
+  // Find next upcoming appointment
+  const nextAppt = (filteredTelemetry?.appointments || []).find(
+    (a) => String(a.status || "").toLowerCase() !== "completed" && String(a.status || "").toLowerCase() !== "cancelled"
+  );
+
   return (
     <div className="space-y-8 pb-12 animate-fadeIn">
       {/* Patient Hero Card */}
-      <section className="rounded-3xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <section className="rounded-3xl bg-gradient-to-br from-orange-600 via-orange-500 to-amber-600 p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4 md:gap-6">
           <div className="grid h-16 w-16 md:h-20 md:w-20 place-items-center rounded-2xl bg-white/15 text-2xl font-bold text-white backdrop-blur-sm border border-white/20 shadow-inner">
             {currentProfile.name?.slice(0, 2)?.toUpperCase() || "PT"}
@@ -220,21 +152,20 @@ export default function UserDashboard() {
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-2xl md:text-3xl font-black tracking-tight">{currentProfile.name}</h2>
               {currentProfile.bloodType && (
-                <span className="flex items-center gap-1 bg-rose-500/20 text-rose-200 text-xs font-bold px-2.5 py-0.5 rounded-full border border-rose-500/30">
+                <span className="flex items-center gap-1 bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/30">
                   <HeartIcon className="w-3.5 h-3.5" />
                   <span>{currentProfile.bloodType}</span>
                 </span>
               )}
             </div>
-            <p className="mt-2 text-xs text-white/80 font-medium flex flex-wrap gap-x-4 gap-y-1">
+            <div className="mt-2 text-xs text-white/90 font-medium flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1.5">
                 <PersonIcon className="w-3.5 h-3.5" />
-                <span>{currentProfile.gender || "Not Specified"}</span>
+                <span>{currentProfile.gender || "Patient Record"}</span>
               </span>
               {currentProfile.mobileNo && (
                 <span className="flex items-center gap-1.5">
-                  <HeartIcon className="w-3.5 h-3.5" />
-                  <span>{currentProfile.mobileNo}</span>
+                  <span>📞 {currentProfile.mobileNo}</span>
                 </span>
               )}
               {currentProfile.actualAddress && (
@@ -243,7 +174,7 @@ export default function UserDashboard() {
                   <span>{currentProfile.actualAddress}</span>
                 </span>
               )}
-            </p>
+            </div>
           </div>
         </div>
 
@@ -257,7 +188,7 @@ export default function UserDashboard() {
           </button>
           <button
             onClick={() => setBookingOpen(true)}
-            className="rounded-2xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs px-6 py-3 shadow-lg transition flex items-center gap-2 shrink-0 self-start md:self-center cursor-pointer"
+            className="rounded-2xl bg-white text-orange-700 hover:bg-orange-50 font-bold text-xs px-6 py-3 shadow-lg transition flex items-center gap-2 shrink-0 self-start md:self-center cursor-pointer"
           >
             <PlusIcon className="w-4 h-4" />
             <span>{language === "mm" ? "ချိန်းဆိုမှု အသစ်ပြုလုပ်ရန်" : "Book Appointment"}</span>
@@ -265,73 +196,125 @@ export default function UserDashboard() {
         </div>
       </section>
 
-      {/* Quick Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-2">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Appointments
+      {/* Active Arrival Token & Live Queue Spotlight */}
+      {nextAppt && (
+        <section className="rounded-3xl border border-orange-200/80 dark:border-orange-900/60 bg-orange-50/70 dark:bg-orange-950/40 p-6 shadow-scms">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider bg-orange-500 text-white px-2.5 py-0.5 rounded-full">
+                  Upcoming Appointment
+                </span>
+                <span className="font-mono text-xs font-bold text-orange-700 dark:text-orange-300">
+                  #{nextAppt.appointmentCode || `APT-${nextAppt.id}`}
+                </span>
+              </div>
+              <h3 className="text-lg font-bold text-foreground">
+                {formatDateTime(nextAppt.datetime)} &mdash; {nextAppt.reason || "General Consultation"}
+              </h3>
+              {nextAppt.tokenNumber > 0 && (
+                <div className="text-xs font-bold text-orange-700 dark:text-orange-300">
+                  Your Live Arrival Token: <strong className="font-mono text-base">#{nextAppt.tokenNumber}</strong>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => navigate("/user/appointments")}
+              className="scms-btn-primary flex items-center gap-2 shadow-xs rounded-2xl"
+            >
+              <span>View Appointment Details</span>
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
           </div>
-          <div className="text-xl font-bold text-slate-900 dark:text-white">
+        </section>
+      )}
+
+      {/* Quick Access Portal Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div
+          onClick={() => navigate("/user/appointments")}
+          className="rounded-3xl border border-border/80 bg-card p-5 shadow-scms space-y-2 cursor-pointer hover:border-orange-500/50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Appointments
+            </div>
+            <CalendarIcon className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-bold text-foreground">
             {filteredTelemetry.appointments.length} Scheduled
           </div>
-          <button
-            onClick={() => setBookingOpen(true)}
-            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline pt-2 block"
-          >
-            + Book new slot
-          </button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-2">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Family Profiles
-          </div>
-          <div className="text-xl font-bold text-slate-900 dark:text-white">
-            {patientProfiles.length} Linked
-          </div>
-          <button
-            onClick={() => setManageOpen(true)}
-            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline pt-2 block"
-          >
-            + Manage profiles
-          </button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-2">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Outstanding
-          </div>
-          <div className="text-xl font-bold text-slate-900 dark:text-white">
-            {filteredTelemetry.outstanding.length} Unsettled
-          </div>
-          <span className="text-xs text-slate-500 block pt-2">
-            Mobile billing available
+          <span className="text-xs font-bold text-orange-600 dark:text-orange-400 block pt-1">
+            Manage & Book Slots &rarr;
           </span>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-2">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Prescriptions
+        <div
+          onClick={() => navigate("/user/prescriptions")}
+          className="rounded-3xl border border-border/80 bg-card p-5 shadow-scms space-y-2 cursor-pointer hover:border-orange-500/50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Prescriptions
+            </div>
+            <FileTextIcon className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-bold text-slate-900 dark:text-white">
+          <div className="text-xl font-bold text-foreground">
             {filteredTelemetry.prescriptions.length} Records
           </div>
-          <span className="text-xs text-slate-500 block pt-2">
-            PDF wallet available
+          <span className="text-xs font-bold text-orange-600 dark:text-orange-400 block pt-1">
+            Digital Health Wallet &rarr;
+          </span>
+        </div>
+
+        <div
+          onClick={() => navigate("/user/billing")}
+          className="rounded-3xl border border-border/80 bg-card p-5 shadow-scms space-y-2 cursor-pointer hover:border-orange-500/50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Invoices & Billing
+            </div>
+            <CardStackIcon className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-bold text-foreground">
+            {filteredTelemetry.outstanding.length} Unsettled
+          </div>
+          <span className="text-xs font-bold text-orange-600 dark:text-orange-400 block pt-1">
+            Pay via Mobile Wallet &rarr;
+          </span>
+        </div>
+
+        <div
+          onClick={() => navigate("/user/family")}
+          className="rounded-3xl border border-border/80 bg-card p-5 shadow-scms space-y-2 cursor-pointer hover:border-orange-500/50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Family Profiles
+            </div>
+            <PersonIcon className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-bold text-foreground">
+            {patientProfiles.length} Linked
+          </div>
+          <span className="text-xs font-bold text-orange-600 dark:text-orange-400 block pt-1">
+            Manage Family Health &rarr;
           </span>
         </div>
       </div>
 
-      {/* Linked Family Patient Profiles Section */}
+      {/* Linked Family Members Bar */}
       <section className="rounded-3xl border border-border/80 bg-card p-6 shadow-scms space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border/70">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-              <PersonIcon className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-              <span>{language === "mm" ? "ချိတ်ဆက်ထားသော မိသားစုဝင် ဆေးမှတ်တမ်းများ" : "Linked Patient & Family Profiles"}</span>
+              <PersonIcon className="w-4 h-4 text-orange-500" />
+              <span>{language === "mm" ? "ချိတ်ဆက်ထားသော မိသားစုဝင် ဆေးမှတ်တမ်းများ" : "Linked Family Patient Profiles"}</span>
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Select an active profile to view appointments, medical history, and prescriptions.
+              Select an active profile to view appointments, clinical diagnoses, and prescriptions.
             </p>
           </div>
           <button
@@ -383,268 +366,18 @@ export default function UserDashboard() {
                   {profile.mobileNo && (
                     <div className="truncate">📞 {profile.mobileNo}</div>
                   )}
-                  {profile.actualAddress && (
-                    <div className="truncate">📍 {profile.actualAddress}</div>
-                  )}
-                  {profile.allergies && (
+                  {profile.allergies ? (
                     <div className="text-rose-600 dark:text-rose-400 font-semibold truncate">
                       ⚠️ Allergy: {profile.allergies}
                     </div>
+                  ) : (
+                    <div className="italic text-[11px]">No allergies reported</div>
                   )}
-                  <div className="pt-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      ID: #{profile.patientId}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openProfileDetail(profile);
-                      }}
-                      className="scms-btn-sm text-[11px] font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/50 py-1 px-2.5 rounded-xl border border-orange-200 dark:border-orange-900/50"
-                    >
-                      View Details
-                    </button>
-                  </div>
                 </div>
               </div>
             );
           })}
         </div>
-      </section>
-
-      {/* Grid: Upcoming Appointments & Unpaid Balances */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Appointments Column */}
-        <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col min-h-[300px]">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>{language === "mm" ? "ချိန်းဆိုမှုများ" : "Upcoming Clinic Visits"}</span>
-            </h3>
-            <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full">
-              {filteredTelemetry.appointments.length} ACTIVE
-            </span>
-          </div>
-
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[350px] pr-1">
-            {filteredTelemetry.appointments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 py-8">
-                <ClockIcon className="w-8 h-8 mb-2 opacity-50" />
-                <p className="text-xs font-semibold">No upcoming appointments scheduled.</p>
-              </div>
-            ) : (
-              filteredTelemetry.appointments.map((appt) => (
-                <div
-                  key={appt.id}
-                  className="rounded-2xl border border-slate-100 dark:border-slate-800 p-4 hover:border-slate-200 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 transition"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                      #{appt.appointmentCode}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold border px-2 py-0.5 rounded-full ${getStatusClass(
-                        appt.status
-                      )}`}
-                    >
-                      {String(appt.status).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="mt-2 font-bold text-slate-900 dark:text-white text-xs">
-                    {formatDateTime(appt.datetime)}
-                  </div>
-                  {appt.tokenNumber > 0 && (
-                    <div className="mt-1.5 text-xs text-slate-500 font-medium">
-                      Queue Position: <strong className="font-mono text-indigo-600 dark:text-indigo-400">#{appt.tokenNumber}</strong>
-                    </div>
-                  )}
-                  {appt.notes && (
-                    <p className="mt-2 text-xs text-slate-500 italic border-l-2 border-indigo-200 dark:border-indigo-800 pl-2">
-                      &ldquo;{appt.notes}&rdquo;
-                    </p>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Outstanding Invoices */}
-        <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col min-h-[300px]">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <CardStackIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>{language === "mm" ? "မပေးဆောင်ရသေးသော ငွေတောင်းခံလွှာများ" : "Outstanding Invoices"}</span>
-            </h3>
-            <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-full">
-              {filteredTelemetry.outstanding.length} UNPAID
-            </span>
-          </div>
-
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[350px] pr-1">
-            {filteredTelemetry.outstanding.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 py-8">
-                <CheckCircledIcon className="w-8 h-8 mb-2 text-emerald-500 opacity-60" />
-                <p className="text-xs font-semibold text-slate-500">All balances are clear! Thank you.</p>
-              </div>
-            ) : (
-              filteredTelemetry.outstanding.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className="rounded-2xl border border-slate-100 dark:border-slate-800 p-4 hover:border-slate-200 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 transition"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-xs font-bold text-slate-500">
-                      Visit #{invoice.appointmentCode}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold border px-2 py-0.5 rounded-full ${getStatusClass(
-                        invoice.paymentStatus
-                      )}`}
-                    >
-                      {String(invoice.paymentStatus || "unpaid").toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-baseline justify-between gap-3">
-                    <div>
-                      <div className="text-lg font-bold text-slate-900 dark:text-white font-mono">
-                        {money(invoice.amount)}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => downloadInvoice(invoice.id)}
-                        className="scms-btn-icon"
-                        title="Download Invoice PDF"
-                        aria-label="Download Invoice PDF"
-                      >
-                        <DownloadIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setPayingInvoice(invoice)}
-                        className="scms-btn-sm-primary"
-                      >
-                        {language === "mm" ? "ပေးချေရန်" : "Pay Now"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-
-      {/* Prescription History Timeline */}
-      <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-6">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <FileTextIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span>{language === "mm" ? "ဆေးညွှန်းမှတ်တမ်းများ" : "Prescription & EMR History"}</span>
-          </h3>
-          <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full">
-            {filteredTelemetry.prescriptions.length} RECORDS
-          </span>
-        </div>
-
-        {filteredTelemetry.prescriptions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400">
-            <FileTextIcon className="w-12 h-12 mb-2 opacity-40" />
-            <p className="text-xs font-semibold">No medical prescriptions or EMR details found.</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2">
-            {filteredTelemetry.prescriptions.map((rx) => (
-              <div
-                key={rx.id}
-                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-5 bg-slate-50/40 dark:bg-slate-800/30 flex flex-col justify-between min-h-[220px]"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-bold text-slate-400 font-mono">
-                        Visit #{rx.appointmentCode}
-                      </div>
-                      <div className="mt-1 font-bold text-slate-900 dark:text-white text-xs">
-                        {formatDate(rx.createdAt)}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => downloadPrescription(rx.id)}
-                      className="scms-btn-icon text-orange-600 dark:text-orange-400"
-                      title="Download PDF"
-                      aria-label="Download PDF"
-                    >
-                      <DownloadIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {rx.diseaseName && (
-                    <div className="mt-2.5">
-                      <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900 px-2.5 py-0.5 rounded-full">
-                        {rx.diseaseName}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Vitals Summary */}
-                  {(rx.bloodPressureSystolic || rx.weightKg || rx.temperatureC) && (
-                    <div className="mt-3.5 grid grid-cols-3 gap-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-2.5 text-center text-xs">
-                      {rx.weightKg > 0 && (
-                        <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">Weight</div>
-                          <strong className="text-slate-800 dark:text-slate-200">{rx.weightKg} kg</strong>
-                        </div>
-                      )}
-                      {rx.bloodPressureSystolic > 0 && (
-                        <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">BP</div>
-                          <strong className="text-slate-800 dark:text-slate-200">
-                            {rx.bloodPressureSystolic}/{rx.bloodPressureDiastolic}
-                          </strong>
-                        </div>
-                      )}
-                      {rx.temperatureC > 0 && (
-                        <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">Temp</div>
-                          <strong className="text-slate-800 dark:text-slate-200">
-                            {formatTemperatureF(rx.temperatureC)}
-                          </strong>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Rx Items */}
-                  {rx.items?.length > 0 && (
-                    <div className="mt-3.5 space-y-1.5">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Medications Prescribed
-                      </div>
-                      {rx.items.map((item) => (
-                        <div key={item.id} className="text-xs flex items-center justify-between gap-2">
-                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                            💊 {item.medicineName}
-                          </span>
-                          <span className="font-mono text-[11px] text-slate-500 shrink-0">
-                            {item.dosage} × {item.days}d
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {rx.notes && (
-                    <div className="mt-3 text-xs text-slate-500 italic border-t border-slate-100 dark:border-slate-800 pt-2.5">
-                      &ldquo;{parsePrescriptionNotes(rx.notes)}&rdquo;
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
       {/* Booking Wizard Modal */}
@@ -656,10 +389,10 @@ export default function UserDashboard() {
         }}
       >
         {bookingOpen && (
-          <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <MagicWandIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border/70">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <MagicWandIcon className="w-4 h-4 text-orange-500" />
                 <span>Book Clinic Visit</span>
               </h3>
               <button
@@ -668,32 +401,35 @@ export default function UserDashboard() {
                   setBookingOpen(false);
                   setBookingStep(1);
                 }}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+                className="p-1 rounded-xl text-muted-foreground hover:bg-secondary"
               >
                 <Cross2Icon className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="mt-4">
-              <div className="text-[10px] font-bold text-slate-400 uppercase mb-3">
+            <div className="space-y-3">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                 Step {bookingStep} of 3
               </div>
 
               {bookingStep === 1 && (
                 <div className="space-y-3 text-xs">
-                  <span className="font-bold text-slate-700 dark:text-slate-300 block">
-                    Choose Visit Reason
-                  </span>
-                  <select
-                    value={bookingForm.reason}
-                    onChange={(e) => setBookingForm((p) => ({ ...p, reason: e.target.value }))}
-                    className="scms-select w-full text-xs"
-                  >
-                    <option value="general">General Consultation</option>
-                    <option value="followup">Follow-up Revisit</option>
-                    <option value="refill">Prescription Refill</option>
-                    <option value="other">Other Clinical Concern</option>
-                  </select>
+                  <div>
+                    <span className="font-bold text-foreground block mb-1.5">
+                      Choose Visit Reason
+                    </span>
+                    <Select
+                      value={bookingForm.reason}
+                      onChange={(val) => setBookingForm((p) => ({ ...p, reason: val }))}
+                      options={[
+                        { value: "General Consultation", label: "General Medical Examination" },
+                        { value: "Follow-up Revisit", label: "Follow-up Revisit" },
+                        { value: "Prescription Refill", label: "Prescription Refill" },
+                        { value: "Specialist Consultation", label: "Specialist Consultation" },
+                        { value: "Health Screening", label: "Health Screening & Checkup" },
+                      ]}
+                    />
+                  </div>
                   <div className="flex justify-end gap-2 pt-3">
                     <button
                       type="button"
@@ -715,8 +451,8 @@ export default function UserDashboard() {
                   }}
                 >
                   <label className="block">
-                    <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
-                      Preferred Date & Time
+                    <span className="mb-1.5 block font-bold text-foreground">
+                      Preferred Date & Time <span className="text-rose-500">*</span>
                     </span>
                     <input
                       type="datetime-local"
@@ -728,14 +464,15 @@ export default function UserDashboard() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
-                      Visit Notes (Optional)
+                    <span className="mb-1.5 block font-bold text-foreground">
+                      Symptoms & Chief Complaints (Optional)
                     </span>
                     <textarea
-                      className="scms-textarea w-full text-xs min-h-20"
+                      className="scms-textarea w-full text-xs"
+                      rows={3}
                       value={bookingForm.notes}
                       onChange={(e) => setBookingForm((p) => ({ ...p, notes: e.target.value }))}
-                      placeholder="Chief complaints or doctor requests..."
+                      placeholder="Describe your current symptoms or request..."
                     />
                   </label>
 
@@ -756,22 +493,22 @@ export default function UserDashboard() {
 
               {bookingStep === 3 && (
                 <form onSubmit={handleBook} className="space-y-3 text-xs">
-                  <span className="font-bold text-slate-700 dark:text-slate-300 block">
-                    Confirm Appointment Booking
+                  <span className="font-bold text-foreground block">
+                    Confirm Appointment Details
                   </span>
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5 space-y-1.5">
+                  <div className="rounded-2xl border border-border/80 bg-secondary/30 p-3.5 space-y-1.5 text-xs">
                     <div>
-                      <strong>Patient:</strong> {currentProfile?.name || "Selected Patient"}
+                      <strong className="text-foreground">Patient:</strong> {currentProfile?.name || "Active Patient"}
                     </div>
                     <div>
-                      <strong>Reason:</strong> {bookingForm.reason}
+                      <strong className="text-foreground">Reason:</strong> {bookingForm.reason}
                     </div>
                     <div>
-                      <strong>Date & Time:</strong> {bookingForm.datetime}
+                      <strong className="text-foreground">Scheduled Time:</strong> {bookingForm.datetime ? formatDateTime(bookingForm.datetime) : "Selected Slot"}
                     </div>
                     {bookingForm.notes && (
                       <div>
-                        <strong>Notes:</strong> {bookingForm.notes}
+                        <strong className="text-foreground">Notes:</strong> {bookingForm.notes}
                       </div>
                     )}
                   </div>
@@ -795,90 +532,6 @@ export default function UserDashboard() {
               )}
             </div>
           </div>
-        )}
-      </ModalPortal>
-
-      {/* Payment Proof Modal */}
-      <ModalPortal isOpen={Boolean(payingInvoice)} onClose={() => setPayingInvoice(null)}>
-        {payingInvoice && (
-          <form
-            onSubmit={handlePayment}
-            className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4"
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <CardStackIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span>Submit Payment Proof</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setPayingInvoice(null)}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
-              >
-                <Cross2Icon className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900 p-4 text-xs">
-              <div className="font-bold text-slate-500 uppercase">Amount Due</div>
-              <div className="text-2xl font-bold font-mono text-indigo-700 dark:text-indigo-300 mt-1">
-                {money(payingInvoice.amount)}
-              </div>
-              <div className="text-slate-400 font-semibold mt-1">
-                For appointment #{payingInvoice.appointmentCode}
-              </div>
-            </div>
-
-            <label className="block text-xs">
-              <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
-                Payment Gateway / Mobile Wallet
-              </span>
-              <select
-                className="scms-select w-full text-xs"
-                value={paymentForm.paymentMethod}
-                onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMethod: e.target.value }))}
-              >
-                <option value="kbzpay">KBZPay (09-123456789)</option>
-                <option value="wavepay">WavePay (09-987654321)</option>
-                <option value="cbpay">CBPay</option>
-                <option value="ayapay">AYAPay</option>
-              </select>
-            </label>
-
-            <label className="block text-xs">
-              <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
-                Screenshot / Receipt URL
-              </span>
-              <input
-                type="url"
-                required
-                placeholder="https://images.example.com/receipt.jpg"
-                className="scms-input w-full text-xs font-mono"
-                value={paymentForm.screenshotUrl}
-                onChange={(e) => setPaymentForm((p) => ({ ...p, screenshotUrl: e.target.value }))}
-              />
-              <span className="text-[10px] text-slate-400 block mt-1">
-                Provide a hosted screenshot URL from your mobile banking app.
-              </span>
-            </label>
-
-            <div className="pt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPayingInvoice(null)}
-                className="scms-btn-outline text-xs"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submittingPayment}
-                className="scms-btn-primary text-xs font-bold"
-              >
-                {submittingPayment ? "Submitting..." : "Submit Proof"}
-              </button>
-            </div>
-          </form>
         )}
       </ModalPortal>
 
@@ -910,24 +563,22 @@ export default function UserDashboard() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {detailedProfile.gender || "Not Specified"}
+                    {detailedProfile.gender || "Patient Record"}
                     {detailedProfile.dateOfBirth && ` • Born ${formatDate(detailedProfile.dateOfBirth)}`}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setProfileDetailOpen(false)}
-                  className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary cursor-pointer"
-                >
-                  <Cross2Icon className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setProfileDetailOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary cursor-pointer"
+              >
+                <Cross2Icon className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Quick Action Banner: PDF Summary & Appointment */}
+            {/* Quick Action Banner */}
             <div className="rounded-2xl border border-orange-200/70 dark:border-orange-900/50 bg-gradient-to-br from-orange-50/80 via-orange-50/30 to-transparent dark:from-orange-950/30 dark:via-orange-950/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <h4 className="text-xs font-bold text-orange-950 dark:text-orange-200">
@@ -968,7 +619,7 @@ export default function UserDashboard() {
                   Email Address
                 </div>
                 <div className="font-bold text-foreground">
-                  {detailedProfile.email || "No email provided"}
+                  {detailedProfile.email || "No email on record"}
                 </div>
               </div>
 
@@ -993,7 +644,7 @@ export default function UserDashboard() {
                     <span>⚠️ Known Allergies</span>
                   </div>
                   <div className="font-bold text-rose-900 dark:text-rose-200">
-                    {detailedProfile.allergies || "No drug/food allergies recorded"}
+                    {detailedProfile.allergies || "No allergies recorded"}
                   </div>
                 </div>
 
@@ -1008,7 +659,7 @@ export default function UserDashboard() {
               </div>
             </div>
 
-            {/* Footer buttons */}
+            {/* Footer */}
             <div className="pt-3 flex items-center justify-between border-t border-border/70">
               <button
                 type="button"
