@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import {
   DownloadIcon,
   BookmarkIcon,
@@ -393,7 +394,7 @@ export default function DoctorPrescriptions() {
             <Select
               value={selectedMedId}
               onChange={setSelectedMedId}
-              placeholder="-- Select Medicine --"
+              placeholder="Select Medicine"
               options={medicines.map((m) => ({
                 value: m.id || m.medicineId,
                 label: `${m.name || m.medicineName} (${m.stockQuantity ?? m.stock ?? 0} in stock)`,

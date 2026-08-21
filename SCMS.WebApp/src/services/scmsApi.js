@@ -117,6 +117,8 @@ export const reportsApi = {
   medicineStockPdf: (params) => api.get("/Reports/medicine-stock/pdf", { params: toQuery(params), responseType: "blob" }),
   followUps: (params) => api.get("/Reports/follow-ups", { params: toQuery(params) }).then(unwrap),
   followUpsPdf: (params) => api.get("/Reports/follow-ups/pdf", { params: toQuery(params), responseType: "blob" }),
+  prescriptions: (params) => api.get("/Reports/prescriptions", { params: toQuery(params) }).then(unwrap),
+  prescriptionsPdf: (params) => api.get("/Reports/prescriptions/pdf", { params: toQuery(params), responseType: "blob" }),
   businessSummary: (params) => api.get("/Reports/business-summary", { params: toQuery(params) }).then(unwrap),
   businessSummaryPdf: (params) => api.get("/Reports/business-summary/pdf", { params: toQuery(params), responseType: "blob" }),
 };

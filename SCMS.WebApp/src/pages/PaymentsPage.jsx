@@ -14,6 +14,7 @@ import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
 import SegmentedControl from "../components/SegmentedControl";
 import { Input } from "../components/ui/input";
+import { Select } from "../components/ui/select";
 import { paymentsApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -138,7 +139,7 @@ export default function PaymentsPage() {
       />
 
       {/* Filter and View Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
+      <div className="relative z-30 flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
         <form onSubmit={handleSearch} className="flex-1 w-full max-w-sm flex items-center gap-2">
           <Input
             type="text"
@@ -158,19 +159,22 @@ export default function PaymentsPage() {
         </form>
 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <select
-            className="scms-select min-w-[160px] text-xs font-semibold"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="all">-- All Statuses --</option>
-            <option value="Pending">Pending Verification</option>
-            <option value="Paid">Paid / Settled</option>
-            <option value="Failed">Failed / Rejected</option>
-          </select>
+          <div className="min-w-[170px]">
+            <Select
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setPage(1);
+              }}
+              placeholder="All Statuses"
+              options={[
+                { value: "all", label: "All Statuses" },
+                { value: "Pending", label: "Pending Verification" },
+                { value: "Paid", label: "Paid / Settled" },
+                { value: "Failed", label: "Failed / Rejected" },
+              ]}
+            />
+          </div>
 
           <DateInput
             className="min-w-[150px] text-xs font-mono"

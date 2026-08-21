@@ -1,344 +1,1043 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
-  BarChartIcon,
   DownloadIcon,
   ActivityLogIcon,
-  EyeOpenIcon,
-  Cross2Icon,
+  BarChartIcon,
+  ReaderIcon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
+import { Select } from "../components/ui/select";
 import { useLanguage } from "../context/LanguageContext";
 import { downloadBlob, reportsApi } from "../services/scmsApi";
 import { showError, showAlert } from "../services/dialogs";
-import useScrollLock from "../hooks/useScrollLock";
-import ModalPortal from "../components/ModalPortal";
 
-const toArray = (data) => {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.items)) return data.items;
-  if (Array.isArray(data?.result)) return data.result;
-  if (typeof data === "object" && data) {
-    return Object.entries(data).map(([key, value]) => ({ metric: key, value }));
+const formatCurrency = (val) => {
+  if (val === null || val === undefined || isNaN(Number(val))) return "0.00";
+  return Number(val).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const formatDate = (val) => {
+  if (!val) return "-";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const formatDateTime = (val) => {
+  if (!val) return "-";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getUTCHours()).padStart(2, "0");
+  const minutes = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${day}-${month}-${year} ${hours}:${minutes}`;
+};
+
+const unwrapPayload = (res) => {
+  if (!res) return null;
+  if (res.data !== undefined && res.data !== null && typeof res.data === "object") {
+    return res.data;
   }
-  return [];
+  return res;
 };
 
 const reportConfigs = {
-  businessSummary: {
-    label: "Business Summary Report",
-    load: reportsApi.businessSummary,
-    pdf: reportsApi.businessSummaryPdf,
-    file: "business-summary.pdf",
-    description: "Holistic overview of revenue metrics, top diagnoses, and medicine inventory.",
+  revenue: {
+    label: "Financial & Revenue",
+    load: (p) => reportsApi.revenue({ reportType: p.reportType || "weekly", date: p.date }),
+    pdf: (p) => reportsApi.revenuePdf({ reportType: p.reportType || "weekly", date: p.date }),
+    file: "revenue-report.pdf",
+    description: "Gross income, tax collected, extra service charges, and payment method distribution.",
+    hasInterval: true,
+    defaultInterval: "weekly",
+    intervals: [
+      { value: "weekly", label: "Weekly Summary" },
+      { value: "daily", label: "Daily Summary" },
+      { value: "monthly", label: "Monthly Summary" },
+    ],
+    dateLabel: "Target Date",
   },
   appointments: {
-    label: "Appointments Status Report",
-    load: reportsApi.appointments,
-    pdf: reportsApi.appointmentPdf,
+    label: "Appointments Summary",
+    load: (p) => reportsApi.appointments({ reportType: p.reportType || "daily", date: p.date }),
+    pdf: (p) => reportsApi.appointmentPdf({ reportType: p.reportType || "daily", date: p.date }),
     file: "appointments-report.pdf",
-    description: "Detailed slots booking statistics, doctor consultation, and queue durations.",
+    description: "Daily or weekly overview of bookings, completed consultations, and cancellations.",
+    hasInterval: true,
+    defaultInterval: "daily",
+    intervals: [
+      { value: "daily", label: "Daily Summary" },
+      { value: "weekly", label: "Weekly Summary" },
+    ],
+    dateLabel: "Target Date",
   },
-  revenue: {
-    label: "Financial Revenue Report",
-    load: reportsApi.revenue,
-    pdf: reportsApi.revenuePdf,
-    file: "revenue-report.pdf",
-    description: "Invoiced totals, commercial taxes, system fees, and manual payment summaries.",
+  businessSummary: {
+    label: "Executive Overview",
+    load: (p) => {
+      const d = p.date ? new Date(p.date) : new Date();
+      return reportsApi.businessSummary({
+        month: isNaN(d.getMonth()) ? undefined : d.getMonth() + 1,
+        year: isNaN(d.getFullYear()) ? undefined : d.getFullYear(),
+      });
+    },
+    pdf: (p) => {
+      const d = p.date ? new Date(p.date) : new Date();
+      return reportsApi.businessSummaryPdf({
+        month: isNaN(d.getMonth()) ? undefined : d.getMonth() + 1,
+        year: isNaN(d.getFullYear()) ? undefined : d.getFullYear(),
+      });
+    },
+    file: "business-summary.pdf",
+    description: "Monthly operational summary of clinic revenue, patient growth, and appointment volumes.",
+    hasInterval: false,
+    dateLabel: "Target Month & Year",
   },
   patients: {
-    label: "Patients Directory Report",
-    load: reportsApi.patients,
-    pdf: reportsApi.patientsPdf,
+    label: "Patient Demographics",
+    load: () => reportsApi.patients(),
+    pdf: () => reportsApi.patientsPdf(),
     file: "patients-report.pdf",
-    description: "Demographics, new registrations, gender splits, and clinical histories.",
+    description: "Directory of registered patients, age groups, and gender breakdown.",
+    hasInterval: false,
+    hasDate: false,
   },
   medicineStock: {
-    label: "Inventory Medicine Stock Report",
-    load: reportsApi.medicineStock,
-    pdf: reportsApi.medicineStockPdf,
+    label: "Pharmacy & Stock Inventory",
+    load: () => reportsApi.medicineStock(),
+    pdf: () => reportsApi.medicineStockPdf(),
     file: "medicine-stock-report.pdf",
-    description: "Low-stock warnings, quarantine batch counts, and expiry milestones.",
+    description: "Current stock quantities, batch expiry milestones, and low-inventory alerts.",
+    hasInterval: false,
+    hasDate: false,
   },
   followUps: {
-    label: "Patient Follow-Ups Report",
-    load: reportsApi.followUps,
-    pdf: reportsApi.followUpsPdf,
+    label: "Patient Follow-Ups",
+    load: (p) => reportsApi.followUps({ startDate: p.date, status: p.statusFilter || "all" }),
+    pdf: (p) => reportsApi.followUpsPdf({ startDate: p.date, status: p.statusFilter || "all" }),
     file: "follow-ups-report.pdf",
-    description: "Schedules, completion rates, and routine revisit alerts.",
+    description: "Care follow-up schedules, completed check-ins, and overdue reminders.",
+    hasInterval: true,
+    defaultInterval: "all",
+    intervalLabel: "Status Filter",
+    intervals: [
+      { value: "all", label: "All Statuses" },
+      { value: "pending", label: "Pending" },
+      { value: "completed", label: "Completed" },
+    ],
+    dateLabel: "Start Date",
+  },
+  prescriptions: {
+    label: "Prescriptions Log",
+    load: () => reportsApi.prescriptions(),
+    pdf: () => reportsApi.prescriptionsPdf(),
+    file: "prescriptions-report.pdf",
+    description: "Prescription records, medications dispensed, and consultation history.",
+    hasInterval: false,
+    hasDate: false,
   },
 };
 
 export default function Reports() {
   const { t } = useLanguage();
-  const [reportKey, setReportKey] = useState("businessSummary");
-  const [reportType, setReportType] = useState("daily");
+  const [reportKey, setReportKey] = useState("revenue");
+  const [intervalValue, setIntervalValue] = useState("weekly");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [rows, setRows] = useState([]);
+  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
-  // Detailed Modal State
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
+  const currentConfig = reportConfigs[reportKey] || reportConfigs.revenue;
 
-  useScrollLock(previewOpen);
-
-  const params = () => ({ reportType, date });
-
-  const loadReport = async () => {
+  const loadReport = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await reportConfigs[reportKey].load(params());
-      setRows(toArray(data));
+      const params = {
+        reportType: intervalValue,
+        statusFilter: intervalValue,
+        date,
+      };
+      const rawRes = await currentConfig.load(params);
+      const payload = unwrapPayload(rawRes);
+      setReportData(payload);
     } catch (error) {
-      showError(error?.response?.data?.message || "Failed to load report analytics.");
-      setRows([]);
+      showError(error?.response?.data?.message || "Failed to load clinic report data.");
+      setReportData(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentConfig, intervalValue, date]);
 
   useEffect(() => {
     loadReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportKey, reportType, date]);
+  }, [loadReport]);
 
   const handleDownloadPdf = async () => {
     try {
-      const response = await reportConfigs[reportKey].pdf(params());
-      downloadBlob(response, reportConfigs[reportKey].file);
-      showAlert("PDF Report downloaded successfully.");
+      setDownloading(true);
+      const params = {
+        reportType: intervalValue,
+        statusFilter: intervalValue,
+        date,
+      };
+      const response = await currentConfig.pdf(params);
+      downloadBlob(response, currentConfig.file);
+      showAlert("PDF report downloaded successfully.");
     } catch {
       showError("Failed to export PDF report.");
+    } finally {
+      setDownloading(false);
     }
   };
 
-  const formatDate = (val) => {
-    if (!val) return "-";
-    if (typeof val === "number" || /^\d+$/.test(val)) return String(val);
+  const domainOptions = Object.entries(reportConfigs).map(([key, config]) => ({
+    value: key,
+    label: config.label,
+  }));
 
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val);
-
-    const isIsoOrHyphenated = String(val).includes("-") || String(val).includes("T");
-    if (!isIsoOrHyphenated) return String(val);
-
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  const openPreview = (row) => {
-    setSelectedRow(row);
-    setPreviewOpen(true);
-  };
+  const currentIntervalOptions = currentConfig.intervals || [];
 
   return (
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
-        title={t.reports}
-        subtitle="Access clinical analytics, business revenue splits, and download structured audits."
+        title={t.reports || "Reports & Analytics"}
+        subtitle="Generate, review, and export official clinical audits, operational summaries, and financial reports."
       />
 
-      {/* Filter panel */}
-      <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms">
+      {/* Filter and Control Panel with high z-index */}
+      <section
+        aria-label="Report Filter Controls"
+        className="relative z-30 rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms backdrop-blur-md"
+      >
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-end">
-          <label className="block">
-            <span className="mb-2 block text-xs font-bold text-foreground">
-              Select Report Domain
-            </span>
-            <select
-              className="scms-select w-full text-xs"
+          {/* Report Category Selection */}
+          <div className="w-full">
+            <label
+              id="report-domain-label"
+              className="mb-2 block text-xs font-bold text-foreground"
+            >
+              Report Category
+            </label>
+            <Select
+              ariaLabel="Select report category"
               value={reportKey}
-              onChange={(e) => setReportKey(e.target.value)}
-            >
-              <option value="businessSummary">Business Summary</option>
-              <option value="appointments">Appointments Stats</option>
-              <option value="revenue">Financial Revenue</option>
-              <option value="patients">Patients Directory</option>
-              <option value="medicineStock">Inventory Medicine Stock</option>
-              <option value="followUps">Patient Follow-ups</option>
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-xs font-bold text-foreground">
-              Aggregation Interval
-            </span>
-            <select
-              className="scms-select w-full text-xs"
-              value={reportType}
-              onChange={(e) => setReportType(e.target.value)}
-            >
-              <option value="daily">Daily Aggregation</option>
-              <option value="monthly">Monthly Aggregation</option>
-              <option value="all">All-time Aggregate</option>
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-xs font-bold text-foreground">
-              Report Target Date
-            </span>
-            <DateInput
-              className="scms-input w-full text-xs font-mono"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(val) => {
+                setReportKey(val);
+                const conf = reportConfigs[val];
+                if (conf?.defaultInterval) {
+                  setIntervalValue(conf.defaultInterval);
+                } else if (conf?.intervals?.length > 0) {
+                  setIntervalValue(conf.intervals[0].value);
+                }
+              }}
+              options={domainOptions}
             />
-          </label>
+          </div>
 
-          <button
-            onClick={handleDownloadPdf}
-            className="scms-btn-primary h-10 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl"
-          >
-            <DownloadIcon className="w-4 h-4" />
-            <span>Export PDF Report</span>
-          </button>
+          {/* Timeframe or Status Filter (if supported) */}
+          <div className="w-full">
+            <label
+              id="report-interval-label"
+              className="mb-2 block text-xs font-bold text-foreground"
+            >
+              {currentConfig.intervalLabel || "Timeframe Interval"}
+            </label>
+            {currentConfig.hasInterval ? (
+              <Select
+                ariaLabel={currentConfig.intervalLabel || "Select timeframe interval"}
+                value={intervalValue}
+                onChange={(val) => setIntervalValue(val)}
+                options={currentIntervalOptions}
+              />
+            ) : (
+              <div className="flex h-11 w-full items-center rounded-2xl border border-dashed border-input bg-secondary/30 px-3.5 text-xs text-muted-foreground italic select-none">
+                All records active
+              </div>
+            )}
+          </div>
+
+          {/* Date Picker (if supported) */}
+          <div className="w-full">
+            <label
+              id="report-date-label"
+              className="mb-2 block text-xs font-bold text-foreground"
+            >
+              {currentConfig.dateLabel || "Report Date"}
+            </label>
+            {currentConfig.hasDate !== false ? (
+              <DateInput
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full"
+                aria-label={currentConfig.dateLabel || "Report Date"}
+              />
+            ) : (
+              <div className="flex h-11 w-full items-center rounded-2xl border border-dashed border-input bg-secondary/30 px-3.5 text-xs text-muted-foreground italic select-none">
+                Current snapshot
+              </div>
+            )}
+          </div>
+
+          {/* Action: Export PDF */}
+          <div className="flex items-center gap-2 w-full">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={downloading || loading || !reportData}
+              aria-label="Export report as PDF"
+              className="scms-btn-primary w-full h-11 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm disabled:opacity-50"
+            >
+              <DownloadIcon className={`w-4 h-4 shrink-0 ${downloading ? "animate-bounce" : ""}`} aria-hidden="true" />
+              <span>{downloading ? "Exporting PDF..." : "Export PDF"}</span>
+            </button>
+          </div>
         </div>
 
-        <div className="mt-4 text-xs font-medium text-muted-foreground bg-secondary/50 p-3.5 rounded-2xl border border-border/80 flex items-center gap-2">
-          <ActivityLogIcon className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
+        {/* Informative Context Bar */}
+        <div
+          role="note"
+          className="mt-4 text-xs font-medium text-muted-foreground bg-secondary/50 p-3.5 rounded-2xl border border-border/80 flex items-center gap-2.5"
+        >
+          <ActivityLogIcon className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" aria-hidden="true" />
           <span>
-            <strong>Active Domain:</strong> {reportConfigs[reportKey].description}
+            <strong className="text-foreground">{currentConfig.label}:</strong> {currentConfig.description}
           </span>
         </div>
       </section>
 
-      {/* Structured data table */}
+      {/* Dedicated In-Page Full Document Report Preview */}
       {loading ? (
-        <div className="grid place-items-center h-64 rounded-3xl border border-border/80 bg-card">
-          <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
+        <div
+          role="status"
+          aria-live="polite"
+          className="grid place-items-center h-96 rounded-3xl border border-border/80 bg-card/95 shadow-scms"
+        >
+          <div className="flex flex-col items-center gap-3">
+            <span className="loading loading-spinner loading-lg text-orange-600 dark:text-orange-400" />
+            <span className="text-xs text-muted-foreground font-medium">Generating official report document...</span>
+          </div>
         </div>
-      ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed border-border/80 bg-card">
-          <BarChartIcon className="w-12 h-12 text-muted-foreground/40 mb-2 animate-bounce" />
-          <h3 className="text-base font-bold text-foreground">No Analytics Rows Found</h3>
+      ) : !reportData ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-col items-center justify-center p-16 text-center rounded-3xl border border-dashed border-border/80 bg-card/95 shadow-scms"
+        >
+          <BarChartIcon className="w-12 h-12 text-muted-foreground/40 mb-3" aria-hidden="true" />
+          <h3 className="text-base font-bold text-foreground">No Report Data Available</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-            Adjust the interval dates or select a different report domain above.
+            There are no recorded entries for this period or category. Select a different date or interval above.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/95 backdrop-blur-md shadow-scms">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-b border-border/80 bg-secondary/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3.5 w-12 text-center">No.</th>
-                  <th className="px-4 py-3.5">Report Metric / Record Key</th>
-                  <th className="px-4 py-3.5">Aggregated Value / Summary</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {rows.map((row, index) => {
-                  const metric = row.metric || row.name || row.patientName || row.id || `Metric #${index + 1}`;
-                  let val = row.value ?? row.total ?? row.amount ?? row.count ?? row.status;
-                  if (val === undefined || val === null) {
-                    val = "Check Details";
-                  }
-
-                  return (
-                    <tr
-                      key={index}
-                      onClick={() => openPreview(row)}
-                      className="hover:bg-secondary/60 cursor-pointer transition-colors text-xs"
-                    >
-                      <td className="px-4 py-3.5 text-center font-mono text-xs text-muted-foreground font-semibold">
-                        {index + 1}
-                      </td>
-                      <td className="px-4 py-3.5 font-bold text-foreground">
-                        {formatDate(metric)}
-                      </td>
-                      <td className="px-4 py-3.5 text-muted-foreground max-w-sm truncate font-mono">
-                        {typeof val === "object" ? "Structured JSON" : formatDate(val)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => openPreview(row)}
-                          className="scms-btn-outline px-2.5 h-8 min-h-8 text-xs font-semibold flex items-center gap-1.5 ml-auto btn-target"
-                        >
-                          <EyeOpenIcon className="w-3.5 h-3.5" />
-                          <span>Preview</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Detailed Modal Preview */}
-      <ModalPortal
-        isOpen={previewOpen && Boolean(selectedRow)}
-        onClose={() => setPreviewOpen(false)}
-      >
-        {selectedRow && (
-          <div className="w-full max-w-lg rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-                  <BarChartIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Metric Breakdown</h3>
-                  <span className="text-xs text-slate-500">{reportConfigs[reportKey].label}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setPreviewOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
-              >
-                <Cross2Icon className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                <span className="font-bold text-slate-500">Metric Key:</span>
-                <strong className="text-slate-900 dark:text-white">
-                  {formatDate(selectedRow.metric || selectedRow.name || selectedRow.patientName || selectedRow.id || "N/A")}
-                </strong>
-              </div>
-
+        <main
+          aria-label="Official Report Document Preview"
+          className="bg-white text-slate-900 border border-slate-200/80 shadow-2xl rounded-2xl p-8 sm:p-12 max-w-5xl mx-auto dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 transition-all"
+        >
+          {/* Revenue Report Layout */}
+          {reportKey === "revenue" && (
+            <div className="space-y-6 font-sans">
+              {/* Document Header */}
               <div>
-                <span className="font-bold text-slate-500 block mb-1.5">Detailed Values:</span>
-                {typeof selectedRow === "object" ? (
-                  <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 max-h-56 overflow-y-auto space-y-2 font-mono text-[11px]">
-                    {Object.entries(selectedRow).map(([k, v]) => (
-                      <div key={k} className="flex justify-between border-b border-slate-200/40 dark:border-slate-700/40 pb-1.5 last:border-0 last:pb-0">
-                        <span className="font-bold text-indigo-600 dark:text-indigo-400 capitalize">{k}:</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-semibold">{typeof v === "object" ? JSON.stringify(v) : formatDate(v)}</span>
-                      </div>
-                    ))}
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  {intervalValue === "weekly"
+                    ? "WEEKLY REVENUE"
+                    : intervalValue === "monthly"
+                    ? "MONTHLY REVENUE"
+                    : "DAILY REVENUE"}
+                </h1>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  {reportData.reportTitle ||
+                    `Revenue Report (${formatDate(reportData.periodStart)} to ${formatDate(reportData.periodEnd)})`}
+                </h2>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Generated: {formatDateTime(reportData.generatedAt || new Date())} UTC
+                </div>
+              </div>
+
+              {/* Summary Section */}
+              <div className="space-y-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Revenue Summary</h3>
+                <div className="text-xs text-slate-700 dark:text-slate-300">
+                  Period: {formatDate(reportData.periodStart)} to {formatDate(reportData.periodEnd)}
+                </div>
+                <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-1 mt-2">
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Transactions - {reportData.totalTransactions || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Amount - {formatCurrency(reportData.totalAmount)}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Tax - {formatCurrency(reportData.totalTax)}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Charges - {formatCurrency(reportData.totalCharges)}</span>
+                  </li>
+                  <li className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Grand Total - {formatCurrency(reportData.grandTotal)}</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Breakdown by Payment Method Table */}
+              {Array.isArray(reportData.byMethod) && (
+                <div className="space-y-2 pt-2">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                    Breakdown by Payment Method
+                  </h3>
+                  <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-sm">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-[#1d4ed8] text-white font-bold">
+                        <tr>
+                          <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Payment Method</th>
+                          <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Transactions</th>
+                          <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Amount</th>
+                          <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Tax</th>
+                          <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Charges</th>
+                          <th className="px-3 py-2">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {reportData.byMethod.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-2 text-center text-slate-500 italic">
+                              No payment method transactions recorded
+                            </td>
+                          </tr>
+                        ) : (
+                          reportData.byMethod.map((m, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                              <td className="px-3 py-2 font-medium border-r border-slate-200 dark:border-slate-700">
+                                {m.paymentMethod || "Direct"}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                                {m.count || 0}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                                {formatCurrency(m.amount)}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                                {formatCurrency(m.tax)}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                                {formatCurrency(m.charges)}
+                              </td>
+                              <td className="px-3 py-2 font-bold font-mono text-slate-900 dark:text-white">
+                                {formatCurrency(m.total)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <p className="text-slate-900 dark:text-white font-bold p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl">
-                    {formatDate(selectedRow)}
-                  </p>
-                )}
+                </div>
+              )}
+
+              {/* Transaction Details Table */}
+              <div className="space-y-2 pt-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Transaction Details
+                </h3>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#1d4ed8] text-white font-bold">
+                      <tr>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0 w-12 text-center">No.</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Appointment</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Patient</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Method</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Amount</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Tax</th>
+                        <th className="px-3 py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {!Array.isArray(reportData.items) || reportData.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-3 text-center text-slate-500 italic">
+                            No transactions found for this period
+                          </td>
+                        </tr>
+                      ) : (
+                        reportData.items.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-3 py-2 text-center font-mono border-r border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[11px] border-r border-slate-200 dark:border-slate-700 font-semibold">
+                              {item.appointmentCode || "-"}
+                            </td>
+                            <td className="px-3 py-2 font-medium border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
+                              {item.patientName || "Unknown"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700">
+                              {item.paymentMethod || "Cash"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                              {formatCurrency(item.amount)}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                              {formatCurrency(item.tax)}
+                            </td>
+                            <td className="px-3 py-2 font-bold font-mono text-slate-900 dark:text-white">
+                              {formatCurrency(item.total)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
+          )}
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-              <button
-                onClick={handleDownloadPdf}
-                className="scms-btn-primary text-xs flex items-center gap-1.5 btn-target"
-              >
-                <DownloadIcon className="w-4 h-4" />
-                <span>Download Report PDF</span>
-              </button>
-              <button onClick={() => setPreviewOpen(false)} className="scms-btn-outline text-xs">
-                {t.close}
-              </button>
+          {/* Appointments Report Layout */}
+          {reportKey === "appointments" && (
+            <div className="space-y-6 font-sans">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  {intervalValue === "weekly" ? "WEEKLY APPOINTMENTS REPORT" : "DAILY APPOINTMENTS REPORT"}
+                </h1>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  {reportData.reportTitle ||
+                    `Appointments Report (${formatDate(reportData.periodStart)} to ${formatDate(reportData.periodEnd)})`}
+                </h2>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Generated: {formatDateTime(reportData.generatedAt || new Date())} UTC
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Appointment Summary</h3>
+                <div className="text-xs text-slate-700 dark:text-slate-300">
+                  Period: {formatDate(reportData.periodStart)} to {formatDate(reportData.periodEnd)}
+                </div>
+                <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-1 mt-2">
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Total Appointments - {reportData.totalAppointments || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Completed - {reportData.completedCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Confirmed - {reportData.confirmedCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Pending - {reportData.pendingCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-700 dark:text-slate-400">▪</span>
+                    <span>Cancelled - {reportData.cancelledCount || 0}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Appointment Details
+                </h3>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#1d4ed8] text-white font-bold">
+                      <tr>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0 w-12 text-center">No.</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Appointment Code</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Date & Time</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Patient Name</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Status</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Token</th>
+                        <th className="px-3 py-2">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {!Array.isArray(reportData.items) || reportData.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-3 text-center text-slate-500 italic">
+                            No appointments found for this period
+                          </td>
+                        </tr>
+                      ) : (
+                        reportData.items.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-3 py-2 text-center font-mono border-r border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[11px] border-r border-slate-200 dark:border-slate-700 font-semibold">
+                              {item.appointmentCode || "-"}
+                            </td>
+                            <td className="px-3 py-2 font-mono border-r border-slate-200 dark:border-slate-700">
+                              {formatDateTime(item.datetime)}
+                            </td>
+                            <td className="px-3 py-2 font-medium border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
+                              {item.patientName || "Unknown"}
+                            </td>
+                            <td className="px-3 py-2 font-semibold capitalize border-r border-slate-200 dark:border-slate-700">
+                              {item.status || "Unknown"}
+                            </td>
+                            <td className="px-3 py-2 font-mono border-r border-slate-200 dark:border-slate-700">
+                              {item.tokenNumber > 0 ? `#${item.tokenNumber}` : "-"}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600 dark:text-slate-400 truncate max-w-xs">
+                              {item.notes || "-"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-      </ModalPortal>
+          )}
+
+          {/* Business Summary Report Layout */}
+          {reportKey === "businessSummary" && (
+            <div className="space-y-6 font-sans">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  MONTHLY BUSINESS SUMMARY
+                </h1>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  {reportData.reportTitle || "Clinic Executive Performance Report"}
+                </h2>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Generated: {formatDateTime(reportData.generatedAt || new Date())} UTC
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Operational Highlights</h3>
+                  <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-2 mt-2">
+                    <li className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+                      <span>New Patients Registered:</span>
+                      <strong className="font-mono text-slate-900 dark:text-white">{reportData.newPatients || 0}</strong>
+                    </li>
+                    <li className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+                      <span>Total Registered Patients:</span>
+                      <strong className="font-mono text-slate-900 dark:text-white">{reportData.totalPatients || 0}</strong>
+                    </li>
+                    <li className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+                      <span>Total Appointments:</span>
+                      <strong className="font-mono text-slate-900 dark:text-white">{reportData.totalAppointments || 0}</strong>
+                    </li>
+                    <li className="flex justify-between pb-1">
+                      <span>Total Prescriptions:</span>
+                      <strong className="font-mono text-slate-900 dark:text-white">{reportData.totalPrescriptions || 0}</strong>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Financial Summary</h3>
+                  <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-2 mt-2">
+                    <li className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+                      <span>Gross Income:</span>
+                      <strong className="font-mono text-slate-900 dark:text-white">{formatCurrency(reportData.totalIncome)} MMK</strong>
+                    </li>
+                    <li className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+                      <span>Tax Collected:</span>
+                      <strong className="font-mono text-slate-900 dark:text-white">{formatCurrency(reportData.totalTax)} MMK</strong>
+                    </li>
+                    <li className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+                      <span>Additional Charges:</span>
+                      <strong className="font-mono text-slate-900 dark:text-white">{formatCurrency(reportData.totalCharges)} MMK</strong>
+                    </li>
+                    <li className="flex justify-between pb-1 font-bold text-slate-900 dark:text-white">
+                      <span>Grand Total Revenue:</span>
+                      <strong className="font-mono text-[#1d4ed8] dark:text-blue-400">
+                        {formatCurrency((reportData.totalIncome || 0) + (reportData.totalTax || 0) + (reportData.totalCharges || 0))} MMK
+                      </strong>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Patients Directory Report Layout */}
+          {reportKey === "patients" && (
+            <div className="space-y-6 font-sans">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  PATIENT DIRECTORY REPORT
+                </h1>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  {reportData.reportTitle || "Clinic Patient Directory and Demographics"}
+                </h2>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Generated: {formatDateTime(reportData.generatedAt || new Date())} UTC
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Demographic Summary</h3>
+                <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-1 mt-2">
+                  <li className="flex items-center gap-2">
+                    <span>▪ Total Patients - {reportData.totalPatients || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Male Patients - {reportData.maleCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Female Patients - {reportData.femaleCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Other / Unspecified - {reportData.otherGenderCount || 0}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Patient Records
+                </h3>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#1d4ed8] text-white font-bold">
+                      <tr>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0 w-12 text-center">No.</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Name</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Age</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Gender</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Blood Type</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Mobile No.</th>
+                        <th className="px-3 py-2">Registered At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {!Array.isArray(reportData.items) || reportData.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-3 text-center text-slate-500 italic">
+                            No patient records found
+                          </td>
+                        </tr>
+                      ) : (
+                        reportData.items.map((patient, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-3 py-2 text-center font-mono border-r border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-2 font-medium border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
+                              {patient.name || "Unknown"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                              {patient.age ? `${patient.age} yrs` : "-"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 capitalize">
+                              {patient.gender || "-"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-bold text-rose-600 dark:text-rose-400">
+                              {patient.bloodType || "-"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                              {patient.mobileNo || "-"}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-400">
+                              {formatDate(patient.registeredAt)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Medicine Stock Report Layout */}
+          {reportKey === "medicineStock" && (
+            <div className="space-y-6 font-sans">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  MEDICINE STOCK INVENTORY
+                </h1>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  {reportData.reportTitle || "Pharmacy Inventory & Batch Status Report"}
+                </h2>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Generated: {formatDateTime(reportData.generatedAt || new Date())} UTC
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Inventory Summary</h3>
+                <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-1 mt-2">
+                  <li className="flex items-center gap-2">
+                    <span>▪ Total Medicines - {reportData.totalMedicines || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Total Stock Batches - {reportData.totalBatches || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Low Stock Alerts - {reportData.lowStockCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Expired Batches - {reportData.expiredCount || 0}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Medicine Stock & Batches
+                </h3>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#1d4ed8] text-white font-bold">
+                      <tr>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0 w-12 text-center">No.</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Medicine Name</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Category</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Total Stock</th>
+                        <th className="px-3 py-2">Batch Breakdown</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {!Array.isArray(reportData.items) || reportData.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-3 text-center text-slate-500 italic">
+                            No inventory items found
+                          </td>
+                        </tr>
+                      ) : (
+                        reportData.items.map((med, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-3 py-2 text-center font-mono border-r border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-2 font-medium border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
+                              {med.name || "Unknown"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700">
+                              {med.category || "General"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-bold font-mono">
+                              {Number(med.totalQuantity || 0).toLocaleString()} units
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-slate-600 dark:text-slate-400">
+                              {Array.isArray(med.batches) && med.batches.length > 0 ? (
+                                <div className="space-y-1">
+                                  {med.batches.map((b, bIdx) => (
+                                    <div key={bIdx} className="flex items-center gap-2">
+                                      <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                                        Batch #{b.batchNo}:
+                                      </span>
+                                      <span>{b.quantity} units</span>
+                                      <span className="text-slate-400">(Exp: {formatDate(b.expiryDate)})</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                "No active batches"
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Follow-Ups Report Layout */}
+          {reportKey === "followUps" && (
+            <div className="space-y-6 font-sans">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  PATIENT FOLLOW-UP REPORT
+                </h1>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  {reportData.reportTitle || "Patient Care Follow-Up Consultation Schedules"}
+                </h2>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Generated: {formatDateTime(reportData.generatedAt || new Date())} UTC
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Care Summary</h3>
+                <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-1 mt-2">
+                  <li className="flex items-center gap-2">
+                    <span>▪ Total Follow-Ups - {reportData.totalFollowUps || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Pending - {reportData.pendingCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Completed - {reportData.completedCount || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Overdue - {reportData.overdueCount || 0}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Follow-Up Details
+                </h3>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#1d4ed8] text-white font-bold">
+                      <tr>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0 w-12 text-center">No.</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Patient Name</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Mobile No.</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Due Date</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Recommendation</th>
+                        <th className="px-3 py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {!Array.isArray(reportData.items) || reportData.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-3 text-center text-slate-500 italic">
+                            No follow-up consultations found
+                          </td>
+                        </tr>
+                      ) : (
+                        reportData.items.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-3 py-2 text-center font-mono border-r border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-2 font-medium border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
+                              {item.patientName || "Unknown"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                              {item.mobileNo || "-"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700 font-mono">
+                              {formatDateTime(item.dueAt)}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700">
+                              {item.recommendation || "-"}
+                            </td>
+                            <td className="px-3 py-2 font-bold capitalize">
+                              {item.isOverdue ? "Overdue" : item.status || "Pending"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Prescriptions Report Layout */}
+          {reportKey === "prescriptions" && (
+            <div className="space-y-6 font-sans">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  PRESCRIPTION REPORT
+                </h1>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  {reportData.reportTitle || "Clinic Prescriptions & Medication Dispensing Log"}
+                </h2>
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Generated: {formatDateTime(reportData.generatedAt || new Date())} UTC
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Prescription Summary</h3>
+                <ul className="text-xs font-semibold text-slate-800 dark:text-slate-200 space-y-1 mt-2">
+                  <li className="flex items-center gap-2">
+                    <span>▪ Total Prescriptions - {reportData.totalPrescriptions || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Total Medicines Dispensed - {reportData.totalMedicines || 0}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>▪ Distinct Patients - {reportData.distinctPatients || 0}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Prescription Details
+                </h3>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#1d4ed8] text-white font-bold">
+                      <tr>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0 w-12 text-center">No.</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Patient Name</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Appointment</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Diagnosis</th>
+                        <th className="px-3 py-2 border-r border-blue-600 last:border-r-0">Date</th>
+                        <th className="px-3 py-2">Medicines Prescribed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {!Array.isArray(reportData.items) || reportData.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-3 text-center text-slate-500 italic">
+                            No prescriptions found
+                          </td>
+                        </tr>
+                      ) : (
+                        reportData.items.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-3 py-2 text-center font-mono border-r border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-2 font-medium border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
+                              {item.patientName || "Unknown"}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[11px] border-r border-slate-200 dark:border-slate-700">
+                              {item.appointmentCode || "-"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-slate-200 dark:border-slate-700">
+                              {item.diseaseName || "General Consultation"}
+                            </td>
+                            <td className="px-3 py-2 font-mono border-r border-slate-200 dark:border-slate-700">
+                              {formatDate(item.createdAt)}
+                            </td>
+                            <td className="px-3 py-2 font-bold font-mono">
+                              {item.medicineCount || 0} ({item.totalQuantity || 0} total)
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      )}
     </div>
   );
 }
+
+
+

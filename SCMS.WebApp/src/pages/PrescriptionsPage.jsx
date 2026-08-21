@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   FileTextIcon,
-  ReloadIcon,
   GridIcon,
   ListBulletIcon,
   DownloadIcon,
@@ -12,6 +11,7 @@ import PageHeader from "../components/PageHeader";
 import DateInput from "../components/DateInput";
 import PaginationControls from "../components/PaginationControls";
 import SegmentedControl from "../components/SegmentedControl";
+import { Select } from "../components/ui/select";
 import { prescriptionsApi, diseasesApi, downloadBlob } from "../services/scmsApi";
 import { showAlert, showError } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -120,44 +120,34 @@ export default function PrescriptionsPage() {
       />
 
       {/* Filter and View Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
+      <div className="relative z-30 flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
         <div className="flex flex-1 flex-wrap items-center gap-3 w-full">
-          <select
-            className="scms-select flex-1 min-w-[200px] text-xs"
-            value={selectedDisease}
-            onChange={(e) => {
-              setSelectedDisease(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">-- Filter by Diagnosis --</option>
-            {diseases.map((d) => (
-              <option key={d.id || d.diseaseId} value={d.id || d.diseaseId}>
-                {d.name || d.diseaseName}
-              </option>
-            ))}
-          </select>
+          <div className="flex-1 min-w-[220px]">
+            <Select
+              value={selectedDisease}
+              onChange={(val) => {
+                setSelectedDisease(val);
+                setPage(1);
+              }}
+              placeholder="All Diagnoses"
+              options={[
+                { value: "", label: "All Diagnoses" },
+                ...diseases.map((d) => ({
+                  value: String(d.id || d.diseaseId),
+                  label: d.name || d.diseaseName,
+                })),
+              ]}
+            />
+          </div>
 
           <DateInput
-            className="min-w-[150px] text-xs font-mono"
+            className="w-40 min-w-[150px] text-xs font-mono"
             value={dateFilter}
             onChange={(e) => {
               setDateFilter(e.target.value);
               setPage(1);
             }}
           />
-
-          <button
-            onClick={() => {
-              setSelectedDisease("");
-              setDateFilter("");
-              setPage(1);
-            }}
-            className="scms-btn-outline px-3 btn-target shadow-xs"
-            title={t.refresh}
-          >
-            <ReloadIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
-          </button>
         </div>
 
         <SegmentedControl

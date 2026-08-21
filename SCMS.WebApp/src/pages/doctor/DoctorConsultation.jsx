@@ -606,9 +606,9 @@ export default function DoctorConsultation() {
               <Select
                 value={selectedDiseaseId}
                 onChange={setSelectedDiseaseId}
-                placeholder="-- Select Disease / Diagnosis --"
+                placeholder="Select Disease / Diagnosis"
                 options={[
-                  { value: "", label: "-- General Clinical Examination --" },
+                  { value: "", label: "General Clinical Examination" },
                   ...diseases.map((d) => ({
                     value: String(d.id || d.diseaseId),
                     label: `${d.name || d.diseaseName} (${d.icdCode || "Clinical"})`,
@@ -706,7 +706,7 @@ export default function DoctorConsultation() {
                   <Select
                     value={selectedMedId}
                     onChange={setSelectedMedId}
-                    placeholder="-- Select Medication --"
+                    placeholder="Select Medication"
                     options={medicines.map((m) => {
                       const stock = m.stockQuantity ?? m.stock ?? 0;
                       return {

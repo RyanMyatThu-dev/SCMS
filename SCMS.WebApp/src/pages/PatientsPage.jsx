@@ -16,6 +16,7 @@ import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
 import SegmentedControl from "../components/SegmentedControl";
 import { Input } from "../components/ui/input";
+import { Select } from "../components/ui/select";
 import { patientsApi, downloadBlob } from "../services/scmsApi";
 import { showError, showSuccess, showConfirm } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -508,31 +509,30 @@ export default function PatientsPage() {
                   {errors.name && <p className="text-rose-500 text-[10px] mt-1">{errors.name}</p>}
                 </label>
 
-                <label className="block">
+                <div>
                   <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Gender</span>
-                  <select
-                    className="scms-select w-full text-xs"
+                  <Select
                     value={form.gender}
-                    onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </label>
+                    onChange={(val) => setForm({ ...form, gender: val })}
+                    options={[
+                      { value: "Male", label: "Male" },
+                      { value: "Female", label: "Female" },
+                      { value: "Other", label: "Other" },
+                    ]}
+                  />
+                </div>
 
-                <label className="block">
+                <div>
                   <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Blood Type</span>
-                  <select
-                    className="scms-select w-full text-xs"
+                  <Select
                     value={form.bloodType}
-                    onChange={(e) => setForm({ ...form, bloodType: e.target.value })}
-                  >
-                    {["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map((bt) => (
-                      <option key={bt} value={bt}>{bt}</option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={(val) => setForm({ ...form, bloodType: val })}
+                    options={["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map((bt) => ({
+                      value: bt,
+                      label: bt,
+                    }))}
+                  />
+                </div>
 
                 <label className="block">
                   <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">Phone Number</span>

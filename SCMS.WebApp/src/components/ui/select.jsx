@@ -111,7 +111,7 @@ export function Select({
   return (
     <div
       ref={containerRef}
-      className={cn("relative w-full", className)}
+      className={cn("relative w-full", isOpen ? "z-50" : "z-auto", className)}
       onKeyDown={handleKeyDown}
     >
       {/* Trigger Button */}
@@ -156,7 +156,8 @@ export function Select({
           role="listbox"
           tabIndex={-1}
           aria-label={ariaLabel || placeholder}
-          className="absolute z-50 mt-1.5 max-h-60 w-full min-w-[12rem] overflow-auto rounded-2xl border border-border/80 bg-card/98 p-1.5 text-xs text-card-foreground shadow-scms-modal backdrop-blur-2xl animate-fadeIn"
+          className="absolute z-50 top-full left-0 mt-1.5 max-h-60 w-full min-w-[12rem] overflow-auto rounded-2xl border border-border/80 bg-card p-1.5 text-xs text-card-foreground shadow-scms-modal backdrop-blur-2xl animate-fadeIn"
+          style={{ zIndex: 9999 }}
         >
           {options.length === 0 ? (
             <div className="py-3 text-center text-xs text-muted-foreground italic">

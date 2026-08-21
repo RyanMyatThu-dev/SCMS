@@ -16,6 +16,7 @@ import PaginationControls from "../components/PaginationControls";
 import DateInput from "../components/DateInput";
 import SegmentedControl from "../components/SegmentedControl";
 import { Input } from "../components/ui/input";
+import { Select } from "../components/ui/select";
 import { medicinesApi } from "../services/scmsApi";
 import { showAlert, showError, showConfirm, showSuccess } from "../services/dialogs";
 import { useLanguage } from "../context/LanguageContext";
@@ -257,7 +258,7 @@ export default function BatchesPage() {
       />
 
       {/* Filter & Layout Switcher */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
+      <div className="relative z-30 flex flex-col sm:flex-row justify-between items-center gap-4 rounded-3xl border border-border/80 bg-card/90 backdrop-blur-md p-4 shadow-scms">
         <form onSubmit={handleSearch} className="flex-1 w-full max-w-sm flex items-center gap-2">
           <Input
             type="text"
@@ -276,22 +277,22 @@ export default function BatchesPage() {
           </button>
         </form>
 
-        <div className="w-full sm:w-auto min-w-[200px]">
-          <select
-            className="scms-select w-full text-xs"
+        <div className="w-full sm:w-auto min-w-[220px]">
+          <Select
             value={selectedMedId}
-            onChange={(e) => {
-              setSelectedMedId(e.target.value);
+            onChange={(val) => {
+              setSelectedMedId(val);
               setPage(1);
             }}
-          >
-            <option value="">-- Filter by All Medicines --</option>
-            {medicines.map((m) => (
-              <option key={m.id || m.medicineId} value={m.id || m.medicineId}>
-                {m.name || m.medicineName}
-              </option>
-            ))}
-          </select>
+            placeholder="All Medicines"
+            options={[
+              { value: "", label: "All Medicines" },
+              ...medicines.map((m) => ({
+                value: String(m.id || m.medicineId),
+                label: m.name || m.medicineName,
+              })),
+            ]}
+          />
         </div>
 
         <SegmentedControl
@@ -455,24 +456,20 @@ export default function BatchesPage() {
             </div>
 
             <form onSubmit={handleSaveBatch} className="space-y-3.5 text-xs">
-              <label className="block">
+              <div>
                 <span className="mb-1 block font-bold text-slate-700 dark:text-slate-300">
                   Select Medicine <span className="text-rose-500">*</span>
                 </span>
-                <select
-                  className="scms-select w-full text-xs"
-                  value={form.medicineId}
-                  onChange={(e) => setForm({ ...form, medicineId: e.target.value })}
-                  required
-                >
-                  <option value="">-- Choose Medicine --</option>
-                  {medicines.map((m) => (
-                    <option key={m.id || m.medicineId} value={m.id || m.medicineId}>
-                      {m.name || m.medicineName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <Select
+                  value={String(form.medicineId || "")}
+                  onChange={(val) => setForm({ ...form, medicineId: val })}
+                  placeholder="Select Medicine"
+                  options={medicines.map((m) => ({
+                    value: String(m.id || m.medicineId),
+                    label: m.name || m.medicineName,
+                  }))}
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
