@@ -488,12 +488,12 @@ export default function DiseasesPage() {
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto text-xs">
-              {templateList.length === 0 ? (
+              {templates.length === 0 ? (
                 <p className="text-slate-400 italic py-6 text-center">
                   No saved templates available yet. Templates can be saved during doctor consultation.
                 </p>
               ) : (
-                templateList.map((tpl) => (
+                templates.map((tpl) => (
                   <div
                     key={tpl.id}
                     className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center"

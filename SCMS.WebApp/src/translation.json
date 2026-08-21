@@ -161,9 +161,30 @@
     "totalIncome": "Total Income",
     "dailyIncomeSubtitle": "Daily settled billing & income",
     "incomeOverview": "Income Overview",
-    "viewAllAppointments": "View all appointments",
     "noNotifications": "No new notifications",
-    "noNotificationsSubtitle": "You're all caught up with clinic updates."
+    "noNotificationsSubtitle": "You're all caught up with clinic updates.",
+
+    "doctorAppointments": "Doctor Schedule & Visits",
+    "doctorPrescriptions": "Prescriptions & Templates",
+    "doctorFollowUps": "Follow-Up Patients",
+    "doctorTemplates": "Clinical Templates",
+    "scheduleManagement": "Manage Doctor Availability & Daily Schedule",
+    "inStock": "In Stock",
+    "outOfStock": "Out of Stock",
+    "patientHistory": "Longitudinal Clinical History",
+    "repeatPrescription": "Re-issue Prescription",
+
+    "myAppointments": "My Appointments & Visits",
+    "medicalRecordsAndPrescriptions": "Medical Records & Prescriptions",
+    "invoicesAndPayments": "Billing & Payments",
+    "familyHealthProfiles": "Family Health Profiles",
+    "followUpReminders": "Follow-Up Checkups",
+    "bookNewVisit": "Book New Clinic Visit",
+    "unsettledInvoices": "Unsettled Invoices",
+    "payNow": "Pay Now",
+    "submitTransferProof": "Submit Mobile Payment Proof",
+    "downloadMedicalSummary": "Download Medical Summary (PDF)",
+    "digitalHealthWallet": "Digital Health Wallet"
   },
   "mm": {
     "appName": "ကုမယ်",
@@ -325,8 +346,29 @@
     "totalIncome": "စုစုပေါင်း ဝင်ငွေ",
     "dailyIncomeSubtitle": "ယနေ့ လက်ခံရရှိသော ငွေပေးချေမှုများ",
     "incomeOverview": "ဝင်ငွေ အခြေအနေ ဇယား",
-    "viewAllAppointments": "ချိန်းဆိုမှုများ အားလုံးကြည့်မည်",
     "noNotifications": "အသိပေးချက် အသစ်မရှိပါ",
-    "noNotificationsSubtitle": "ဆေးခန်းဆိုင်ရာ အသိပေးချက်အားလုံးကို စစ်ဆေးပြီးပါပြီ။"
+    "noNotificationsSubtitle": "ဆေးခန်းဆိုင်ရာ အသိပေးချက်အားလုံးကို စစ်ဆေးပြီးပါပြီ။",
+
+    "doctorAppointments": "ဆရာဝန် ချိန်းဆိုမှုများ",
+    "doctorPrescriptions": "ဆေးညွှန်းနှင့် ပုံစံငယ်များ",
+    "doctorFollowUps": "နောက်ဆက်တွဲပြသရန် လူနာများ",
+    "doctorTemplates": "ဆေးညွှန်း ပုံစံငယ်များ",
+    "scheduleManagement": "ဆရာဝန် အချိန်ဇယား စီမံခန့်ခွဲမှု",
+    "inStock": "ပစ္စည်းလက်ကျန်ရှိ",
+    "outOfStock": "ပစ္စည်းလက်ကျန်ကုန်",
+    "patientHistory": "လူနာ့ ဆေးမှတ်တမ်း ရာဇဝင်",
+    "repeatPrescription": "ဆေးညွှန်း ပြန်လည်ထုတ်ပေးမည်",
+
+    "myAppointments": "ကျွန်ုပ်၏ ချိန်းဆိုမှုများ",
+    "medicalRecordsAndPrescriptions": "ဆေးမှတ်တမ်းနှင့် ဆေးညွှန်းများ",
+    "invoicesAndPayments": "ငွေတောင်းခံလွှာနှင့် ပေးချေမှုများ",
+    "familyHealthProfiles": "မိသားစု ကျန်းမာရေး ပရိုဖိုင်များ",
+    "followUpReminders": "နောက်ဆက်တွဲ ပြသရန် သတိပေးချက်များ",
+    "bookNewVisit": "ဆေးခန်းပြသရန် ချိန်းဆိုမည်",
+    "unsettledInvoices": "မပေးဆောင်ရသေးသော ဘေလ်များ",
+    "payNow": "ငွေပေးချေမည်",
+    "submitTransferProof": "ငွေလွှဲပြေစာ တင်ပြမည်",
+    "downloadMedicalSummary": "ဆေးမှတ်တမ်း အကျဉ်းချုပ် ဒေါင်းလုဒ်ယူမည် (PDF)",
+    "digitalHealthWallet": "ဒီဂျစ်တယ် ဆေးမှတ်တမ်း ပိုက်ဆံအိတ်"
   }
 }
