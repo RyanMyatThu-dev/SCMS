@@ -251,18 +251,18 @@ export default function DoctorDashboard() {
           }
           columns={[
             {
-              label: "Token",
-              key: (r) => `#${r.tokenNumber || r.appointmentCode || "-"}`,
-              cellClassName: "font-mono font-bold text-indigo-600 dark:text-indigo-400",
+              label: "Arrival Token",
+              key: (r) => (r.tokenNumber ? `Token #${r.tokenNumber}` : `Code #${r.appointmentCode || "Pending"}`),
+              cellClassName: "font-mono font-bold text-orange-600 dark:text-orange-400",
             },
             {
-              label: t.patient,
-              key: (r) => r.patientName || r.patient?.name || `Patient #${r.patientId}`,
+              label: t.patient || "Patient",
+              key: (r) => r.patientName || r.patient?.name || "Patient Record",
             },
             {
-              label: "Visit Notes / Reason",
-              key: (r) => r.notes || r.reason || "General Medical Examination",
-              cellClassName: "text-slate-500 dark:text-slate-400 text-xs truncate max-w-xs",
+              label: "Visit Reason / Complaint",
+              key: (r) => r.notes || r.reason || "General Medical Consultation",
+              cellClassName: "text-muted-foreground text-xs truncate max-w-xs",
             },
             {
               label: t.status,

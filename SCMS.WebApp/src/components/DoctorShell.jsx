@@ -4,6 +4,8 @@ import {
   ActivityLogIcon,
   PersonIcon,
   FileTextIcon,
+  CalendarIcon,
+  CheckCircledIcon,
   MagicWandIcon,
   HamburgerMenuIcon,
   Cross2Icon,
@@ -12,10 +14,18 @@ import {
   MoonIcon,
   PlayIcon,
   ChevronDownIcon,
-  MagnifyingGlassIcon,
+  GlobeIcon,
 } from "@radix-ui/react-icons";
 import BrandLogo from "./BrandLogo";
 import SkipLink from "./SkipLink";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "./ui/dropdown-menu";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
@@ -24,10 +34,12 @@ import { showAlert, showError, showConfirm } from "../services/dialogs";
 import useScrollLock from "../hooks/useScrollLock";
 
 const doctorNav = [
-  { to: "/doctor/dashboard", key: "doctorQueue", icon: ActivityLogIcon },
-  { to: "/doctor/patients", key: "patients", icon: PersonIcon },
-  { to: "/doctor/prescriptions", key: "prescriptions", icon: FileTextIcon },
-  { to: "/doctor/ai-assistant", key: "aiAssistant", icon: MagicWandIcon },
+  { to: "/doctor/dashboard", key: "doctorQueue", label: "Patient Queue", icon: ActivityLogIcon },
+  { to: "/doctor/appointments", key: "doctorAppointments", label: "Visits & Schedule", icon: CalendarIcon },
+  { to: "/doctor/patients", key: "patients", label: "Clinical Patients", icon: PersonIcon },
+  { to: "/doctor/prescriptions", key: "doctorPrescriptions", label: "Prescriptions & Templates", icon: FileTextIcon },
+  { to: "/doctor/follow-ups", key: "doctorFollowUps", label: "Follow-Up Patients", icon: CheckCircledIcon },
+  { to: "/doctor/ai-assistant", key: "aiAssistant", label: "AI Clinical Assistant", icon: MagicWandIcon },
 ];
 
 export default function DoctorShell() {
@@ -94,11 +106,11 @@ export default function DoctorShell() {
         }`}
       >
         <div className="flex items-center justify-between pb-4 border-b border-border/70">
-          <BrandLogo subtitle={t.doctorPortal} />
+          <BrandLogo subtitle={t.doctorPortal || "Doctor Workspace"} />
           <button
             className="lg:hidden grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-secondary transition cursor-pointer"
             onClick={() => setOpen(false)}
-            aria-label={t.close}
+            aria-label={t.close || "Close menu"}
           >
             <Cross2Icon className="w-5 h-5" />
           </button>
@@ -116,7 +128,7 @@ export default function DoctorShell() {
             ) : (
               <PlayIcon className="w-4 h-4 shrink-0" />
             )}
-            <span>{t.callNextPatient}</span>
+            <span>{t.callNextPatient || "Call Next Patient"}</span>
           </button>
         </div>
 
@@ -138,7 +150,7 @@ export default function DoctorShell() {
                 }
               >
                 <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>{t[item.key]}</span>
+                <span>{t[item.key] || item.label}</span>
               </NavLink>
             );
           })}
@@ -151,7 +163,7 @@ export default function DoctorShell() {
             className="flex items-center gap-3 rounded-2xl text-xs font-semibold text-destructive hover:bg-destructive/10 w-full py-2.5 px-3 transition-colors"
           >
             <ExitIcon className="w-4 h-4 shrink-0" />
-            <span>{t.logout}</span>
+            <span>{t.logout || "Log Out"}</span>
           </button>
         </div>
       </aside>
@@ -170,11 +182,11 @@ export default function DoctorShell() {
             </button>
 
             <span className="text-xs font-bold uppercase tracking-wider text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 px-3 py-1 rounded-full border border-orange-200 dark:border-orange-900/40">
-              {t.doctorPortal}
+              {t.doctorPortal || "Doctor Workspace"}
             </span>
           </div>
 
-          {/* User badge & Utility toggles */}
+          {/* User badge & Profile Dropdown */}
           <div className="flex items-center gap-2.5">
             {/* Theme Toggle */}
             <button
@@ -199,21 +211,59 @@ export default function DoctorShell() {
               {language === "en" ? "မြန်မာ" : "English"}
             </button>
 
-            {/* Doctor Profile Badge */}
-            <div className="flex items-center gap-2.5 pl-2 border-l border-border/80">
-              <div className="grid h-9 w-9 place-items-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 font-extrabold text-xs border border-orange-500/20">
-                {user?.name?.[0] || "D"}
-              </div>
-              <div className="hidden sm:block text-left">
-                <div className="text-xs font-bold text-foreground leading-none">
-                  {user?.name || "Dr. Clinician"}
+            {/* Accessible Header Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <div className="flex items-center gap-2.5 pl-2 border-l border-border/80 cursor-pointer p-1 rounded-2xl hover:bg-secondary/60 transition">
+                  <div className="grid h-9 w-9 place-items-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 font-extrabold text-xs border border-orange-500/20 shadow-2xs">
+                    {user?.name?.[0]?.toUpperCase() || "D"}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <div className="text-xs font-bold text-foreground leading-none">
+                      {user?.name || "Dr. Clinician"}
+                    </div>
+                    <div className="text-[10px] font-semibold text-muted-foreground leading-none mt-1">
+                      Consulting Physician
+                    </div>
+                  </div>
+                  <ChevronDownIcon className="w-3.5 h-3.5 text-muted-foreground hidden sm:block" />
                 </div>
-                <div className="text-[10px] font-semibold text-muted-foreground leading-none mt-1">
-                  Physician
-                </div>
-              </div>
-              <ChevronDownIcon className="w-3.5 h-3.5 text-muted-foreground hidden sm:block" />
-            </div>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="right" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="font-bold text-foreground">{user?.name || "Physician"}</div>
+                  <div className="text-[10px] text-muted-foreground font-normal lowercase">{user?.email || "doctor@scms.local"}</div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  icon={<CalendarIcon className="w-4 h-4 text-orange-500" />}
+                  onClick={() => navigate("/doctor/appointments")}
+                >
+                  Visits & Schedule
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  icon={<FileTextIcon className="w-4 h-4 text-orange-500" />}
+                  onClick={() => navigate("/doctor/prescriptions")}
+                >
+                  Prescriptions & Templates
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  icon={<GlobeIcon className="w-4 h-4" />}
+                  onClick={toggleLanguage}
+                >
+                  {language === "en" ? "မြန်မာဘာသာသို့ ပြောင်းမည်" : "Switch to English"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  destructive
+                  icon={<ExitIcon className="w-4 h-4" />}
+                  onClick={handleLogout}
+                >
+                  {t.logout || "Log Out"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -225,4 +275,3 @@ export default function DoctorShell() {
     </div>
   );
 }
-

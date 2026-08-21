@@ -10,6 +10,7 @@ import {
   BookmarkIcon,
   CheckCircledIcon,
   Cross2Icon,
+  ClockIcon,
 } from "@radix-ui/react-icons";
 import {
   appointmentsApi,
@@ -25,13 +26,16 @@ import { useLanguage } from "../../context/LanguageContext";
 import {
   calculateQuantity,
   commonDosageValues,
+  parsePrescriptionNotes,
 } from "../../utils/clinical";
 import {
   sanitizeText,
   validateClinicalVitals,
   validateNumberRange,
 } from "../../utils/validation";
+import { formatDate } from "../../utils/format";
 import DateInput from "../../components/DateInput";
+import { Select } from "../../components/ui/select";
 import useScrollLock from "../../hooks/useScrollLock";
 import ModalPortal from "../../components/ModalPortal";
 
@@ -82,7 +86,12 @@ export default function DoctorConsultation() {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
 
-  useScrollLock(templateModalOpen);
+  // Patient History Drawer State
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [patientHistory, setPatientHistory] = useState(null);
+
+  useScrollLock(templateModalOpen || historyDrawerOpen);
 
   // Template State
   const [templates, setTemplates] = useState([]);
@@ -125,7 +134,8 @@ export default function DoctorConsultation() {
             // Fetch patient details
             if (matched.patientId) {
               const pData = await patientsApi.get(matched.patientId);
-              setPatient(pData?.data || pData || matched.patient);
+              const pObj = pData?.data || pData || matched.patient;
+              setPatient(pObj);
             }
           }
         }
@@ -138,6 +148,23 @@ export default function DoctorConsultation() {
 
     loadAll();
   }, [appointmentId]);
+
+  // Load Patient Medical History
+  const handleOpenHistoryDrawer = async () => {
+    setHistoryDrawerOpen(true);
+    const pId = appointment?.patientId || patient?.id || patient?.patientId;
+    if (!pId) return;
+
+    try {
+      setHistoryLoading(true);
+      const res = await patientsApi.history(pId);
+      setPatientHistory(res?.data || res || {});
+    } catch (err) {
+      console.error("Fetch patient history error:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   // Compute BMI
   const bmi = useMemo(() => {
@@ -190,7 +217,7 @@ export default function DoctorConsultation() {
     if (!tItem?.items) return;
     setPrescribedItems(tItem.items);
     if (tItem.notes) setDiagnosisNotes(tItem.notes);
-    showSuccess(`Template "${tItem.templateName || tItem.name}" loaded!`);
+    showSuccess(`Template "${tItem.templateName || tItem.name}" loaded successfully.`);
   };
 
   // Save Prescription as Template
@@ -210,7 +237,7 @@ export default function DoctorConsultation() {
         name: cleanTplName,
         templateName: cleanTplName,
         notes: sanitizeText(diagnosisNotes) || null,
-        items: prescribedItems.map(p => ({
+        items: prescribedItems.map((p) => ({
           medicineId: Number(p.medicineId),
           dosage: sanitizeText(p.dosage) || "Once daily",
           quantity: Number(p.quantity),
@@ -257,12 +284,22 @@ export default function DoctorConsultation() {
 
     // Validate prescription items
     for (const item of prescribedItems) {
-      const qVal = validateNumberRange(item.quantity, { label: `${item.medicineName} Quantity`, min: 1, max: 10000, isInteger: true });
+      const qVal = validateNumberRange(item.quantity, {
+        label: `${item.medicineName} Quantity`,
+        min: 1,
+        max: 10000,
+        isInteger: true,
+      });
       if (!qVal.isValid) {
         showError(qVal.error, "Invalid Medication Quantity");
         return;
       }
-      const dVal = validateNumberRange(item.days, { label: `${item.medicineName} Days`, min: 1, max: 365, isInteger: true });
+      const dVal = validateNumberRange(item.days, {
+        label: `${item.medicineName} Days`,
+        min: 1,
+        max: 365,
+        isInteger: true,
+      });
       if (!dVal.isValid) {
         showError(dVal.error, "Invalid Treatment Days");
         return;
@@ -307,7 +344,7 @@ export default function DoctorConsultation() {
       await appointmentsApi.updateStatus(apptId, { status: "Completed" });
 
       await showAlert(
-        "Consultation finished and prescription issued successfully.",
+        "Consultation finished and digital prescription issued successfully.",
         "Consultation Complete"
       );
 
@@ -317,14 +354,14 @@ export default function DoctorConsultation() {
           const pdfBlob = await prescriptionsApi.pdf(presId);
           downloadBlob(pdfBlob, `prescription-${presId}.pdf`);
         } catch {
-          console.log("Auto-download skipped or unhandled");
+          console.log("Auto-download skipped");
         }
       }
 
       navigate("/doctor/dashboard");
     } catch (err) {
       showError(
-        err?.response?.data?.message || err?.message || "Failed to complete consultation."
+        err?.response?.data?.message || err?.message || "Failed to complete clinical consultation."
       );
     } finally {
       setSaving(false);
@@ -333,43 +370,48 @@ export default function DoctorConsultation() {
 
   if (loading) {
     return (
-      <div className="grid place-items-center h-64 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <span className="loading loading-spinner loading-md text-indigo-600 dark:text-indigo-400" />
+      <div className="grid place-items-center h-64 rounded-3xl border border-border/80 bg-card">
+        <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Top Bar with Back Button */}
-      <div className="flex items-center justify-between gap-4">
+      {/* Top Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <button
           onClick={() => navigate("/doctor/dashboard")}
           className="scms-btn-outline flex items-center gap-2 text-xs font-bold btn-target"
         >
           <ChevronLeftIcon className="w-4 h-4" />
-          <span>Back to Queue</span>
+          <span>Back to Patient Queue</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleOpenHistoryDrawer}
+            className="scms-btn-outline flex items-center gap-1.5 text-xs font-bold btn-target text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900/60"
+          >
+            <ClockIcon className="w-4 h-4" />
+            <span>Patient EMR History</span>
+          </button>
+
           {templates.length > 0 && (
-            <select
-              className="scms-select text-xs font-semibold h-10 min-h-10"
-              onChange={(e) => {
-                const tItem = templates.find((t) => String(t.id) === e.target.value);
-                if (tItem) handleLoadTemplate(tItem);
-              }}
-              defaultValue=""
-            >
-              <option value="" disabled>
-                {t.loadTemplate}
-              </option>
-              {templates.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>
-                  {tpl.templateName || tpl.name || `Template #${tpl.id}`}
-                </option>
-              ))}
-            </select>
+            <div className="w-44">
+              <Select
+                placeholder={t.loadTemplate || "Load Template"}
+                options={templates.map((tpl) => ({
+                  value: String(tpl.id),
+                  label: tpl.templateName || tpl.name || `Template #${tpl.id}`,
+                }))}
+                onChange={(val) => {
+                  const tItem = templates.find((t) => String(t.id) === String(val));
+                  if (tItem) handleLoadTemplate(tItem);
+                }}
+              />
+            </div>
           )}
 
           <button
@@ -377,29 +419,29 @@ export default function DoctorConsultation() {
             className="scms-btn-outline flex items-center gap-1.5 text-xs font-bold btn-target"
           >
             <BookmarkIcon className="w-4 h-4" />
-            <span>{t.saveAsTemplate}</span>
+            <span>{t.saveAsTemplate || "Save As Template"}</span>
           </button>
         </div>
       </div>
 
       {/* Patient Header Card */}
-      <section className="rounded-3xl border border-indigo-200/80 dark:border-indigo-900/60 bg-white dark:bg-slate-900 p-6 shadow-sm">
+      <section className="rounded-3xl border border-border/80 bg-card p-6 shadow-scms">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-indigo-600 text-white font-bold text-lg shrink-0">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-orange-500 text-white font-bold text-lg shrink-0 shadow-2xs">
               {patient?.name?.[0] || "P"}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                  {patient?.name || appointment?.patientName || "Patient"}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold text-foreground">
+                  {patient?.name || appointment?.patientName || "Patient Record"}
                 </h1>
-                <span className="font-mono text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-900">
-                  Token {appointment?.tokenNumber || appointment?.appointmentCode || "1"}
+                <span className="font-mono text-xs font-bold bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-900">
+                  {appointment?.tokenNumber ? `Token #${appointment.tokenNumber}` : "In Consultation"}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {patient?.gender || "Patient"} • {patient?.phone || "No phone listed"} • Blood Type:{" "}
+              <p className="text-xs text-muted-foreground mt-1">
+                {patient?.gender || "Patient"} • {patient?.phone || "No phone registered"} • Blood Type:{" "}
                 <strong className="text-rose-600 dark:text-rose-400 font-bold">
                   {patient?.bloodType || "O+"}
                 </strong>
@@ -407,25 +449,29 @@ export default function DoctorConsultation() {
             </div>
           </div>
 
-          {patient?.allergies && (
+          {patient?.allergies ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/40 p-3.5 text-xs text-rose-800 dark:text-rose-300 max-w-sm">
-              <strong className="block font-bold">Known Allergies:</strong>
+              <strong className="block font-bold">⚠️ Known Allergies:</strong>
               {patient.allergies}
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground italic bg-secondary/40 px-3.5 py-2 rounded-2xl">
+              No drug or food allergies on record
             </div>
           )}
         </div>
       </section>
 
-      {/* Main Grid: Vitals & Diagnosis vs Prescription Builder */}
+      {/* Main Consultation Layout */}
       <div className="grid gap-6 lg:grid-cols-12">
-        {/* Left Column: Vitals & Diagnosis (5 cols) */}
+        {/* Left Column: Vitals & Diagnosis */}
         <div className="lg:col-span-5 space-y-6">
           {/* Vitals Matrix */}
           <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                 <HeartIcon className="w-4 h-4 text-orange-500" />
-                <span>{t.vitalsMatrix}</span>
+                <span>{t.vitalsMatrix || "Patient Vitals Matrix"}</span>
               </h2>
               {bmi && (
                 <span
@@ -443,12 +489,12 @@ export default function DoctorConsultation() {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <label className="block">
                 <span className="mb-1 block font-semibold text-muted-foreground">
-                  {t.weight}
+                  {t.weight || "Weight (kg)"}
                 </span>
                 <input
                   type="number"
                   step="0.1"
-                  className="scms-input w-full h-10 min-h-10 text-xs font-mono"
+                  className="scms-input w-full text-xs font-mono"
                   value={vitals.weightKg}
                   onChange={(e) => setVitals((v) => ({ ...v, weightKg: e.target.value }))}
                   placeholder="e.g. 65"
@@ -457,11 +503,11 @@ export default function DoctorConsultation() {
 
               <label className="block">
                 <span className="mb-1 block font-semibold text-muted-foreground">
-                  {t.height}
+                  {t.height || "Height (cm)"}
                 </span>
                 <input
                   type="number"
-                  className="scms-input w-full h-10 min-h-10 text-xs font-mono"
+                  className="scms-input w-full text-xs font-mono"
                   value={vitals.heightCm}
                   onChange={(e) => setVitals((v) => ({ ...v, heightCm: e.target.value }))}
                   placeholder="e.g. 170"
@@ -475,7 +521,7 @@ export default function DoctorConsultation() {
                 <div className="flex items-center gap-1.5">
                   <input
                     type="number"
-                    className="scms-input w-full h-10 min-h-10 text-xs font-mono text-center"
+                    className="scms-input w-full text-xs font-mono text-center"
                     value={vitals.bloodPressureSystolic}
                     onChange={(e) =>
                       setVitals((v) => ({ ...v, bloodPressureSystolic: e.target.value }))
@@ -485,7 +531,7 @@ export default function DoctorConsultation() {
                   <span className="text-muted-foreground font-bold">/</span>
                   <input
                     type="number"
-                    className="scms-input w-full h-10 min-h-10 text-xs font-mono text-center"
+                    className="scms-input w-full text-xs font-mono text-center"
                     value={vitals.bloodPressureDiastolic}
                     onChange={(e) =>
                       setVitals((v) => ({ ...v, bloodPressureDiastolic: e.target.value }))
@@ -498,7 +544,7 @@ export default function DoctorConsultation() {
               <label className="block">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-semibold text-muted-foreground">
-                    {t.temperature} (°{tempUnit})
+                    {t.temperature || "Temperature"} (°{tempUnit})
                   </span>
                   <button
                     type="button"
@@ -511,7 +557,7 @@ export default function DoctorConsultation() {
                 <input
                   type="number"
                   step="0.1"
-                  className="scms-input w-full h-10 min-h-10 text-xs font-mono"
+                  className="scms-input w-full text-xs font-mono"
                   value={vitals.temperatureF}
                   onChange={(e) => setVitals((v) => ({ ...v, temperatureF: e.target.value }))}
                   placeholder="98.6"
@@ -519,12 +565,12 @@ export default function DoctorConsultation() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block font-semibold text-slate-600 dark:text-slate-400">
-                  {t.pulse}
+                <span className="mb-1 block font-semibold text-muted-foreground">
+                  {t.pulse || "Pulse (bpm)"}
                 </span>
                 <input
                   type="number"
-                  className="scms-input w-full h-10 min-h-10 text-xs font-mono"
+                  className="scms-input w-full text-xs font-mono"
                   value={vitals.pulseBpm}
                   onChange={(e) => setVitals((v) => ({ ...v, pulseBpm: e.target.value }))}
                   placeholder="72"
@@ -532,12 +578,12 @@ export default function DoctorConsultation() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block font-semibold text-slate-600 dark:text-slate-400">
-                  {t.oxygenSpO2}
+                <span className="mb-1 block font-semibold text-muted-foreground">
+                  {t.oxygenSpO2 || "Oxygen SpO2 (%)"}
                 </span>
                 <input
                   type="number"
-                  className="scms-input w-full h-10 min-h-10 text-xs font-mono"
+                  className="scms-input w-full text-xs font-mono"
                   value={vitals.spo2Percent}
                   onChange={(e) => setVitals((v) => ({ ...v, spo2Percent: e.target.value }))}
                   placeholder="98"
@@ -546,57 +592,57 @@ export default function DoctorConsultation() {
             </div>
           </section>
 
-          {/* Primary Diagnosis */}
-          <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-4">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <ActivityLogIcon className="w-4 h-4 text-indigo-600" />
-              <span>{t.diagnosisNotes}</span>
+          {/* Primary Diagnosis & Notes */}
+          <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-4">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <ActivityLogIcon className="w-4 h-4 text-orange-500" />
+              <span>{t.diagnosisNotes || "Clinical Diagnosis & Findings"}</span>
             </h2>
 
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {t.selectDisease}
+            <div>
+              <span className="mb-1.5 block text-xs font-bold text-foreground">
+                {t.selectDisease || "Select Primary Diagnosis"}
               </span>
-              <select
-                className="scms-select w-full text-xs font-semibold"
+              <Select
                 value={selectedDiseaseId}
-                onChange={(e) => setSelectedDiseaseId(e.target.value)}
-              >
-                <option value="">-- No specific disease selected --</option>
-                {diseases.map((d) => (
-                  <option key={d.id || d.diseaseId} value={d.id || d.diseaseId}>
-                    {d.name || d.diseaseName} ({d.icdCode || "Clinical"})
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={setSelectedDiseaseId}
+                placeholder="-- Select Disease / Diagnosis --"
+                options={[
+                  { value: "", label: "-- General Clinical Examination --" },
+                  ...diseases.map((d) => ({
+                    value: String(d.id || d.diseaseId),
+                    label: `${d.name || d.diseaseName} (${d.icdCode || "Clinical"})`,
+                  })),
+                ]}
+              />
+            </div>
 
             <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Clinical Notes & Observations
+              <span className="mb-1.5 block text-xs font-bold text-foreground">
+                Clinical Observations & Examination Notes
               </span>
               <textarea
                 className="scms-textarea w-full text-xs"
                 rows={4}
                 value={diagnosisNotes}
                 onChange={(e) => setDiagnosisNotes(e.target.value)}
-                placeholder="Enter doctor clinical examination findings, symptoms, and advice..."
+                placeholder="Enter physical examination findings, symptom progress, patient complaints..."
               />
             </label>
           </section>
 
-          {/* Follow-up Section */}
-          <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-3">
+          {/* Follow-up Scheduling */}
+          <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {t.scheduleFollowUp}
+              <h3 className="text-sm font-bold text-foreground">
+                {t.scheduleFollowUp || "Schedule Follow-up Visit"}
               </h3>
               <input
                 type="checkbox"
                 className="checkbox checkbox-sm checkbox-primary rounded-md"
                 checked={hasFollowUp}
                 onChange={(e) => setHasFollowUp(e.target.checked)}
-                aria-label="Enable follow-up"
+                aria-label="Enable follow-up visit"
               />
             </div>
 
@@ -604,9 +650,9 @@ export default function DoctorConsultation() {
               <div className="space-y-3 pt-2">
                 <div className="flex items-center gap-2">
                   {[
-                    { label: t.oneWeek, days: 7 },
-                    { label: t.twoWeeks, days: 14 },
-                    { label: t.oneMonth, days: 30 },
+                    { label: t.oneWeek || "1 Week", days: 7 },
+                    { label: t.twoWeeks || "2 Weeks", days: 14 },
+                    { label: t.oneMonth || "1 Month", days: 30 },
                   ].map((p) => (
                     <button
                       key={p.days}
@@ -627,7 +673,7 @@ export default function DoctorConsultation() {
                 <input
                   type="text"
                   className="scms-input w-full text-xs"
-                  placeholder="Follow-up instructions for staff..."
+                  placeholder="Instructions for follow-up visit..."
                   value={followUpNotes}
                   onChange={(e) => setFollowUpNotes(e.target.value)}
                 />
@@ -636,53 +682,51 @@ export default function DoctorConsultation() {
           </section>
         </div>
 
-        {/* Right Column: Smart Prescription Builder (7 cols) */}
+        {/* Right Column: Smart Prescription Builder */}
         <div className="lg:col-span-7 space-y-6">
-          <section className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <FileTextIcon className="w-4 h-4 text-emerald-600" />
+          <section className="rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-border/70">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <FileTextIcon className="w-4 h-4 text-orange-500" />
                 <span>Smart Prescription Builder</span>
               </h2>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                {prescribedItems.length} items added
+              <span className="text-xs font-bold text-muted-foreground">
+                {prescribedItems.length} medications added
               </span>
             </div>
 
-            {/* Medicine Add Bar */}
-            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/40 p-4 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
-                {t.addMedicine}
+            {/* Add Medication Control Bar */}
+            <div className="rounded-2xl border border-border/80 bg-secondary/30 p-4 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                {t.addMedicine || "Add Prescribed Medication"}
               </span>
 
               <div className="grid gap-3 sm:grid-cols-12">
                 <div className="sm:col-span-6">
-                  <select
-                    className="scms-select w-full text-xs font-semibold"
+                  <Select
                     value={selectedMedId}
-                    onChange={(e) => setSelectedMedId(e.target.value)}
-                  >
-                    <option value="">-- Choose Medicine --</option>
-                    {medicines.map((m) => (
-                      <option key={m.id || m.medicineId} value={m.id || m.medicineId}>
-                        {m.name || m.medicineName} ({m.stockQuantity ?? m.stock ?? 0} in stock)
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setSelectedMedId}
+                    placeholder="-- Select Medication --"
+                    options={medicines.map((m) => {
+                      const stock = m.stockQuantity ?? m.stock ?? 0;
+                      return {
+                        value: String(m.id || m.medicineId),
+                        label: `${m.name || m.medicineName} (${stock > 0 ? `${stock} in stock` : "Out of stock"})`,
+                      };
+                    })}
+                  />
                 </div>
 
                 <div className="sm:col-span-3">
-                  <select
-                    className="scms-select w-full text-xs font-semibold"
+                  <Select
                     value={currentDosage}
-                    onChange={(e) => setCurrentDosage(e.target.value)}
-                  >
-                    {commonDosageValues.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setCurrentDosage}
+                    placeholder="Dosage"
+                    options={commonDosageValues.map((d) => ({
+                      value: d,
+                      label: d,
+                    }))}
+                  />
                 </div>
 
                 <div className="sm:col-span-3">
@@ -704,7 +748,7 @@ export default function DoctorConsultation() {
                   className="scms-input flex-1 text-xs"
                   value={currentInstructions}
                   onChange={(e) => setCurrentInstructions(e.target.value)}
-                  placeholder="Instructions (e.g. After meals, with plenty of water)"
+                  placeholder="Instructions (e.g. After meals, avoid driving)"
                 />
 
                 <button
@@ -721,13 +765,13 @@ export default function DoctorConsultation() {
 
             {/* Prescribed Items Table */}
             {prescribedItems.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center text-xs text-slate-400">
-                No medicines added to this prescription yet. Select a medicine above to begin.
+              <div className="rounded-2xl border border-dashed border-border/80 p-8 text-center text-xs text-muted-foreground">
+                No medications added yet. Select a medicine above to include in this digital prescription.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
+              <div className="overflow-hidden rounded-2xl border border-border/80">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 dark:bg-slate-800/60 font-bold uppercase tracking-wider text-slate-500">
+                  <thead className="bg-secondary/60 font-bold uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th className="p-3">Medicine</th>
                       <th className="p-3">Dosage</th>
@@ -737,20 +781,20 @@ export default function DoctorConsultation() {
                       <th className="p-3 text-right">Remove</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-border/60">
                     {prescribedItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                        <td className="p-3 font-bold text-slate-900 dark:text-white">
+                      <tr key={idx} className="hover:bg-secondary/40">
+                        <td className="p-3 font-bold text-foreground">
                           {item.medicineName}
                         </td>
-                        <td className="p-3 font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                        <td className="p-3 font-mono font-semibold text-orange-600 dark:text-orange-400">
                           {item.dosage}
                         </td>
-                        <td className="p-3 font-mono">{item.days} d</td>
-                        <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">
+                        <td className="p-3 font-mono">{item.days} days</td>
+                        <td className="p-3 font-mono font-bold text-foreground">
                           {item.quantity} units
                         </td>
-                        <td className="p-3 text-slate-500 dark:text-slate-400 italic">
+                        <td className="p-3 text-muted-foreground italic">
                           {item.instructions}
                         </td>
                         <td className="p-3 text-right">
@@ -770,71 +814,159 @@ export default function DoctorConsultation() {
               </div>
             )}
 
-            {/* Bottom Issue Prescription Button */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+            {/* Issue Prescription Button */}
+            <div className="pt-4 border-t border-border/70 flex justify-end">
               <button
                 type="button"
                 onClick={handleCompleteConsultation}
                 disabled={saving}
-                className="scms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 shadow-lg btn-target text-sm font-bold px-8 h-12"
+                className="scms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 shadow-md btn-target text-sm font-bold px-8 h-12"
               >
                 {saving ? (
                   <span className="loading loading-spinner loading-sm" />
                 ) : (
                   <CheckCircledIcon className="w-5 h-5" />
                 )}
-                <span>{t.issuePrescription}</span>
+                <span>{t.issuePrescription || "Issue Prescription & Complete Visit"}</span>
               </button>
             </div>
           </section>
         </div>
       </div>
 
+      {/* Patient Clinical History Drawer */}
+      <ModalPortal isOpen={historyDrawerOpen} onClose={() => setHistoryDrawerOpen(false)}>
+        <div className="w-full max-w-2xl rounded-3xl border border-border/80 bg-card p-6 shadow-scms-modal space-y-4 max-h-[85vh] overflow-y-auto">
+          <div className="flex items-center justify-between pb-3 border-b border-border/70">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500 text-white font-bold">
+                {patient?.name?.[0] || "P"}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  {patient?.name || "Patient"} &mdash; Clinical Records History
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  Longitudinal past diagnoses and prescriptions
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setHistoryDrawerOpen(false)}
+              className="p-1.5 rounded-xl text-muted-foreground hover:bg-secondary"
+            >
+              <Cross2Icon className="w-4 h-4" />
+            </button>
+          </div>
+
+          {historyLoading ? (
+            <div className="py-12 text-center text-xs text-muted-foreground">
+              <span className="loading loading-spinner loading-sm text-orange-500" />
+              <p className="mt-2">Loading patient past records...</p>
+            </div>
+          ) : (
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-secondary/30 p-4 rounded-2xl">
+                <div>
+                  <span className="font-semibold text-muted-foreground block">Known Allergies:</span>
+                  <strong className="text-foreground">
+                    {patient?.allergies || "None recorded"}
+                  </strong>
+                </div>
+                <div>
+                  <span className="font-semibold text-muted-foreground block">Chronic Conditions:</span>
+                  <strong className="text-foreground">
+                    {patient?.chronicConditions || "None recorded"}
+                  </strong>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-foreground mb-2">Past Prescriptions & Diagnoses</h4>
+                {patientHistory?.prescriptions?.length ? (
+                  <div className="space-y-2">
+                    {patientHistory.prescriptions.map((pres, i) => (
+                      <div
+                        key={i}
+                        className="p-3.5 rounded-2xl border border-border/80 bg-card space-y-1.5"
+                      >
+                        <div className="flex justify-between font-bold text-foreground">
+                          <span>Prescription #{pres.id || i + 1}</span>
+                          <span className="text-muted-foreground font-mono text-[11px]">
+                            {formatDate(pres.prescribedAt || pres.createdAt)}
+                          </span>
+                        </div>
+                        {pres.diseaseName && (
+                          <span className="inline-block text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 px-2 py-0.5 rounded-md">
+                            {pres.diseaseName}
+                          </span>
+                        )}
+                        {pres.notes && (
+                          <p className="text-muted-foreground italic text-xs">
+                            &ldquo;{parsePrescriptionNotes(pres.notes)}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground italic text-center py-6">
+                    No past prescriptions found for this patient.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </ModalPortal>
+
       {/* Save Template Modal */}
       <ModalPortal isOpen={templateModalOpen} onClose={() => setTemplateModalOpen(false)}>
         <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card text-card-foreground p-6 shadow-scms-modal space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                {t.saveAsTemplate}
-              </h3>
-              <button
-                onClick={() => setTemplateModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
-              >
-                <Cross2Icon className="w-4 h-4" />
-              </button>
-            </div>
-
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {t.templateName}
-              </span>
-              <input
-                className="scms-input w-full text-xs"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="e.g. Standard URI Protocol"
-                required
-              />
-            </label>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setTemplateModalOpen(false)}
-                className="scms-btn-outline text-xs"
-              >
-                {t.cancel}
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveTemplate}
-                className="scms-btn-primary text-xs"
-              >
-                {t.save}
-              </button>
-            </div>
+          <div className="flex items-center justify-between pb-3 border-b border-border/70">
+            <h3 className="text-base font-bold text-foreground">
+              {t.saveAsTemplate || "Save As Template"}
+            </h3>
+            <button
+              onClick={() => setTemplateModalOpen(false)}
+              className="p-1.5 rounded-xl text-muted-foreground hover:bg-secondary"
+            >
+              <Cross2Icon className="w-4 h-4" />
+            </button>
           </div>
+
+          <label className="block text-xs">
+            <span className="mb-1 block font-bold text-foreground">Template Name</span>
+            <input
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="e.g. Standard Cold & Fever Regimen"
+              className="scms-input w-full text-xs"
+            />
+          </label>
+
+          <div className="text-xs text-muted-foreground">
+            This will save {prescribedItems.length} current medications into a reusable template.
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setTemplateModalOpen(false)}
+              className="scms-btn-outline text-xs"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveTemplate}
+              className="scms-btn-primary text-xs font-bold"
+            >
+              Save Template
+            </button>
+          </div>
+        </div>
       </ModalPortal>
     </div>
   );

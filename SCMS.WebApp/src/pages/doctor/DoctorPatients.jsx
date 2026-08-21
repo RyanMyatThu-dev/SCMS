@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import {
   DownloadIcon,
   MagnifyingGlassIcon,
-  ReloadIcon,
   Cross2Icon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../../components/PageHeader";
@@ -160,7 +159,7 @@ export default function DoctorPatients() {
           },
           {
             label: "Contact",
-            key: (r) => r.phone || r.mobileNo || "-",
+            key: (r) => r.phone || r.mobileNo || "No contact phone",
           },
         ]}
         actions={(row) => (
