@@ -170,6 +170,9 @@
     "markRead": "Mark as Read",
     "downloadPdf": "Download PDF",
     "totalIncome": "Total Income",
+    "dailyIncome": "Daily Income",
+    "todayAppointments": "Total Appointment Today",
+    "todayPatients": "Total Patient Today",
     "dailyIncomeSubtitle": "Daily settled billing & income",
     "incomeOverview": "Income Overview",
     "noNotifications": "No new notifications",
@@ -195,7 +198,15 @@
     "payNow": "Pay Now",
     "submitTransferProof": "Submit Mobile Payment Proof",
     "downloadMedicalSummary": "Download Medical Summary (PDF)",
-    "digitalHealthWallet": "Digital Health Wallet"
+    "digitalHealthWallet": "Digital Health Wallet",
+    "weeklySummary": "Weekly Summary",
+    "monthlySummary": "Monthly Summary",
+    "dailySummary": "Daily Summary",
+    "customRange": "Custom Range",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "month": "Month",
+    "year": "Year"
   },
   "mm": {
     "appName": "ကုမယ်",
@@ -366,6 +377,9 @@
     "markRead": "ဖတ်ပြီးကြောင်း မှတ်သားမည်",
     "downloadPdf": "PDF ဒေါင်းလုဒ်ယူမည်",
     "totalIncome": "စုစုပေါင်း ဝင်ငွေ",
+    "dailyIncome": "ယနေ့ ဝင်ငွေ",
+    "todayAppointments": "ယနေ့ ချိန်းဆိုမှု စုစုပေါင်း",
+    "todayPatients": "ယနေ့ လူနာ စုစုပေါင်း",
     "dailyIncomeSubtitle": "ယနေ့ လက်ခံရရှိသော ငွေပေးချေမှုများ",
     "incomeOverview": "ဝင်ငွေ အခြေအနေ ဇယား",
     "noNotifications": "အသိပေးချက် အသစ်မရှိပါ",
@@ -391,6 +405,14 @@
     "payNow": "ငွေပေးချေမည်",
     "submitTransferProof": "ငွေလွှဲပြေစာ တင်ပြမည်",
     "downloadMedicalSummary": "ဆေးမှတ်တမ်း အကျဉ်းချုပ် ဒေါင်းလုဒ်ယူမည် (PDF)",
-    "digitalHealthWallet": "ဒီဂျစ်တယ် ဆေးမှတ်တမ်း ပိုက်ဆံအိတ်"
+    "digitalHealthWallet": "ဒီဂျစ်တယ် ဆေးမှတ်တမ်း ပိုက်ဆံအိတ်",
+    "weeklySummary": "အပတ်စဉ် အကျဉ်းချုပ်",
+    "monthlySummary": "လစဉ် အကျဉ်းချုပ်",
+    "dailySummary": "နေ့စဉ် အကျဉ်းချုပ်",
+    "customRange": "စိတ်ကြိုက် ကာလအပိုင်းအခြား",
+    "startDate": "စတင်မည့်ရက်စွဲ",
+    "endDate": "ပြီးဆုံးမည့်ရက်စွဲ",
+    "month": "လ",
+    "year": "ခုနှစ်"
   }
 }
