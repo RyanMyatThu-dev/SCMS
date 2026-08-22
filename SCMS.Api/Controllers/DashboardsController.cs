@@ -23,14 +23,14 @@ namespace SCMS.Api.Controllers
             _dashboardService = dashboardService;
         }
 
-        /// <summary>Retrieves clinic operations, revenue/income summary, and live queue status for staff.</summary>
+        /// <summary>Retrieves clinic operations, revenue/income summary, monthly/weekly/daily breakdowns, and live queue status for staff.</summary>
         [HttpGet("dashboard")]
         [HasPermission("Dashboards.View")]
         [ProducesResponseType(typeof(Result<DoctorDashboardResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetDoctorDashboard([FromQuery] string period = "daily", CancellationToken cancellationToken = default)
+        public async Task<IActionResult> GetDoctorDashboard([FromQuery] GetDoctorDashboardRequest? request, CancellationToken cancellationToken = default)
         {
-            var result = await _dashboardService.GetDoctorDashboardAsync(period, cancellationToken);
+            var result = await _dashboardService.GetDoctorDashboardAsync(request ?? new GetDoctorDashboardRequest(), cancellationToken);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
