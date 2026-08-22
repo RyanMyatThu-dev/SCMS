@@ -6,17 +6,30 @@ import {
   PlayIcon,
   CodeIcon,
   ReloadIcon,
+  MagnifyingGlassIcon,
+  Cross2Icon,
 } from "@radix-ui/react-icons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { mcpApi } from "../services/scmsApi";
 import { useLanguage } from "../context/LanguageContext";
+import SegmentedControl from "../components/SegmentedControl";
+import ArrayObjectField from "../components/mcp/ArrayObjectField";
+import ToolResultView from "../components/mcp/ToolResultView";
+import {
+  CATEGORY_ORDER,
+  getCategoryLabel,
+  getToolLabel,
+  getToolMeta,
+  humanizeKey,
+  isTimeField,
+  STATUS_PILL_STYLES,
+  TIME_QUICK_PICKS,
+} from "../utils/mcpToolCatalog";
 
 const renderMessageContent = (content) => {
   if (!content) return null;
 
-  // Auto-translate yyyy-MM-dd dates to dd-MM-yyyy format
-  const formattedContent = content.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3-$2-$1");
-  const lines = formattedContent.split("\n");
+  const lines = content.split("\n");
 
   return lines.map((line, lineIdx) => {
     const trimmed = line.trim();
@@ -83,10 +96,14 @@ export default function AiAssistant() {
   const [selectedTool, setSelectedTool] = useState(null);
   const [toolInputs, setToolInputs] = useState({});
   const [toolResponse, setToolResponse] = useState(null);
+  const [toolError, setToolError] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
   const [loadingTools, setLoadingTools] = useState(false);
   const [loadingToolCall, setLoadingToolCall] = useState(false);
   const [error, setError] = useState("");
+  const [toolMode, setToolMode] = useState("guided"); // "guided" | "advanced"
+  const [toolSearch, setToolSearch] = useState("");
+  const [pendingConfirm, setPendingConfirm] = useState(null); // parsed args awaiting confirmation
 
   const chatEndRef = useRef(null);
 
@@ -163,40 +180,101 @@ export default function AiAssistant() {
   const handleToolSelect = (tool) => {
     setSelectedTool(tool);
     setToolResponse(null);
+    setPendingConfirm(null);
     const initialInputs = {};
     if (tool?.inputSchema?.properties) {
-      Object.keys(tool.inputSchema.properties).forEach((k) => {
-        initialInputs[k] = "";
+      Object.entries(tool.inputSchema.properties).forEach(([k, prop]) => {
+        initialInputs[k] = prop.type === "array" && prop.items?.properties ? [] : "";
       });
     }
     setToolInputs(initialInputs);
+    setToolError("");
   };
 
   const handleToolInput = (key, val) => {
     setToolInputs((prev) => ({ ...prev, [key]: val }));
   };
 
-  const handleCallTool = async () => {
-    if (!selectedTool || loadingToolCall) return;
+  const handleToolModeChange = (mode) => {
+    setToolMode(mode);
+    setSelectedTool(null);
+    setToolResponse(null);
+    setPendingConfirm(null);
+    setToolError("");
+  };
+
+  /** Builds the final call arguments from toolInputs, coercing each value to the type the schema declares. */
+  const buildParsedArgs = () => {
+    const props = selectedTool.inputSchema?.properties || {};
+    const required = selectedTool.inputSchema?.required || [];
+
+    const missing = required.filter((k) => {
+      const v = toolInputs[k];
+      if (Array.isArray(v)) return v.length === 0;
+      return String(v ?? "").trim() === "";
+    });
+    if (missing.length > 0) {
+      const names = missing.map((k) => humanizeKey(k, language)).join(", ");
+      setToolError(
+        language === "mm" ? `လိုအပ်သည်: ${names}` : `Required: ${names}`
+      );
+      return null;
+    }
+
+    const parsedArgs = {};
+
+    for (const [k, v] of Object.entries(toolInputs)) {
+      const type = props[k]?.type;
+
+      if (Array.isArray(v)) {
+        if (v.length === 0) continue;
+        const itemProps = props[k]?.items?.properties || {};
+        parsedArgs[k] = v.map((row) => {
+          const out = {};
+          Object.entries(row).forEach(([rk, rv]) => {
+            const rType = itemProps[rk]?.type;
+            out[rk] = rType === "number" || rType === "integer" ? Number(rv) : rv;
+          });
+          return out;
+        });
+        continue;
+      }
+
+      const raw = typeof v === "string" ? v.trim() : v;
+      if (raw === "" || raw === undefined || raw === null) continue;
+
+      if (type === "number" || type === "integer") {
+        const num = Number(raw);
+        if (Number.isNaN(num)) {
+          setToolError(
+            language === "mm"
+              ? `"${humanizeKey(k, language)}" သည် ဂဏန်းဖြစ်ရမည်။`
+              : `"${humanizeKey(k, language)}" must be a number.`
+          );
+          return null;
+        }
+        parsedArgs[k] = num;
+      } else if (type === "boolean") {
+        parsedArgs[k] = raw === "true" || raw === true;
+      } else if (type === "array" || type === "object") {
+        try {
+          parsedArgs[k] = JSON.parse(raw);
+        } catch {
+          setToolError(`"${humanizeKey(k, language)}" must be valid JSON.`);
+          return null;
+        }
+      } else {
+        parsedArgs[k] = raw;
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  const executeToolCall = async (parsedArgs) => {
     setLoadingToolCall(true);
     setToolResponse(null);
-
     try {
-      const parsedArgs = {};
-      const props = selectedTool.inputSchema?.properties || {};
-
-      Object.entries(toolInputs).forEach(([k, v]) => {
-        if (v === "") return;
-        const type = props[k]?.type;
-        if (type === "number" || type === "integer") {
-          parsedArgs[k] = Number(v);
-        } else if (type === "boolean") {
-          parsedArgs[k] = v === "true" || v === true;
-        } else {
-          parsedArgs[k] = v;
-        }
-      });
-
       const res = await mcpApi.callTool({
         name: selectedTool.name,
         arguments: parsedArgs,
@@ -214,6 +292,29 @@ export default function AiAssistant() {
     }
   };
 
+  const handleCallTool = async () => {
+    if (!selectedTool || loadingToolCall) return;
+
+    setToolError("");
+    const parsedArgs = buildParsedArgs();
+    if (!parsedArgs) return;
+
+    const meta = getToolMeta(selectedTool.name);
+    if (toolMode === "guided" && meta?.confirm) {
+      setPendingConfirm(parsedArgs);
+      return;
+    }
+
+    await executeToolCall(parsedArgs);
+  };
+
+  const handleConfirmToolCall = async () => {
+    if (!pendingConfirm) return;
+    const args = pendingConfirm;
+    setPendingConfirm(null);
+    await executeToolCall(args);
+  };
+
   const quickPrompts = [
     {
       label: language === "mm" ? "ဆေးလက်ကျန်သတိပေးချက်များ" : "Stock alerts",
@@ -228,6 +329,28 @@ export default function AiAssistant() {
       prompt: "What standard prescription templates do we have for Asthma?",
     },
   ];
+
+  const filteredTools = useMemo(() => {
+    const q = toolSearch.trim().toLowerCase();
+    if (!q) return tools;
+    return tools.filter((tool) => {
+      const label = getToolLabel(tool, language).toLowerCase();
+      return label.includes(q) || tool.name.toLowerCase().includes(q) || tool.description?.toLowerCase().includes(q);
+    });
+  }, [tools, toolSearch, language]);
+
+  const groupedTools = useMemo(() => {
+    const groups = {};
+    filteredTools.forEach((tool) => {
+      const category = getToolMeta(tool.name)?.category || "other";
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(tool);
+    });
+    const orderedKeys = [...CATEGORY_ORDER.filter((c) => groups[c]), ...Object.keys(groups).filter((c) => !CATEGORY_ORDER.includes(c))];
+    return orderedKeys.map((key) => ({ key, tools: groups[key] }));
+  }, [filteredTools]);
+
+  const selectedToolMeta = selectedTool ? getToolMeta(selectedTool.name) : null;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr] animate-fadeIn">
@@ -335,13 +458,15 @@ export default function AiAssistant() {
       <section className="flex h-[calc(100vh-140px)] flex-col rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms">
         <div className="flex items-center gap-3 border-b border-border/70 pb-4">
           <div className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-900/40 shrink-0">
-            <CodeIcon className="w-5 h-5" />
+            <MagicWandIcon className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base font-bold text-foreground">
-              {language === "mm" ? "အလိုအလျောက် လုပ်ဆောင်ချက်များ" : "MCP Tool Center"}
+              {language === "mm" ? "အမြန်လုပ်ဆောင်ချက်များ" : "Quick Actions"}
             </h2>
-            <p className="text-xs text-muted-foreground">Live backend integration endpoints</p>
+            <p className="text-xs text-muted-foreground">
+              {language === "mm" ? "ဆေးခန်းစီမံခန့်ခွဲမှု လုပ်ငန်းများ" : "One-tap clinic operations"}
+            </p>
           </div>
           <button
             onClick={loadTools}
@@ -352,6 +477,31 @@ export default function AiAssistant() {
           </button>
         </div>
 
+        <div className="flex items-center gap-2 mt-4">
+          <SegmentedControl
+            ariaLabel="Tool mode"
+            size="sm"
+            value={toolMode}
+            onChange={handleToolModeChange}
+            options={[
+              { value: "guided", label: language === "mm" ? "ရိုးရှင်း" : "Guided" },
+              { value: "advanced", label: language === "mm" ? "အဆင့်မြင့်" : "Advanced", icon: CodeIcon },
+            ]}
+          />
+          {toolMode === "guided" && (
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={toolSearch}
+                onChange={(e) => setToolSearch(e.target.value)}
+                placeholder={language === "mm" ? "လုပ်ဆောင်ချက်ရှာရန်..." : "Search actions..."}
+                className="scms-input w-full h-8 text-xs !pl-8"
+              />
+            </div>
+          )}
+        </div>
+
         {error && (
           <div className="mt-3 flex items-center gap-2 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-300">
             <ExclamationTriangleIcon className="w-4 h-4" />
@@ -360,7 +510,7 @@ export default function AiAssistant() {
         )}
 
         {/* Tools Selector */}
-        <div className="mt-4 flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
+        <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
           {loadingTools ? (
             <div className="grid place-items-center h-40">
               <span className="loading loading-spinner loading-md text-orange-600 dark:text-orange-400" />
@@ -370,7 +520,7 @@ export default function AiAssistant() {
               <QuestionMarkCircledIcon className="w-8 h-8 mb-2 opacity-40" />
               No backend tools found. Please check API status.
             </div>
-          ) : (
+          ) : toolMode === "advanced" ? (
             tools.map((tool) => (
               <button
                 key={tool.name}
@@ -394,11 +544,56 @@ export default function AiAssistant() {
                 </p>
               </button>
             ))
+          ) : groupedTools.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400 text-xs font-semibold">
+              <MagnifyingGlassIcon className="w-8 h-8 mb-2 opacity-40" />
+              {language === "mm" ? "ရလဒ်မတွေ့ရှိပါ" : "No matching actions found."}
+            </div>
+          ) : (
+            groupedTools.map(({ key, tools: groupTools }) => (
+              <div key={key}>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 px-0.5">
+                  {getCategoryLabel(key, language)}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {groupTools.map((tool) => {
+                    const meta = getToolMeta(tool.name);
+                    const Icon = meta?.icon || CodeIcon;
+                    const isSelected = selectedTool?.name === tool.name;
+                    return (
+                      <button
+                        key={tool.name}
+                        onClick={() => handleToolSelect(tool)}
+                        title={tool.description}
+                        className={`flex flex-col items-start gap-1.5 rounded-2xl border p-3 text-left transition btn-target ${
+                          isSelected
+                            ? "border-orange-500 bg-orange-50/70 dark:bg-orange-950/40"
+                            : "border-border/70 hover:bg-secondary/60"
+                        }`}
+                      >
+                        <div
+                          className={`grid h-7 w-7 place-items-center rounded-xl ${
+                            meta?.danger
+                              ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
+                              : "bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400"
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-bold text-foreground leading-tight">
+                          {getToolLabel(tool, language)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
           )}
         </div>
 
-        {/* Tool Playground Modal/Footer */}
-        {selectedTool && (
+        {/* Tool Playground / Guided Form */}
+        {selectedTool && toolMode === "advanced" && (
           <div className="border-t border-slate-100 dark:border-slate-800 pt-4 mt-3">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-bold text-slate-900 dark:text-white">
@@ -413,21 +608,70 @@ export default function AiAssistant() {
             </div>
 
             {/* Dynamic Inputs */}
-            {selectedTool.inputSchema?.properties && (
-              <div className="space-y-2.5 max-h-[140px] overflow-y-auto mb-3 pr-1">
-                {Object.entries(selectedTool.inputSchema.properties).map(([k, prop]) => (
-                  <label key={k} className="block text-xs">
-                    <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                      {k} {prop.type ? `(${prop.type})` : ""}
-                    </span>
-                    <input
-                      type="text"
-                      className="scms-input w-full text-xs h-8"
-                      value={toolInputs[k] || ""}
-                      onChange={(e) => handleToolInput(k, e.target.value)}
-                    />
-                  </label>
-                ))}
+            {selectedTool.inputSchema?.properties &&
+              Object.keys(selectedTool.inputSchema.properties).length > 0 && (
+                <div className="space-y-2.5 max-h-[180px] overflow-y-auto mb-3 pr-1">
+                  {Object.entries(selectedTool.inputSchema.properties).map(([k, prop]) => {
+                    const isRequired = (selectedTool.inputSchema.required || []).includes(k);
+                    const isStructured = prop.type === "array" || prop.type === "object";
+
+                    return (
+                      <label key={k} className="block text-xs">
+                        <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                          {k}{" "}
+                          {prop.type ? (
+                            <span className="font-mono normal-case text-slate-400">({prop.type})</span>
+                          ) : null}
+                          {isRequired && <span className="text-rose-500 ml-0.5">*</span>}
+                        </span>
+
+                        {prop.description && (
+                          <span className="block text-[10px] font-medium normal-case text-slate-400 mb-1 leading-snug">
+                            {prop.description}
+                          </span>
+                        )}
+
+                        {prop.enum ? (
+                          <select
+                            className="scms-input w-full text-xs h-8"
+                            value={toolInputs[k] || ""}
+                            onChange={(e) => handleToolInput(k, e.target.value)}
+                          >
+                            <option value="">
+                              {isRequired ? "Select a value..." : "(leave blank)"}
+                            </option>
+                            {prop.enum.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        ) : isStructured ? (
+                          <textarea
+                            rows={3}
+                            spellCheck={false}
+                            placeholder={prop.type === "array" ? "[ { ... } ]" : "{ ... }"}
+                            className="scms-input w-full text-[11px] font-mono py-1.5 leading-snug"
+                            value={toolInputs[k] || ""}
+                            onChange={(e) => handleToolInput(k, e.target.value)}
+                          />
+                        ) : (
+                          <input
+                            type={prop.type === "integer" || prop.type === "number" ? "number" : "text"}
+                            className="scms-input w-full text-xs h-8"
+                            value={toolInputs[k] || ""}
+                            onChange={(e) => handleToolInput(k, e.target.value)}
+                          />
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+            {toolError && (
+              <div className="mb-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-3 py-2 text-[11px] font-bold text-rose-700 dark:text-rose-300">
+                {toolError}
               </div>
             )}
 
@@ -450,15 +694,214 @@ export default function AiAssistant() {
               <div className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 p-3 text-xs font-mono max-h-[140px] overflow-auto">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-1.5 mb-1.5">
                   <CodeIcon className="w-3.5 h-3.5" />
-                  <span>Output</span>
+                  <span>{toolResponse.isError ? "Error" : "Output"}</span>
                 </div>
                 {toolResponse.isError ? (
-                  <div className="text-rose-600 font-semibold">{toolResponse.error}</div>
+                  <div className="text-rose-600 dark:text-rose-400 font-semibold whitespace-pre-wrap">
+                    {toolResponse.error ||
+                      toolResponse.content?.[0]?.text ||
+                      "The tool reported an error."}
+                  </div>
                 ) : (
                   <pre className="text-slate-800 dark:text-slate-200 text-[11px] whitespace-pre-wrap">
-                    {JSON.stringify(toolResponse, null, 2)}
+                    {toolResponse.content?.[0]?.text ?? JSON.stringify(toolResponse, null, 2)}
                   </pre>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedTool && toolMode === "guided" && (
+          <div className="border-t border-border/70 pt-4 mt-3 max-h-[60%] overflow-y-auto pr-1 scrollbar-thin">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-sm font-extrabold text-foreground">
+                {selectedToolMeta?.icon && <selectedToolMeta.icon className="w-4 h-4 text-orange-500" />}
+                {getToolLabel(selectedTool, language)}
+              </div>
+              <button
+                onClick={() => setSelectedTool(null)}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition btn-target"
+                title={language === "mm" ? "ပိတ်ရန်" : "Close"}
+              >
+                <Cross2Icon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {selectedTool.description && (
+              <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">{selectedTool.description}</p>
+            )}
+
+            {/* Guided Inputs */}
+            {selectedTool.inputSchema?.properties &&
+              Object.keys(selectedTool.inputSchema.properties).length > 0 && (
+                <div className="space-y-3 mb-3">
+                  {Object.entries(selectedTool.inputSchema.properties).map(([k, prop]) => {
+                    const isRequired = (selectedTool.inputSchema.required || []).includes(k);
+                    const isArrayOfObjects = prop.type === "array" && prop.items?.properties;
+                    const isStructuredFallback = (prop.type === "array" || prop.type === "object") && !isArrayOfObjects;
+
+                    return (
+                      <div key={k}>
+                        <span className="block text-xs font-bold text-foreground mb-1">
+                          {humanizeKey(k, language)}
+                          {isRequired && <span className="text-rose-500 ml-0.5">*</span>}
+                        </span>
+                        {prop.description && (
+                          <span className="block text-[11px] text-muted-foreground mb-1.5 leading-snug">
+                            {prop.description}
+                          </span>
+                        )}
+
+                        {prop.enum ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {prop.enum.map((opt) => {
+                              const active = toolInputs[k] === opt;
+                              const pillStyle = STATUS_PILL_STYLES[opt];
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => handleToolInput(k, active ? "" : opt)}
+                                  className={`rounded-full border px-3 py-1 text-xs font-bold capitalize transition btn-target ${
+                                    active
+                                      ? pillStyle || "bg-orange-500 border-orange-500 text-white"
+                                      : "border-border/70 text-muted-foreground hover:bg-secondary/60"
+                                  }`}
+                                >
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : isArrayOfObjects ? (
+                          <ArrayObjectField
+                            itemSchema={prop.items}
+                            value={toolInputs[k]}
+                            onChange={(rows) => handleToolInput(k, rows)}
+                            language={language}
+                          />
+                        ) : isStructuredFallback ? (
+                          <textarea
+                            rows={3}
+                            spellCheck={false}
+                            placeholder={prop.type === "array" ? "[ { ... } ]" : "{ ... }"}
+                            className="scms-input w-full text-[11px] font-mono py-1.5 leading-snug"
+                            value={toolInputs[k] || ""}
+                            onChange={(e) => handleToolInput(k, e.target.value)}
+                          />
+                        ) : (
+                          <>
+                            <input
+                              type={prop.type === "integer" || prop.type === "number" ? "number" : "text"}
+                              className="scms-input w-full text-xs h-9"
+                              value={toolInputs[k] || ""}
+                              onChange={(e) => handleToolInput(k, e.target.value)}
+                              placeholder={
+                                isTimeField(k)
+                                  ? language === "mm"
+                                    ? "ဥပမာ - ယနေ့ ၁၄:၀၀"
+                                    : "e.g. today at 14:00"
+                                  : undefined
+                              }
+                            />
+                            {isTimeField(k) && (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {TIME_QUICK_PICKS.map((qp) => (
+                                  <button
+                                    key={qp.value}
+                                    type="button"
+                                    onClick={() => handleToolInput(k, qp.value)}
+                                    className="rounded-full border border-border/70 px-2.5 py-1 text-[11px] font-bold text-muted-foreground hover:bg-secondary/60 transition btn-target"
+                                  >
+                                    {qp.label[language] || qp.label.en}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+            {toolError && (
+              <div className="mb-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-3 py-2 text-[11px] font-bold text-rose-700 dark:text-rose-300">
+                {toolError}
+              </div>
+            )}
+
+            {pendingConfirm ? (
+              <div
+                className={`rounded-xl border p-3 space-y-2 ${
+                  selectedToolMeta?.danger
+                    ? "border-rose-300 bg-rose-50/70 dark:bg-rose-950/40 dark:border-rose-900"
+                    : "border-amber-300 bg-amber-50/70 dark:bg-amber-950/40 dark:border-amber-900"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon
+                    className={`w-4 h-4 shrink-0 mt-0.5 ${
+                      selectedToolMeta?.danger ? "text-rose-600 dark:text-rose-400" : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  />
+                  <span className="text-xs font-bold text-foreground leading-relaxed">
+                    {language === "mm"
+                      ? "ဤလုပ်ဆောင်ချက်သည် လူနာချိန်းဆိုမှုများစွာကို ပြောင်းလဲနိုင်သည်။ သေချာပါသလား?"
+                      : "This will change multiple records and can't be undone automatically. Continue?"}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPendingConfirm(null)}
+                    className="flex-1 scms-btn-outline h-8 min-h-8 text-xs font-bold btn-target"
+                  >
+                    {language === "mm" ? "မလုပ်တော့ပါ" : "Cancel"}
+                  </button>
+                  <button
+                    onClick={handleConfirmToolCall}
+                    disabled={loadingToolCall}
+                    className={`flex-1 h-8 min-h-8 rounded-xl text-xs font-bold text-white transition btn-target flex items-center justify-center gap-1.5 ${
+                      selectedToolMeta?.danger ? "bg-rose-600 hover:bg-rose-700" : "bg-orange-500 hover:bg-orange-600"
+                    }`}
+                  >
+                    {loadingToolCall ? (
+                      <span className="loading loading-spinner loading-xs" />
+                    ) : language === "mm" ? (
+                      "အတည်ပြုရန်"
+                    ) : (
+                      "Yes, Continue"
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleCallTool}
+                disabled={loadingToolCall}
+                className={`min-h-9 h-9 w-full flex items-center justify-center gap-2 text-xs font-bold btn-target rounded-2xl text-white transition ${
+                  selectedToolMeta?.danger ? "bg-rose-600 hover:bg-rose-700" : "scms-btn-primary"
+                }`}
+              >
+                {loadingToolCall ? (
+                  <span className="loading loading-spinner loading-xs" />
+                ) : (
+                  <>
+                    <PlayIcon className="w-3.5 h-3.5" />
+                    <span>{getToolLabel(selectedTool, language)}</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {toolResponse && !pendingConfirm && (
+              <div className="mt-3 rounded-2xl border border-border/70 bg-secondary/30 p-3">
+                <ToolResultView
+                  rawText={toolResponse.content?.[0]?.text ?? JSON.stringify(toolResponse, null, 2)}
+                  isError={!!toolResponse.isError}
+                  language={language}
+                />
               </div>
             )}
           </div>
