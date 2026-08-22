@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import {
   CardStackIcon,
-  ReloadIcon,
   GridIcon,
   ListBulletIcon,
   DownloadIcon,
   CheckIcon,
   Cross2Icon,
   MagnifyingGlassIcon,
+  EyeOpenIcon,
 } from "@radix-ui/react-icons";
 import PageHeader from "../components/PageHeader";
 import PaginationControls from "../components/PaginationControls";
@@ -184,20 +184,6 @@ export default function PaymentsPage() {
               setPage(1);
             }}
           />
-
-          <button
-            onClick={() => {
-              setQuery("");
-              setStatusFilter("all");
-              setDateFilter("");
-              setPage(1);
-              loadPayments(1, "");
-            }}
-            className="scms-btn-outline px-3 btn-target shadow-xs"
-            title={t.refresh}
-          >
-            <ReloadIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
-          </button>
         </div>
 
         <SegmentedControl
@@ -282,6 +268,17 @@ export default function PaymentsPage() {
                       </td>
                       <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => {
+                              setSelectedPayment(p);
+                              setDetailOpen(true);
+                            }}
+                            className="scms-btn-icon"
+                            title="View Payment Details"
+                            aria-label="View Payment Details"
+                          >
+                            <EyeOpenIcon className="w-4 h-4" />
+                          </button>
                           {isPending && (
                             <button
                               onClick={(e) => handleApprove(e, pId)}
@@ -358,6 +355,17 @@ export default function PaymentsPage() {
                 </div>
 
                 <div className="pt-2 border-t border-border/70 flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => {
+                      setSelectedPayment(p);
+                      setDetailOpen(true);
+                    }}
+                    className="scms-btn-icon"
+                    title="View Payment Details"
+                    aria-label="View Payment Details"
+                  >
+                    <EyeOpenIcon className="w-4 h-4" />
+                  </button>
                   {isPending && (
                     <button
                       onClick={(e) => handleApprove(e, pId)}
@@ -372,6 +380,7 @@ export default function PaymentsPage() {
                     onClick={(e) => handleDownloadInvoice(e, pId)}
                     className="scms-btn-icon"
                     title="Download Invoice"
+                    aria-label="Download Invoice"
                   >
                     <DownloadIcon className="w-4 h-4" />
                   </button>

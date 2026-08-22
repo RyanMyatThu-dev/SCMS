@@ -148,21 +148,32 @@ const reportConfigs = {
 
 export default function Reports() {
   const { t } = useLanguage();
-  const [reportKey, setReportKey] = useState("revenue");
-  const [intervalValue, setIntervalValue] = useState("weekly");
+  const [reportKey, setReportKey] = useState("");
+  const [intervalValue, setIntervalValue] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reportData, setReportData] = useState(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const currentConfig = reportConfigs[reportKey] || reportConfigs.revenue;
+  const currentConfig = reportKey ? reportConfigs[reportKey] : null;
+  const canGenerate = Boolean(reportKey && (!currentConfig?.hasInterval || intervalValue));
 
   const loadReport = useCallback(async () => {
+    if (!currentConfig) {
+      showError("Please choose a report category first.");
+      return;
+    }
+    if (currentConfig.hasInterval && !intervalValue) {
+      showError("Please choose a timeframe interval.");
+      return;
+    }
     try {
       setLoading(true);
+      setHasGenerated(true);
       const params = {
-        reportType: intervalValue,
-        statusFilter: intervalValue,
+        reportType: intervalValue || currentConfig.defaultInterval || "weekly",
+        statusFilter: intervalValue || currentConfig.defaultInterval || "all",
         date,
       };
       const rawRes = await currentConfig.load(params);
@@ -176,16 +187,13 @@ export default function Reports() {
     }
   }, [currentConfig, intervalValue, date]);
 
-  useEffect(() => {
-    loadReport();
-  }, [loadReport]);
-
   const handleDownloadPdf = async () => {
+    if (!currentConfig) return;
     try {
       setDownloading(true);
       const params = {
-        reportType: intervalValue,
-        statusFilter: intervalValue,
+        reportType: intervalValue || currentConfig.defaultInterval || "weekly",
+        statusFilter: intervalValue || currentConfig.defaultInterval || "all",
         date,
       };
       const response = await currentConfig.pdf(params);
@@ -203,12 +211,12 @@ export default function Reports() {
     label: config.label,
   }));
 
-  const currentIntervalOptions = currentConfig.intervals || [];
+  const currentIntervalOptions = currentConfig?.intervals || [];
 
   return (
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
-        title={t.reports || "Reports & Analytics"}
+        title={t.reports || "Reports"}
         subtitle="Generate, review, and export official clinical audits, operational summaries, and financial reports."
       />
 
@@ -228,15 +236,13 @@ export default function Reports() {
             </label>
             <Select
               ariaLabel="Select report category"
+              placeholder={t.choose || "Choose"}
               value={reportKey}
               onChange={(val) => {
                 setReportKey(val);
-                const conf = reportConfigs[val];
-                if (conf?.defaultInterval) {
-                  setIntervalValue(conf.defaultInterval);
-                } else if (conf?.intervals?.length > 0) {
-                  setIntervalValue(conf.intervals[0].value);
-                }
+                setIntervalValue("");
+                setReportData(null);
+                setHasGenerated(false);
               }}
               options={domainOptions}
             />
@@ -248,18 +254,23 @@ export default function Reports() {
               id="report-interval-label"
               className="mb-2 block text-xs font-bold text-foreground"
             >
-              {currentConfig.intervalLabel || "Timeframe Interval"}
+              {currentConfig?.intervalLabel || "Timeframe Interval"}
             </label>
-            {currentConfig.hasInterval ? (
+            {currentConfig?.hasInterval ? (
               <Select
                 ariaLabel={currentConfig.intervalLabel || "Select timeframe interval"}
+                placeholder={t.choose || "Choose"}
                 value={intervalValue}
-                onChange={(val) => setIntervalValue(val)}
+                onChange={(val) => {
+                  setIntervalValue(val);
+                  setReportData(null);
+                  setHasGenerated(false);
+                }}
                 options={currentIntervalOptions}
               />
             ) : (
               <div className="flex h-11 w-full items-center rounded-2xl border border-dashed border-input bg-secondary/30 px-3.5 text-xs text-muted-foreground italic select-none">
-                All records active
+                {currentConfig ? "All records active" : (t.chooseCategory || "Choose category first")}
               </div>
             )}
           </div>
@@ -270,47 +281,66 @@ export default function Reports() {
               id="report-date-label"
               className="mb-2 block text-xs font-bold text-foreground"
             >
-              {currentConfig.dateLabel || "Report Date"}
+              {currentConfig?.dateLabel || "Report Date"}
             </label>
-            {currentConfig.hasDate !== false ? (
+            {currentConfig && currentConfig.hasDate !== false ? (
               <DateInput
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setReportData(null);
+                  setHasGenerated(false);
+                }}
                 className="w-full"
                 aria-label={currentConfig.dateLabel || "Report Date"}
               />
             ) : (
               <div className="flex h-11 w-full items-center rounded-2xl border border-dashed border-input bg-secondary/30 px-3.5 text-xs text-muted-foreground italic select-none">
-                Current snapshot
+                {currentConfig ? "Current snapshot" : (t.chooseCategory || "Choose category first")}
               </div>
             )}
           </div>
 
-          {/* Action: Export PDF */}
+          {/* Action Buttons: Preview & Download */}
           <div className="flex items-center gap-2 w-full">
+            <button
+              type="button"
+              onClick={loadReport}
+              disabled={!canGenerate || loading}
+              aria-label="View report preview"
+              className="scms-btn-primary flex-1 h-11 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              title={!canGenerate ? (t.chooseTimeframePrompt || "Choose a category and timeframe first") : (t.generateReport || "View Preview")}
+            >
+              <ReaderIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>{loading ? t.generating || "Loading..." : t.generateReport || "View Preview"}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleDownloadPdf}
               disabled={downloading || loading || !reportData}
-              aria-label="Export report as PDF"
-              className="scms-btn-primary w-full h-11 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm disabled:opacity-50"
+              aria-label="Download report as PDF"
+              className="scms-btn-outline h-11 px-3.5 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              title={!reportData ? "View a preview first before downloading PDF" : (t.exportPdf || "Download PDF")}
             >
               <DownloadIcon className={`w-4 h-4 shrink-0 ${downloading ? "animate-bounce" : ""}`} aria-hidden="true" />
-              <span>{downloading ? "Exporting PDF..." : "Export PDF"}</span>
+              <span>{downloading ? "Exporting..." : "PDF"}</span>
             </button>
           </div>
         </div>
 
         {/* Informative Context Bar */}
-        <div
-          role="note"
-          className="mt-4 text-xs font-medium text-muted-foreground bg-secondary/50 p-3.5 rounded-2xl border border-border/80 flex items-center gap-2.5"
-        >
-          <ActivityLogIcon className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" aria-hidden="true" />
-          <span>
-            <strong className="text-foreground">{currentConfig.label}:</strong> {currentConfig.description}
-          </span>
-        </div>
+        {currentConfig && (
+          <div
+            role="note"
+            className="mt-4 text-xs font-medium text-muted-foreground bg-secondary/50 p-3.5 rounded-2xl border border-border/80 flex items-center gap-2.5 animate-fadeIn"
+          >
+            <ActivityLogIcon className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" aria-hidden="true" />
+            <span>
+              <strong className="text-foreground">{currentConfig.label}:</strong> {currentConfig.description}
+            </span>
+          </div>
+        )}
       </section>
 
       {/* Dedicated In-Page Full Document Report Preview */}
@@ -322,8 +352,41 @@ export default function Reports() {
         >
           <div className="flex flex-col items-center gap-3">
             <span className="loading loading-spinner loading-lg text-orange-600 dark:text-orange-400" />
-            <span className="text-xs text-muted-foreground font-medium">Generating official report document...</span>
+            <span className="text-xs text-muted-foreground font-medium">
+              {t.generating || "Generating official report document..."}
+            </span>
           </div>
+        </div>
+      ) : !hasGenerated ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-col items-center justify-center p-16 text-center rounded-3xl border border-dashed border-border/80 bg-card/95 shadow-scms space-y-4"
+        >
+          <div className="grid h-16 w-16 place-items-center rounded-3xl bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 shadow-xs">
+            <ReaderIcon className="w-8 h-8" aria-hidden="true" />
+          </div>
+          <div className="max-w-md space-y-1">
+            <h3 className="text-base font-bold text-foreground">
+              {t.readyToGenerate || "Ready to Generate Report"}
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {!reportKey
+                ? (t.chooseCategoryPrompt || "Please choose a report category from the dropdown above to begin.")
+                : currentConfig?.hasInterval && !intervalValue
+                ? (t.chooseTimeframePrompt || "Please choose a timeframe interval above, then click Generate Report.")
+                : (t.readyToGenerateDesc || "Click Generate Report to preview and export the document.")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadReport}
+            disabled={!canGenerate}
+            className="scms-btn-primary px-5 h-10 text-xs font-bold flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl shadow-xs btn-target disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ReaderIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{t.generateReport || "Generate Report"}</span>
+          </button>
         </div>
       ) : !reportData ? (
         <div

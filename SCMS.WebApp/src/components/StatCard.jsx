@@ -1,6 +1,7 @@
 export default function StatCard({
   label,
   value,
+  unit,
   icon: Icon,
   tone = "apricot",
   onClick,
@@ -41,13 +42,20 @@ export default function StatCard({
       }`}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1.5 min-w-0">
+        <div className="space-y-1.5 min-w-0 flex-1">
           <p className="text-xs font-semibold text-muted-foreground tracking-wide truncate">
             {label}
           </p>
-          <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
-            {value}
-          </p>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
+              {value}
+            </span>
+            {unit && (
+              <span className="text-xs sm:text-sm font-bold text-muted-foreground uppercase">
+                {unit}
+              </span>
+            )}
+          </div>
           {subtitle && (
             <p className="text-[11px] font-medium text-muted-foreground truncate">
               {subtitle}
@@ -56,7 +64,7 @@ export default function StatCard({
         </div>
         {Icon && (
           <div
-            className={`grid h-12 w-12 place-items-center rounded-2xl border ${
+            className={`grid h-11 w-11 sm:h-12 sm:w-12 place-items-center rounded-2xl border ${
               tones[tone] || tones.apricot
             } shrink-0 shadow-2xs`}
           >
@@ -77,7 +85,7 @@ export default function StatCard({
             {trendDirection === "down" ? "↓" : "↑"} {trend}
           </span>
           <span className="text-muted-foreground text-[11px] font-normal">
-            vs last week
+            vs last period
           </span>
         </div>
       )}

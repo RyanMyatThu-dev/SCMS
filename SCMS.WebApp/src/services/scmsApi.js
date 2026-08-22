@@ -11,7 +11,7 @@ export const authApi = {
 };
 
 export const dashboardsApi = {
-  admin: () => api.get("/Dashboards/dashboard").then(unwrap),
+  admin: (params) => api.get("/Dashboards/dashboard", { params: toQuery(params) }).then(unwrap),
   patient: () => api.get("/Dashboards/patient-dashboard").then(unwrap),
 };
 

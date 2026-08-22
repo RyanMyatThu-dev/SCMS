@@ -32,18 +32,42 @@ import { notificationsApi } from "../services/scmsApi";
 import { showConfirm } from "../services/dialogs";
 import useScrollLock from "../hooks/useScrollLock";
 
-const navItems = [
-  { to: "/app/dashboard", key: "dashboard", icon: DashboardIcon },
-  { to: "/app/patients", key: "patients", icon: PersonIcon },
-  { to: "/app/appointments", key: "appointments", icon: CalendarIcon },
-  { to: "/app/medicines", key: "medicines", icon: ArchiveIcon },
-  { to: "/app/medicines/batches", key: "batches", icon: LayersIcon },
-  { to: "/app/diseases", key: "diseases", icon: ActivityLogIcon },
-  { to: "/app/prescriptions", key: "prescriptions", icon: FileTextIcon },
-  { to: "/app/payments", key: "payments", icon: CardStackIcon },
-  { to: "/app/follow-ups", key: "followUps", icon: ReloadIcon },
-  { to: "/app/reports", key: "reports", icon: BarChartIcon },
-  { to: "/app/ai-assistant", key: "aiAssistant", icon: MagicWandIcon },
+const navGroups = [
+  {
+    groupKey: "navGroupManagement",
+    defaultLabel: "Management & Finance",
+    items: [
+      { to: "/app/dashboard", key: "dashboard", icon: DashboardIcon },
+      { to: "/app/reports", key: "reports", icon: BarChartIcon },
+      { to: "/app/payments", key: "payments", icon: CardStackIcon },
+    ],
+  },
+  {
+    groupKey: "navGroupPharmacy",
+    defaultLabel: "Pharmacy & Inventory",
+    items: [
+      { to: "/app/medicines", key: "medicines", icon: ArchiveIcon },
+      { to: "/app/medicines/batches", key: "batches", icon: LayersIcon },
+    ],
+  },
+  {
+    groupKey: "navGroupClinical",
+    defaultLabel: "Clinical & Patient Care",
+    items: [
+      { to: "/app/patients", key: "patients", icon: PersonIcon },
+      { to: "/app/appointments", key: "appointments", icon: CalendarIcon },
+      { to: "/app/follow-ups", key: "followUps", icon: ReloadIcon },
+      { to: "/app/prescriptions", key: "prescriptions", icon: FileTextIcon },
+      { to: "/app/diseases", key: "diseases", icon: ActivityLogIcon },
+    ],
+  },
+  {
+    groupKey: "navGroupIntelligence",
+    defaultLabel: "Intelligence & Tools",
+    items: [
+      { to: "/app/ai-assistant", key: "aiAssistant", icon: MagicWandIcon },
+    ],
+  },
 ];
 
 const defaultClinicNotifications = [
@@ -192,32 +216,46 @@ export default function AppShell() {
 
         {/* Navigation Menu */}
         <nav
-          className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden pt-4 pr-1 scrollbar-thin"
+          className="flex-1 space-y-3.5 overflow-y-auto overflow-x-hidden pt-3 pr-1 scrollbar-thin"
           aria-label="Practice Navigation"
         >
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center rounded-2xl px-3.5 py-2.5 text-xs font-semibold transition-all ${
-                    collapsed ? "justify-center gap-0" : "gap-3"
-                  } ${
-                    isActive
-                      ? "bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 font-bold border border-orange-200/60 dark:border-orange-900/40 shadow-xs"
-                      : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-                  }`
-                }
-                title={collapsed ? t[item.key] : undefined}
-              >
-                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                {!collapsed && <span className="truncate">{t[item.key]}</span>}
-              </NavLink>
-            );
-          })}
+          {navGroups.map((group, gIdx) => (
+            <div key={group.groupKey} className="space-y-1">
+              {!collapsed ? (
+                <div className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75">
+                  {t[group.groupKey] || group.defaultLabel}
+                </div>
+              ) : gIdx > 0 ? (
+                <div className="my-2 border-t border-border/60" />
+              ) : null}
+
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center rounded-2xl px-3.5 py-2 text-xs font-semibold transition-all ${
+                          collapsed ? "justify-center gap-0" : "gap-3"
+                        } ${
+                          isActive
+                            ? "bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 font-bold border border-orange-200/60 dark:border-orange-900/40 shadow-xs"
+                            : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                        }`
+                      }
+                      title={collapsed ? t[item.key] : undefined}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      {!collapsed && <span className="truncate">{t[item.key]}</span>}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Bottom Banner Card (Matching reference mockup) */}
