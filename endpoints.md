@@ -20,7 +20,7 @@
 
 | Method | Endpoint | Allowed Roles | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/Dashboards/dashboard` | `owner`, `admin`, `doctor` | Retrieves clinical metrics, total income, doctor consultation fees, walk-in vs online patient counts, and queue status with period filter (`?period=daily\|weekly\|monthly\|all`) |
+| `GET` | `/api/Dashboards/dashboard` | `owner`, `admin`, `doctor` | Retrieves clinical metrics, total income, monthly/weekly/daily breakdowns, doctor consultation fees, walk-in vs online patient counts, and queue status with query parameters (`?period=daily\|weekly\|monthly\|all&month=1..12&year=2026`) (`GetDoctorDashboardRequest` -> `DoctorDashboardResponse`) |
 | `GET` | `/api/Dashboards/patient-dashboard` | Authenticated (`user`, `owner`, `admin`, `doctor`) | Retrieves upcoming appointments, recent prescriptions, and medical stats for the logged-in patient |
 
 ---
@@ -155,9 +155,9 @@
 
 | Method | Endpoint | Allowed Roles | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/Reports/appointments` | `owner`, `admin`, `doctor` | Generates appointment summary data (JSON) — `?reportType=daily&date=` |
+| `GET` | `/api/Reports/appointments` | `owner`, `admin`, `doctor` | Generates appointment summary data (JSON) — `?reportType=&date=&startDate=&endDate=&month=&year=` (`AppointmentReportRequest` -> `AppointmentReportResponse`) |
 | `GET` | `/api/Reports/appointments/pdf` | `owner`, `admin`, `doctor` | Downloads appointment summary report as PDF |
-| `GET` | `/api/Reports/revenue` | `owner`, `admin`, `doctor` | Generates clinic revenue analytics data (JSON) — `?reportType=daily&date=` |
+| `GET` | `/api/Reports/revenue` | `owner`, `admin`, `doctor` | Generates clinic revenue analytics data (JSON) — `?reportType=&date=&startDate=&endDate=&month=&year=` (`RevenueReportRequest` -> `RevenueReportResponse`) |
 | `GET` | `/api/Reports/revenue/pdf` | `owner`, `admin`, `doctor` | Downloads clinic revenue analytics report as PDF |
 | `GET` | `/api/Reports/patients` | `owner`, `admin`, `doctor` | Generates patient demographic and registration report (JSON) |
 | `GET` | `/api/Reports/patients/pdf` | `owner`, `admin`, `doctor` | Downloads patient registry report as PDF |

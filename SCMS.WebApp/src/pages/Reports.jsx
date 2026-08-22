@@ -50,56 +50,77 @@ const unwrapPayload = (res) => {
   return res;
 };
 
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const calculateWeekEndDate = (startStr) => {
+  if (!startStr) return "";
+  const d = new Date(startStr);
+  if (isNaN(d.getTime())) return "";
+  const end = new Date(d);
+  end.setDate(end.getDate() + 6);
+  return `${end.getFullYear()}-${pad2(end.getMonth() + 1)}-${pad2(end.getDate())}`;
+};
+
+const MONTH_OPTIONS = [
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
+const currentYear = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 7 }, (_, i) => {
+  const y = currentYear - 3 + i;
+  return { value: String(y), label: String(y) };
+});
+
 const reportConfigs = {
   revenue: {
     label: "Financial & Revenue",
-    load: (p) => reportsApi.revenue({ reportType: p.reportType || "weekly", date: p.date }),
-    pdf: (p) => reportsApi.revenuePdf({ reportType: p.reportType || "weekly", date: p.date }),
+    load: (p) => reportsApi.revenue(p),
+    pdf: (p) => reportsApi.revenuePdf(p),
     file: "revenue-report.pdf",
     description: "Gross income, tax collected, extra service charges, and payment method distribution.",
     hasInterval: true,
     defaultInterval: "weekly",
     intervals: [
       { value: "weekly", label: "Weekly Summary" },
-      { value: "daily", label: "Daily Summary" },
       { value: "monthly", label: "Monthly Summary" },
+      { value: "daily", label: "Daily Summary" },
+      { value: "custom", label: "Custom Range" },
     ],
-    dateLabel: "Target Date",
   },
   appointments: {
     label: "Appointments Summary",
-    load: (p) => reportsApi.appointments({ reportType: p.reportType || "daily", date: p.date }),
-    pdf: (p) => reportsApi.appointmentPdf({ reportType: p.reportType || "daily", date: p.date }),
+    load: (p) => reportsApi.appointments(p),
+    pdf: (p) => reportsApi.appointmentPdf(p),
     file: "appointments-report.pdf",
-    description: "Daily or weekly overview of bookings, completed consultations, and cancellations.",
+    description: "Daily, weekly, monthly, or custom overview of bookings, completed consultations, and cancellations.",
     hasInterval: true,
     defaultInterval: "daily",
     intervals: [
       { value: "daily", label: "Daily Summary" },
       { value: "weekly", label: "Weekly Summary" },
+      { value: "monthly", label: "Monthly Summary" },
+      { value: "custom", label: "Custom Range" },
     ],
-    dateLabel: "Target Date",
   },
   businessSummary: {
     label: "Executive Overview",
-    load: (p) => {
-      const d = p.date ? new Date(p.date) : new Date();
-      return reportsApi.businessSummary({
-        month: isNaN(d.getMonth()) ? undefined : d.getMonth() + 1,
-        year: isNaN(d.getFullYear()) ? undefined : d.getFullYear(),
-      });
-    },
-    pdf: (p) => {
-      const d = p.date ? new Date(p.date) : new Date();
-      return reportsApi.businessSummaryPdf({
-        month: isNaN(d.getMonth()) ? undefined : d.getMonth() + 1,
-        year: isNaN(d.getFullYear()) ? undefined : d.getFullYear(),
-      });
-    },
+    load: (p) => reportsApi.businessSummary({ month: p.month, year: p.year }),
+    pdf: (p) => reportsApi.businessSummaryPdf({ month: p.month, year: p.year }),
     file: "business-summary.pdf",
     description: "Monthly operational summary of clinic revenue, patient growth, and appointment volumes.",
     hasInterval: false,
-    dateLabel: "Target Month & Year",
+    isMonthlyOnly: true,
   },
   patients: {
     label: "Patient Demographics",
@@ -121,8 +142,8 @@ const reportConfigs = {
   },
   followUps: {
     label: "Patient Follow-Ups",
-    load: (p) => reportsApi.followUps({ startDate: p.date, status: p.statusFilter || "all" }),
-    pdf: (p) => reportsApi.followUpsPdf({ startDate: p.date, status: p.statusFilter || "all" }),
+    load: (p) => reportsApi.followUps({ startDate: p.startDate, endDate: p.endDate, status: p.statusFilter || "all" }),
+    pdf: (p) => reportsApi.followUpsPdf({ startDate: p.startDate, endDate: p.endDate, status: p.statusFilter || "all" }),
     file: "follow-ups-report.pdf",
     description: "Care follow-up schedules, completed check-ins, and overdue reminders.",
     hasInterval: true,
@@ -133,7 +154,7 @@ const reportConfigs = {
       { value: "pending", label: "Pending" },
       { value: "completed", label: "Completed" },
     ],
-    dateLabel: "Start Date",
+    isDateRange: true,
   },
   prescriptions: {
     label: "Prescriptions Log",
@@ -148,16 +169,75 @@ const reportConfigs = {
 
 export default function Reports() {
   const { t } = useLanguage();
+  const todayIso = new Date().toISOString().slice(0, 10);
   const [reportKey, setReportKey] = useState("");
   const [intervalValue, setIntervalValue] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayIso);
+  const [startDate, setStartDate] = useState(todayIso);
+  const [endDate, setEndDate] = useState(calculateWeekEndDate(todayIso));
+  const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1));
+  const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [reportData, setReportData] = useState(null);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   const currentConfig = reportKey ? reportConfigs[reportKey] : null;
-  const canGenerate = Boolean(reportKey && (!currentConfig?.hasInterval || intervalValue));
+  const isMonthlyMode = intervalValue === "monthly" || currentConfig?.isMonthlyOnly;
+  const isWeeklyMode = intervalValue === "weekly";
+  const isCustomMode = intervalValue === "custom" || currentConfig?.isDateRange;
+  const isDailyMode = intervalValue === "daily";
+
+  const canGenerate = Boolean(
+    reportKey &&
+      (!currentConfig?.hasInterval || intervalValue) &&
+      (!isWeeklyMode || (startDate && endDate)) &&
+      (!isCustomMode || (startDate && endDate)) &&
+      (!isDailyMode || date) &&
+      (!isMonthlyMode || (selectedMonth && selectedYear))
+  );
+
+  const handleStartDateChange = (val) => {
+    setStartDate(val);
+    if (intervalValue === "weekly") {
+      setEndDate(calculateWeekEndDate(val));
+    }
+    setReportData(null);
+    setHasGenerated(false);
+  };
+
+  const handleCategoryChange = (val) => {
+    setReportKey(val);
+    const cfg = reportConfigs[val];
+    const defInterval = cfg?.defaultInterval || "";
+    setIntervalValue(defInterval);
+    if (defInterval === "weekly") {
+      setEndDate(calculateWeekEndDate(startDate));
+    }
+    setReportData(null);
+    setHasGenerated(false);
+  };
+
+  const handleIntervalChange = (val) => {
+    setIntervalValue(val);
+    if (val === "weekly") {
+      setEndDate(calculateWeekEndDate(startDate));
+    }
+    setReportData(null);
+    setHasGenerated(false);
+  };
+
+  const buildReportParams = () => {
+    return {
+      reportType: intervalValue || currentConfig?.defaultInterval || "weekly",
+      statusFilter: intervalValue || currentConfig?.defaultInterval || "all",
+      date: isMonthlyMode ? `${selectedYear}-${pad2(selectedMonth)}-01` : date,
+      startDate: isWeeklyMode || isCustomMode ? startDate : undefined,
+      endDate: isWeeklyMode || isCustomMode ? endDate : undefined,
+      month: isMonthlyMode ? Number(selectedMonth) : undefined,
+      year: isMonthlyMode ? Number(selectedYear) : undefined,
+    };
+  };
 
   const loadReport = useCallback(async () => {
     if (!currentConfig) {
@@ -171,11 +251,7 @@ export default function Reports() {
     try {
       setLoading(true);
       setHasGenerated(true);
-      const params = {
-        reportType: intervalValue || currentConfig.defaultInterval || "weekly",
-        statusFilter: intervalValue || currentConfig.defaultInterval || "all",
-        date,
-      };
+      const params = buildReportParams();
       const rawRes = await currentConfig.load(params);
       const payload = unwrapPayload(rawRes);
       setReportData(payload);
@@ -185,17 +261,13 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [currentConfig, intervalValue, date]);
+  }, [currentConfig, intervalValue, date, startDate, endDate, selectedMonth, selectedYear]);
 
   const handleDownloadPdf = async () => {
     if (!currentConfig) return;
     try {
       setDownloading(true);
-      const params = {
-        reportType: intervalValue || currentConfig.defaultInterval || "weekly",
-        statusFilter: intervalValue || currentConfig.defaultInterval || "all",
-        date,
-      };
+      const params = buildReportParams();
       const response = await currentConfig.pdf(params);
       downloadBlob(response, currentConfig.file);
       showAlert("PDF report downloaded successfully.");
@@ -225,9 +297,9 @@ export default function Reports() {
         aria-label="Report Filter Controls"
         className="relative z-30 rounded-3xl border border-border/80 bg-card/95 p-6 shadow-scms backdrop-blur-md"
       >
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-end">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 items-end">
           {/* Report Category Selection */}
-          <div className="w-full">
+          <div className="w-full sm:col-span-1 lg:col-span-3">
             <label
               id="report-domain-label"
               className="mb-2 block text-xs font-bold text-foreground"
@@ -238,18 +310,13 @@ export default function Reports() {
               ariaLabel="Select report category"
               placeholder={t.choose || "Choose"}
               value={reportKey}
-              onChange={(val) => {
-                setReportKey(val);
-                setIntervalValue("");
-                setReportData(null);
-                setHasGenerated(false);
-              }}
+              onChange={handleCategoryChange}
               options={domainOptions}
             />
           </div>
 
-          {/* Timeframe or Status Filter (if supported) */}
-          <div className="w-full">
+          {/* Timeframe or Status Filter */}
+          <div className="w-full sm:col-span-1 lg:col-span-3">
             <label
               id="report-interval-label"
               className="mb-2 block text-xs font-bold text-foreground"
@@ -261,29 +328,127 @@ export default function Reports() {
                 ariaLabel={currentConfig.intervalLabel || "Select timeframe interval"}
                 placeholder={t.choose || "Choose"}
                 value={intervalValue}
-                onChange={(val) => {
-                  setIntervalValue(val);
-                  setReportData(null);
-                  setHasGenerated(false);
-                }}
+                onChange={handleIntervalChange}
                 options={currentIntervalOptions}
               />
             ) : (
               <div className="flex h-11 w-full items-center rounded-2xl border border-dashed border-input bg-secondary/30 px-3.5 text-xs text-muted-foreground italic select-none">
-                {currentConfig ? "All records active" : (t.chooseCategory || "Choose category first")}
+                {currentConfig?.isMonthlyOnly ? "Monthly Overview" : currentConfig ? "All records active" : (t.chooseCategory || "Choose category first")}
               </div>
             )}
           </div>
 
-          {/* Date Picker (if supported) */}
-          <div className="w-full">
-            <label
-              id="report-date-label"
-              className="mb-2 block text-xs font-bold text-foreground"
-            >
-              {currentConfig?.dateLabel || "Report Date"}
-            </label>
-            {currentConfig && currentConfig.hasDate !== false ? (
+          {/* Dynamic Date & Timeframe Selection Inputs */}
+          {isWeeklyMode ? (
+            <>
+              {/* Start Date */}
+              <div className="w-full sm:col-span-1 lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold text-foreground">
+                  {t.startDate || "Start Date"}
+                </label>
+                <DateInput
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className="w-full"
+                  aria-label={t.startDate || "Start Date"}
+                />
+              </div>
+
+              {/* Auto End Date (Disabled - 1 Week Span) */}
+              <div className="w-full sm:col-span-1 lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>{t.endDate || "End Date"}</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">(1 Week Span)</span>
+                </label>
+                <DateInput
+                  value={endDate}
+                  disabled={true}
+                  className="w-full opacity-80"
+                  aria-label={t.endDate || "End Date"}
+                />
+              </div>
+            </>
+          ) : isCustomMode ? (
+            <>
+              {/* Custom Start Date */}
+              <div className="w-full sm:col-span-1 lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold text-foreground">
+                  {t.startDate || "Start Date"}
+                </label>
+                <DateInput
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setReportData(null);
+                    setHasGenerated(false);
+                  }}
+                  className="w-full"
+                  aria-label={t.startDate || "Start Date"}
+                />
+              </div>
+
+              {/* Custom End Date */}
+              <div className="w-full sm:col-span-1 lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold text-foreground">
+                  {t.endDate || "End Date"}
+                </label>
+                <DateInput
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setReportData(null);
+                    setHasGenerated(false);
+                  }}
+                  className="w-full"
+                  aria-label={t.endDate || "End Date"}
+                />
+              </div>
+            </>
+          ) : isMonthlyMode ? (
+            <>
+              {/* Month Dropdown */}
+              <div className="w-full sm:col-span-1 lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold text-foreground">
+                  {t.month || "Month"}
+                </label>
+                <Select
+                  ariaLabel="Select Month"
+                  value={selectedMonth}
+                  onChange={(val) => {
+                    setSelectedMonth(val);
+                    setReportData(null);
+                    setHasGenerated(false);
+                  }}
+                  options={MONTH_OPTIONS}
+                />
+              </div>
+
+              {/* Year Dropdown */}
+              <div className="w-full sm:col-span-1 lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold text-foreground">
+                  {t.year || "Year"}
+                </label>
+                <Select
+                  ariaLabel="Select Year"
+                  value={selectedYear}
+                  onChange={(val) => {
+                    setSelectedYear(val);
+                    setReportData(null);
+                    setHasGenerated(false);
+                  }}
+                  options={YEAR_OPTIONS}
+                />
+              </div>
+            </>
+          ) : currentConfig && currentConfig.hasDate !== false ? (
+            /* Daily Date Picker */
+            <div className="w-full sm:col-span-1 lg:col-span-4">
+              <label
+                id="report-date-label"
+                className="mb-2 block text-xs font-bold text-foreground"
+              >
+                {currentConfig?.dateLabel || "Report Date"}
+              </label>
               <DateInput
                 value={date}
                 onChange={(e) => {
@@ -292,23 +457,29 @@ export default function Reports() {
                   setHasGenerated(false);
                 }}
                 className="w-full"
-                aria-label={currentConfig.dateLabel || "Report Date"}
+                aria-label={currentConfig?.dateLabel || "Report Date"}
               />
-            ) : (
+            </div>
+          ) : (
+            /* Snapshot Badge for Non-Date Categories */
+            <div className="w-full sm:col-span-1 lg:col-span-4">
+              <label className="mb-2 block text-xs font-bold text-foreground">
+                Data Scope
+              </label>
               <div className="flex h-11 w-full items-center rounded-2xl border border-dashed border-input bg-secondary/30 px-3.5 text-xs text-muted-foreground italic select-none">
                 {currentConfig ? "Current snapshot" : (t.chooseCategory || "Choose category first")}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Action Buttons: Preview & Download */}
-          <div className="flex items-center gap-2 w-full">
+          <div className="flex items-center gap-2 w-full sm:col-span-2 lg:col-span-2">
             <button
               type="button"
               onClick={loadReport}
               disabled={!canGenerate || loading}
               aria-label="View report preview"
-              className="scms-btn-primary flex-1 h-11 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              className="scms-btn-apricot flex-1 h-11 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-none"
               title={!canGenerate ? (t.chooseTimeframePrompt || "Choose a category and timeframe first") : (t.generateReport || "View Preview")}
             >
               <ReaderIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -320,7 +491,7 @@ export default function Reports() {
               onClick={handleDownloadPdf}
               disabled={downloading || loading || !reportData}
               aria-label="Download report as PDF"
-              className="scms-btn-outline h-11 px-3.5 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              className="scms-btn-outline h-11 px-3.5 text-xs font-bold flex items-center justify-center gap-2 btn-target rounded-2xl shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               title={!reportData ? "View a preview first before downloading PDF" : (t.exportPdf || "Download PDF")}
             >
               <DownloadIcon className={`w-4 h-4 shrink-0 ${downloading ? "animate-bounce" : ""}`} aria-hidden="true" />
@@ -382,7 +553,7 @@ export default function Reports() {
             type="button"
             onClick={loadReport}
             disabled={!canGenerate}
-            className="scms-btn-primary px-5 h-10 text-xs font-bold flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl shadow-xs btn-target disabled:opacity-40 disabled:cursor-not-allowed"
+            className="scms-btn-apricot px-5 h-10 text-xs font-bold flex items-center gap-2 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white rounded-2xl shadow-xs btn-target disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-none"
           >
             <ReaderIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{t.generateReport || "Generate Report"}</span>
@@ -415,6 +586,8 @@ export default function Reports() {
                     ? "WEEKLY REVENUE"
                     : intervalValue === "monthly"
                     ? "MONTHLY REVENUE"
+                    : intervalValue === "custom"
+                    ? "CUSTOM REVENUE"
                     : "DAILY REVENUE"}
                 </h1>
                 <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
@@ -575,7 +748,13 @@ export default function Reports() {
             <div className="space-y-6 font-sans">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
-                  {intervalValue === "weekly" ? "WEEKLY APPOINTMENTS REPORT" : "DAILY APPOINTMENTS REPORT"}
+                  {intervalValue === "weekly"
+                    ? "WEEKLY APPOINTMENTS REPORT"
+                    : intervalValue === "monthly"
+                    ? "MONTHLY APPOINTMENTS REPORT"
+                    : intervalValue === "custom"
+                    ? "CUSTOM APPOINTMENTS REPORT"
+                    : "DAILY APPOINTMENTS REPORT"}
                 </h1>
                 <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
                   {reportData.reportTitle ||

@@ -8,7 +8,7 @@
 - `POST   /api/Auth/logout`
 
 ## Dashboards
-- `GET    /api/Dashboards/dashboard`               # Staff dashboard (with period filter: ?period=daily|weekly|monthly|all)
+- `GET    /api/Dashboards/dashboard`               # Staff dashboard (with query filter: ?period=daily|weekly|monthly|all&month=1..12&year=2026)
 - `GET    /api/Dashboards/patient-dashboard`        # Patient dashboard (auth required)
 
 ## Appointments
@@ -91,10 +91,10 @@
 - `POST   /api/Notifications/{id}/read`             # Mark notification as read
 
 ## Reports (Owner-only)
-- `GET    /api/Reports/appointments`                # Appointment report (JSON) — ?reportType=daily&date=
-- `GET    /api/Reports/appointments/pdf`            # Appointment report (PDF download)
-- `GET    /api/Reports/revenue`                     # Revenue report (JSON) — ?reportType=daily&date=
-- `GET    /api/Reports/revenue/pdf`                 # Revenue report (PDF download)
+- `GET    /api/Reports/appointments`               # Appointment report (JSON) — ?reportType=&date=&startDate=&endDate=&month=&year=
+- `GET    /api/Reports/appointments/pdf`           # Appointment report (PDF download)
+- `GET    /api/Reports/revenue`                    # Revenue report (JSON) — ?reportType=&date=&startDate=&endDate=&month=&year=
+- `GET    /api/Reports/revenue/pdf`                # Revenue report (PDF download)
 - `GET    /api/Reports/patients`                    # Patient list report (JSON)
 - `GET    /api/Reports/patients/pdf`                # Patient list report (PDF download)
 - `GET    /api/Reports/medicine-stock`              # Medicine stock report (JSON)

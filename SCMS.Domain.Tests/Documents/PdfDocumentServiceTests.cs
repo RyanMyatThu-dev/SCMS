@@ -40,9 +40,44 @@ public class PdfDocumentServiceTests
             PaymentMethod = "manual",
             PaymentStatus = "paid"
         });
+        var apptReport = service.CreateAppointmentReportPdf(new SCMS.Domain.Features.Documents.Models.AppointmentReportResponse
+        {
+            ReportTitle = "Custom Appointment Report",
+            ReportType = "custom",
+            PeriodStart = DateTime.UtcNow.Date,
+            PeriodEnd = DateTime.UtcNow.Date.AddDays(10),
+            GeneratedAt = DateTime.UtcNow,
+            TotalAppointments = 1,
+            CompletedCount = 1,
+            Items =
+            {
+                new SCMS.Domain.Features.Documents.Models.AppointmentReportItemDto
+                {
+                    AppointmentId = 1,
+                    AppointmentCode = "APT-1",
+                    PatientName = "Patient One",
+                    Datetime = DateTime.UtcNow,
+                    Status = "completed"
+                }
+            }
+        });
+        var revReport = service.CreateRevenueReportPdf(new SCMS.Domain.Features.Documents.Models.RevenueReportResponse
+        {
+            ReportTitle = "Monthly Revenue Report",
+            ReportType = "monthly",
+            PeriodStart = new DateTime(2026, 8, 1),
+            PeriodEnd = new DateTime(2026, 8, 31),
+            GeneratedAt = DateTime.UtcNow,
+            TotalTransactions = 1,
+            TotalAmount = 5000m,
+            GrandTotal = 5000m
+        });
+
         AssertPdf(summary);
         AssertPdf(prescription);
         AssertPdf(invoice);
+        AssertPdf(apptReport);
+        AssertPdf(revReport);
     }
 
     private static void AssertPdf(byte[] bytes)

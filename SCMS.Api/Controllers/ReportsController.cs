@@ -31,17 +31,10 @@ namespace SCMS.Api.Controllers
         [HasPermission("Reports.View")]
         [ProducesResponseType(typeof(Result<AppointmentReportResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetAppointmentReport(
-            [FromQuery] string? reportType,
-            [FromQuery] DateTime? date)
+        public async Task<IActionResult> GetAppointmentReport([FromQuery] AppointmentReportRequest? request)
         {
-            var request = new AppointmentReportRequest
-            {
-                ReportType = reportType ?? "daily",
-                Date = date
-            };
-
-            var result = await _reportService.GetAppointmentReportAsync(request);
+            var req = request ?? new AppointmentReportRequest();
+            var result = await _reportService.GetAppointmentReportAsync(req);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
@@ -49,25 +42,18 @@ namespace SCMS.Api.Controllers
         [HttpGet("appointments/pdf")]
         [HasPermission("Reports.ExportPdf")]
         [Produces("application/pdf")]
-        public async Task<IActionResult> GetAppointmentReportPdf(
-            [FromQuery] string? reportType,
-            [FromQuery] DateTime? date)
+        public async Task<IActionResult> GetAppointmentReportPdf([FromQuery] AppointmentReportRequest? request)
         {
-            var request = new AppointmentReportRequest
-            {
-                ReportType = reportType ?? "daily",
-                Date = date
-            };
-
-            var result = await _reportService.GetAppointmentReportAsync(request);
+            var req = request ?? new AppointmentReportRequest();
+            var result = await _reportService.GetAppointmentReportAsync(req);
             if (result.IsFailure || result.Data == null)
             {
                 return BadRequest(result);
             }
 
             var bytes = _pdfDocumentService.CreateAppointmentReportPdf(result.Data);
-            var type = (request.ReportType ?? "daily").ToLower();
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString(FormatHelper.DateFormat);
+            var type = (req.ReportType ?? "daily").ToLower();
+            var dateStr = (req.StartDate ?? req.Date ?? DateTime.UtcNow).ToString(FormatHelper.DateFormat);
             return File(bytes, "application/pdf", $"appointment-report-{type}-{dateStr}.pdf");
         }
 
@@ -76,17 +62,10 @@ namespace SCMS.Api.Controllers
         [HasPermission("Reports.View")]
         [ProducesResponseType(typeof(Result<RevenueReportResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetRevenueReport(
-            [FromQuery] string? reportType,
-            [FromQuery] DateTime? date)
+        public async Task<IActionResult> GetRevenueReport([FromQuery] RevenueReportRequest? request)
         {
-            var request = new RevenueReportRequest
-            {
-                ReportType = reportType ?? "daily",
-                Date = date
-            };
-
-            var result = await _reportService.GetRevenueReportAsync(request);
+            var req = request ?? new RevenueReportRequest();
+            var result = await _reportService.GetRevenueReportAsync(req);
             return result.IsFailure ? BadRequest(result) : Ok(result);
         }
 
@@ -94,25 +73,18 @@ namespace SCMS.Api.Controllers
         [HttpGet("revenue/pdf")]
         [HasPermission("Reports.ExportPdf")]
         [Produces("application/pdf")]
-        public async Task<IActionResult> GetRevenueReportPdf(
-            [FromQuery] string? reportType,
-            [FromQuery] DateTime? date)
+        public async Task<IActionResult> GetRevenueReportPdf([FromQuery] RevenueReportRequest? request)
         {
-            var request = new RevenueReportRequest
-            {
-                ReportType = reportType ?? "daily",
-                Date = date
-            };
-
-            var result = await _reportService.GetRevenueReportAsync(request);
+            var req = request ?? new RevenueReportRequest();
+            var result = await _reportService.GetRevenueReportAsync(req);
             if (result.IsFailure || result.Data == null)
             {
                 return BadRequest(result);
             }
 
             var bytes = _pdfDocumentService.CreateRevenueReportPdf(result.Data);
-            var type = (request.ReportType ?? "daily").ToLower();
-            var dateStr = (request.Date ?? DateTime.UtcNow).ToString(FormatHelper.DateFormat);
+            var type = (req.ReportType ?? "daily").ToLower();
+            var dateStr = (req.StartDate ?? req.Date ?? DateTime.UtcNow).ToString(FormatHelper.DateFormat);
             return File(bytes, "application/pdf", $"revenue-report-{type}-{dateStr}.pdf");
         }
 

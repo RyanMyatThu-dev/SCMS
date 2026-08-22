@@ -19,24 +19,56 @@ namespace SCMS.Domain.Features.Documents
         }
 
         /// <summary>
-        /// Generates an appointment report for a given period (daily or weekly).
+        /// Generates an appointment report for a given period (daily, weekly, monthly, or custom).
         /// </summary>
         public async Task<Result<AppointmentReportResponse>> GetAppointmentReportAsync(AppointmentReportRequest request)
         {
             var reportType = (request.ReportType ?? "daily").ToLower().Trim();
-            var baseDate = request.Date?.Date ?? DateTime.UtcNow.Date;
+            var baseDate = request.StartDate?.Date ?? request.Date?.Date ?? DateTime.UtcNow.Date;
 
             DateTime periodStart;
             DateTime periodEnd;
             string title;
 
-            if (reportType == "weekly")
+            if (reportType == "custom" || (request.StartDate.HasValue && request.EndDate.HasValue && reportType != "weekly"))
             {
-                // Start from Monday of the given week
-                int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-                periodStart = baseDate.AddDays(-diff);
-                periodEnd = periodStart.AddDays(7);
-                title = $"Weekly Appointment Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {periodEnd.AddDays(-1).ToString(Common.FormatHelper.DateFormat)})";
+                periodStart = (request.StartDate ?? baseDate).Date;
+                var rawEnd = (request.EndDate ?? periodStart).Date;
+                periodEnd = rawEnd.AddDays(1);
+                title = $"Appointment Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {rawEnd.ToString(Common.FormatHelper.DateFormat)})";
+                reportType = "custom";
+            }
+            else if (reportType == "weekly")
+            {
+                if (request.StartDate.HasValue)
+                {
+                    periodStart = request.StartDate.Value.Date;
+                    var rawEnd = request.EndDate?.Date ?? periodStart.AddDays(6);
+                    periodEnd = rawEnd.AddDays(1);
+                    title = $"Weekly Appointment Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {rawEnd.ToString(Common.FormatHelper.DateFormat)})";
+                }
+                else
+                {
+                    // Start from Monday of the given week
+                    int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+                    periodStart = baseDate.AddDays(-diff);
+                    periodEnd = periodStart.AddDays(7);
+                    title = $"Weekly Appointment Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {periodEnd.AddDays(-1).ToString(Common.FormatHelper.DateFormat)})";
+                }
+            }
+            else if (reportType == "monthly")
+            {
+                if (request.Month.HasValue)
+                {
+                    int year = request.Year ?? baseDate.Year;
+                    periodStart = new DateTime(year, Math.Clamp(request.Month.Value, 1, 12), 1);
+                }
+                else
+                {
+                    periodStart = new DateTime(baseDate.Year, baseDate.Month, 1);
+                }
+                periodEnd = periodStart.AddMonths(1);
+                title = $"Monthly Appointment Report ({periodStart:MMMM yyyy})";
             }
             else
             {
@@ -101,35 +133,61 @@ namespace SCMS.Domain.Features.Documents
         }
 
         /// <summary>
-        /// Generates a revenue report for a given period (daily, weekly, or monthly).
+        /// Generates a revenue report for a given period (daily, weekly, monthly, or custom).
         /// </summary>
         public async Task<Result<RevenueReportResponse>> GetRevenueReportAsync(RevenueReportRequest request)
         {
             var reportType = (request.ReportType ?? "daily").ToLower().Trim();
-            var baseDate = request.Date?.Date ?? DateTime.UtcNow.Date;
+            var baseDate = request.StartDate?.Date ?? request.Date?.Date ?? DateTime.UtcNow.Date;
 
             DateTime periodStart;
             DateTime periodEnd;
             string title;
 
-            switch (reportType)
+            if (reportType == "custom" || (request.StartDate.HasValue && request.EndDate.HasValue && reportType != "weekly"))
             {
-                case "weekly":
+                periodStart = (request.StartDate ?? baseDate).Date;
+                var rawEnd = (request.EndDate ?? periodStart).Date;
+                periodEnd = rawEnd.AddDays(1);
+                title = $"Revenue Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {rawEnd.ToString(Common.FormatHelper.DateFormat)})";
+                reportType = "custom";
+            }
+            else if (reportType == "weekly")
+            {
+                if (request.StartDate.HasValue)
+                {
+                    periodStart = request.StartDate.Value.Date;
+                    var rawEnd = request.EndDate?.Date ?? periodStart.AddDays(6);
+                    periodEnd = rawEnd.AddDays(1);
+                    title = $"Weekly Revenue Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {rawEnd.ToString(Common.FormatHelper.DateFormat)})";
+                }
+                else
+                {
                     int diff = ((int)baseDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
                     periodStart = baseDate.AddDays(-diff);
                     periodEnd = periodStart.AddDays(7);
                     title = $"Weekly Revenue Report ({periodStart.ToString(Common.FormatHelper.DateFormat)} to {periodEnd.AddDays(-1).ToString(Common.FormatHelper.DateFormat)})";
-                    break;
-                case "monthly":
+                }
+            }
+            else if (reportType == "monthly")
+            {
+                if (request.Month.HasValue)
+                {
+                    int year = request.Year ?? baseDate.Year;
+                    periodStart = new DateTime(year, Math.Clamp(request.Month.Value, 1, 12), 1);
+                }
+                else
+                {
                     periodStart = new DateTime(baseDate.Year, baseDate.Month, 1);
-                    periodEnd = periodStart.AddMonths(1);
-                    title = $"Monthly Revenue Report ({periodStart.ToString(Common.FormatHelper.DateFormat)})";
-                    break;
-                default: // daily
-                    periodStart = baseDate;
-                    periodEnd = baseDate.AddDays(1);
-                    title = $"Daily Revenue Report ({baseDate.ToString(Common.FormatHelper.DateFormat)})";
-                    break;
+                }
+                periodEnd = periodStart.AddMonths(1);
+                title = $"Monthly Revenue Report ({periodStart:MMMM yyyy})";
+            }
+            else // daily
+            {
+                periodStart = baseDate;
+                periodEnd = baseDate.AddDays(1);
+                title = $"Daily Revenue Report ({baseDate.ToString(Common.FormatHelper.DateFormat)})";
             }
 
             var payments = await _context.TblPayments

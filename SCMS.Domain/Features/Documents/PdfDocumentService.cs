@@ -371,7 +371,13 @@ namespace SCMS.Domain.Features.Documents
             float y = PageH - MarginTop;
 
             // ── Header ─────────────────────────────────────────────────
-            var docType = report.ReportType == "weekly" ? "WEEKLY REPORT" : "DAILY REPORT";
+            var docType = report.ReportType switch
+            {
+                "weekly" => "WEEKLY REPORT",
+                "monthly" => "MONTHLY REPORT",
+                "custom" => "CUSTOM REPORT",
+                _ => "DAILY REPORT"
+            };
             y = DrawClinicHeader(b, y, docType);
 
             // ── Report title ───────────────────────────────────────────
@@ -532,6 +538,7 @@ namespace SCMS.Domain.Features.Documents
             {
                 "weekly" => "WEEKLY REVENUE",
                 "monthly" => "MONTHLY REVENUE",
+                "custom" => "CUSTOM REVENUE",
                 _ => "DAILY REVENUE"
             };
             y = DrawClinicHeader(b, y, docType);

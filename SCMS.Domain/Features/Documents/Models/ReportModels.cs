@@ -6,8 +6,12 @@ namespace SCMS.Domain.Features.Documents.Models
     /// <summary>Request parameters for generating an appointment summary report.</summary>
     public sealed record AppointmentReportRequest
     {
-        public string ReportType { get; init; } = "daily"; // "daily" or "weekly"
+        public string ReportType { get; init; } = "daily"; // "daily", "weekly", "monthly", or "custom"
         public DateTime? Date { get; init; }
+        public DateTime? StartDate { get; init; }
+        public DateTime? EndDate { get; init; }
+        public int? Month { get; init; }
+        public int? Year { get; init; }
     }
 
     /// <summary>Report response containing appointment statistics and line items.</summary>
@@ -42,8 +46,12 @@ namespace SCMS.Domain.Features.Documents.Models
     /// <summary>Request parameters for generating a revenue summary report.</summary>
     public sealed record RevenueReportRequest
     {
-        public string ReportType { get; init; } = "daily"; // "daily", "weekly", or "monthly"
+        public string ReportType { get; init; } = "daily"; // "daily", "weekly", "monthly", or "custom"
         public DateTime? Date { get; init; }
+        public DateTime? StartDate { get; init; }
+        public DateTime? EndDate { get; init; }
+        public int? Month { get; init; }
+        public int? Year { get; init; }
     }
 
     /// <summary>Report response containing clinic revenue analytics and breakdown.</summary>
