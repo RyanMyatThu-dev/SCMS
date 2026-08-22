@@ -292,6 +292,10 @@ namespace SCMS.Domain.Features.Appointments
                 }
                 query = query.Where(a => a.Status == s);
             }
+            if (request.ExcludeCancelled == true)
+            {
+                query = query.Where(a => a.Status != "cancelled");
+            }
             if (request.PatientId.HasValue)
             {
                 query = query.Where(a => a.PatientId == request.PatientId.Value);

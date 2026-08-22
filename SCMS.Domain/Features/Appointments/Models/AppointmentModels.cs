@@ -11,6 +11,7 @@ namespace SCMS.Domain.Features.Appointments.Models
         public DateTime? EndDate { get; set; }
         public string? Status { get; set; }
         public int? PatientId { get; set; }
+        public bool? ExcludeCancelled { get; set; }
     }
 
     /// <summary>Response item for listing appointments.</summary>

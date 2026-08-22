@@ -7,7 +7,6 @@ import {
   Cross2Icon,
   ExclamationTriangleIcon,
   BarChartIcon,
-  CrossCircledIcon,
   TableIcon,
 } from "@radix-ui/react-icons";
 import StatCard from "../components/StatCard";
@@ -63,7 +62,7 @@ export default function Dashboard() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(2026);
-  const [selectedPeriod, setSelectedPeriod] = useState("monthly");
+  const [selectedPeriod, setSelectedPeriod] = useState("daily");
 
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
@@ -71,7 +70,7 @@ export default function Dashboard() {
 
   // Analytics View State: "daily" vs "weekly"
   const [analyticsView, setAnalyticsView] = useState("daily");
-  // Active Metric for Chart: "income" | "appointments" | "cancelled" | "patients"
+  // Active Metric for Chart: "income" | "appointments" | "patients"
   const [chartMetric, setChartMetric] = useState("income");
   const [showTable, setShowTable] = useState(false);
   const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
@@ -119,7 +118,7 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch Today's Appointments Schedule
+  // Fetch Today's Appointments Schedule (excluding cancelled)
   const loadAppointments = async (pageNum) => {
     try {
       const todayStr = getLocalDateStr(new Date());
@@ -128,12 +127,16 @@ export default function Dashboard() {
         pageSize: 5,
         startDate: todayStr,
         endDate: `${todayStr}T23:59:59`,
+        excludeCancelled: true,
       });
       if (res) {
-        setAppointments(toArray(res));
+        const items = toArray(res).filter(
+          (a) => String(a.status || a.appointmentStatus || "").toLowerCase() !== "cancelled"
+        );
+        setAppointments(items);
         if (res.pagination) {
           setTotalPages(res.pagination.totalPages || 1);
-          setTotalCount(res.pagination.totalCount || 0);
+          setTotalCount(res.pagination.totalCount || items.length);
         }
       }
     } catch (err) {
@@ -182,9 +185,11 @@ export default function Dashboard() {
 
   // Extract Metrics
   const totalIncome = dashboardData?.totalIncome ?? 0;
+  const dailyRevenue = dashboardData?.dailyRevenue ?? totalIncome;
   const totalAppts = dashboardData?.totalAppointmentsCount ?? 0;
-  const cancelledAppts = dashboardData?.cancelledAppointmentsCount ?? 0;
+  const todayAppts = dashboardData?.todayAppointmentsCount ?? 0;
   const totalPatients = dashboardData?.totalPatientsCount ?? 0;
+  const todayPatients = dashboardData?.todayPatientsCount ?? 0;
   const monthTitle = dashboardData?.monthName || `${MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label || "Month"} ${selectedYear}`;
 
   const dailyList = dashboardData?.dailyBreakdown || [];
@@ -198,8 +203,6 @@ export default function Dashboard() {
         return Number(item.income || 0);
       case "appointments":
         return Number(item.appointmentsMade || 0);
-      case "cancelled":
-        return Number(item.appointmentsCancelled || 0);
       case "patients":
         return Number(item.totalPatients || 0);
       default:
@@ -213,7 +216,6 @@ export default function Dashboard() {
     value: getMetricValue(item, chartMetric),
     income: item.income || 0,
     appointments: item.appointmentsMade || 0,
-    cancelled: item.appointmentsCancelled || 0,
     patients: item.totalPatients || 0,
   }));
 
@@ -403,43 +405,79 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Row of 4 Proportionate KPI Metric Stat Cards */}
+      {/* Row of 3 Proportionate KPI Metric Stat Cards */}
       <section 
-        className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        aria-label={`Key Performance Indicators for ${monthTitle}`}
+        className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-3"
+        aria-label="Key Performance Indicators"
       >
         <StatCard
-          label={t.totalIncome || "Total Income"}
-          value={Number(totalIncome).toLocaleString()}
+          label={
+            selectedPeriod === "daily"
+              ? t.dailyIncome || "Daily Income"
+              : selectedPeriod === "weekly"
+              ? "Weekly Income"
+              : t.totalIncome || "Total Income"
+          }
+          value={
+            selectedPeriod === "daily"
+              ? Number(dailyRevenue).toLocaleString()
+              : Number(totalIncome).toLocaleString()
+          }
           unit="MMK"
           icon={CardStackIcon}
           tone="apricot"
           onClick={() => navigate("/app/payments")}
-          subtitle={`${monthTitle} revenue`}
+          subtitle={
+            selectedPeriod === "daily"
+              ? "Today's settled income"
+              : selectedPeriod === "weekly"
+              ? "This week's revenue"
+              : `${monthTitle} revenue`
+          }
         />
         <StatCard
-          label="Appointments Made"
-          value={Number(totalAppts).toLocaleString()}
+          label={
+            selectedPeriod === "daily"
+              ? t.todayAppointments || "Total Appointment Today"
+              : "Total Appointments"
+          }
+          value={
+            selectedPeriod === "daily"
+              ? Number(todayAppts).toLocaleString()
+              : Number(totalAppts).toLocaleString()
+          }
           icon={CalendarIcon}
           tone="apricot"
           onClick={() => navigate("/app/appointments")}
-          subtitle={`${Number(totalAppts - cancelledAppts)} active / completed`}
+          subtitle={
+            selectedPeriod === "daily"
+              ? "Active scheduled today"
+              : selectedPeriod === "weekly"
+              ? "This week's consultations"
+              : `${monthTitle} consultations`
+          }
         />
         <StatCard
-          label="Cancelled Appointments"
-          value={Number(cancelledAppts).toLocaleString()}
-          icon={CrossCircledIcon}
-          tone="danger"
-          onClick={() => navigate("/app/appointments")}
-          subtitle={totalAppts > 0 ? `${((cancelledAppts / totalAppts) * 100).toFixed(1)}% cancellation rate` : "0% cancellation rate"}
-        />
-        <StatCard
-          label="Total Patients"
-          value={Number(totalPatients).toLocaleString()}
+          label={
+            selectedPeriod === "daily"
+              ? t.todayPatients || "Total Patient Today"
+              : "Total Patients"
+          }
+          value={
+            selectedPeriod === "daily"
+              ? Number(todayPatients).toLocaleString()
+              : Number(totalPatients).toLocaleString()
+          }
           icon={PersonIcon}
           tone="apricot"
           onClick={() => navigate("/app/patients")}
-          subtitle="Excludes cancelled bookings"
+          subtitle={
+            selectedPeriod === "daily"
+              ? "Distinct active patients today"
+              : selectedPeriod === "weekly"
+              ? "This week's active patients"
+              : `${monthTitle} active patients`
+          }
         />
       </section>
 
@@ -496,7 +534,6 @@ export default function Dashboard() {
               {[
                 { key: "income", label: "Income" },
                 { key: "appointments", label: "Appointments" },
-                { key: "cancelled", label: "Cancelled" },
                 { key: "patients", label: "Patients" },
               ].map((m) => (
                 <button
@@ -643,8 +680,6 @@ export default function Dashboard() {
                 </strong>
                 <span className="text-muted-foreground font-medium">Appointments:</span>
                 <strong className="font-mono text-right text-foreground font-bold">{hoveredChartPoint.appointments}</strong>
-                <span className="text-muted-foreground font-medium">Cancelled:</span>
-                <strong className="font-mono text-rose-600 dark:text-rose-400 text-right font-bold">{hoveredChartPoint.cancelled}</strong>
                 <span className="text-muted-foreground font-medium">Active Patients:</span>
                 <strong className="font-mono text-right text-foreground font-bold">{hoveredChartPoint.patients}</strong>
               </div>
@@ -678,9 +713,6 @@ export default function Dashboard() {
                       Appointments Made
                     </th>
                     <th scope="col" className="px-4 py-2.5 text-right">
-                      Cancelled
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
                       Active Patients
                     </th>
                   </tr>
@@ -698,9 +730,6 @@ export default function Dashboard() {
                         <td className="px-4 py-2.5 text-right font-mono text-foreground">
                           {row.appointmentsMade ?? 0}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-mono text-rose-600 dark:text-rose-400 font-semibold">
-                          {row.appointmentsCancelled ?? 0}
-                        </td>
                         <td className="px-4 py-2.5 text-right font-mono text-foreground font-bold">
                           {row.totalPatients ?? 0}
                         </td>
@@ -708,7 +737,7 @@ export default function Dashboard() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                      <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
                         No breakdown telemetry available for this month.
                       </td>
                     </tr>
@@ -721,7 +750,6 @@ export default function Dashboard() {
                       {Number(totalIncome).toLocaleString()} MMK
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono">{totalAppts}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-rose-600 dark:text-rose-400 font-extrabold">{cancelledAppts}</td>
                     <td className="px-4 py-2.5 text-right font-mono">{totalPatients}</td>
                   </tr>
                 </tfoot>

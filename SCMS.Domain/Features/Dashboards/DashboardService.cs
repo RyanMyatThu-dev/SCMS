@@ -288,7 +288,8 @@ namespace SCMS.Domain.Features.Dashboards
                 DoctorConsultationFees = doctorConsultationFees,
                 TotalAppointmentsCount = periodAppointments.Count,
                 CancelledAppointmentsCount = cancelledAppointmentsCount,
-                TodayAppointmentsCount = todayAppointments.Count,
+                TodayAppointmentsCount = todayAppointments
+                    .Count(a => !string.Equals(a.Status, "cancelled", StringComparison.OrdinalIgnoreCase)),
                 TotalPatientsCount = totalPatientsCount,
                 TodayPatientsCount = todayAppointments
                     .Where(a => !string.Equals(a.Status, "cancelled", StringComparison.OrdinalIgnoreCase))
