@@ -119,7 +119,73 @@ dotnet run --project SCMS.Api
 
 The API launches at `http://localhost:5140`. You can explore the interactive documentation using Scalar at `http://localhost:5140/scalar`.
 
-### 2. Running Frontend Clients
+### 2. Configuring the AI Assistant (Gemini + MCP)
+
+The AI assistant calls Google Gemini, which enforces a per-minute request quota. The API
+accepts **multiple keys and rotates between them**, so a live demo does not stall when one
+key hits its limit: a key that returns `429 / RESOURCE_EXHAUSTED` is parked for a 60-second
+cooldown and the next key is used immediately.
+
+Keys are secrets - keep them out of `appsettings.json` and use user-secrets:
+
+```sh
+dotnet user-secrets set "Gemini:ApiKeys:0" "<first-api-key>"  --project SCMS.Api
+dotnet user-secrets set "Gemini:ApiKeys:1" "<second-api-key>" --project SCMS.Api
+
+# Verify both are registered
+dotnet user-secrets list --project SCMS.Api
+```
+
+Add as many slots as you like (`Gemini:ApiKeys:2`, `:3`, ...). The `GEMINI_API_KEY` and
+`GEMINI_API_KEY_2` environment variables are also picked up, which is how keys are supplied
+in Docker and on Hugging Face Spaces. On startup the API logs how many keys it loaded:
+
+```
+Gemini API key pool initialised with 2 key(s).
+```
+
+#### Choosing the model
+
+The model is set with `Gemini:Model` (default `gemini-3.5-flash-lite`) - no rebuild needed:
+
+```sh
+dotnet user-secrets set "Gemini:Model" "gemini-3.5-flash-lite" --project SCMS.Api
+```
+
+Flash-Lite is the right default for the demo: it is on the free tier, has the most generous
+per-minute quota of the family, and spends no thinking tokens - which matters because one chat
+turn can cost up to 5 requests as the assistant chains tool calls.
+
+List what a key can actually reach (the model list is not a guarantee - some listed models
+return 404 on use, so test before relying on one):
+
+```sh
+curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY" \
+  | grep -o '"name": "models/[^"]*"'
+```
+
+> **Thinking models and `thoughtSignature`.** Gemini 3.x returns an encrypted `thoughtSignature`
+> on the first `functionCall` part of a turn. It must be echoed back verbatim when that turn is
+> replayed as history, or the next request fails with *"Function call is missing a
+> thought_signature in functionCall parts"*. `GeminiPart.ThoughtSignature` exists solely to
+> round-trip it - do not remove it, and never synthesise or reorder signatures.
+> Pinned by `GeminiPartSerializationTests`.
+
+#### Clinic time zone
+
+All appointment times are stored in UTC and displayed in clinic local time. The assistant
+interprets bare times (`"reschedule to 08:30"`) and relative days (`"tomorrow at 14:00"`)
+against this zone, so it must match the clinic's actual location:
+
+```jsonc
+// SCMS.Api/appsettings.json
+"Clinic": { "TimeZone": "Asia/Yangon" }
+```
+
+Dates are displayed as `dd/MM/yyyy` and times as 24-hour `HH:mm` everywhere - API responses,
+PDFs, notifications, the web app, and the assistant's replies.
+
+### 3. Running Frontend Clients
 
 #### React Web Application (Vercel Target)
 
